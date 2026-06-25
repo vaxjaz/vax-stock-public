@@ -1,0 +1,17 @@
+[project]
+name = "vaxstock"
+version = "0.1.0"
+description = "A股量化分析框架(重构版)"
+requires-python = ">=3.11"
+dependencies = ["requests", "tushare", "pandas", "numpy", "yfinance"]
+
+[project.optional-dependencies]
+tracks = ["akshare"]
+dev = ["pytest"]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]

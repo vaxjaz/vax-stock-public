@@ -61,6 +61,10 @@ src/vaxstock/
 └── research/            # 离线研究层(ic_engine/factor_calculator等)
 ```
 
+**【硬规矩 · tracks 叶子契约不可污染】**
+
+tracks/__init__.py 严禁 import ai 或任何会触网/加载重依赖(akshare/pandas 等)的赛道实现模块。原因:contract 是只 import typing 的叶子契约,report 层和任何只需要 TrackResult DTO 的地方必须用 from vaxstock.tracks.contract import ... 直接导入;若 __init__ 重导出了 ai,则 from vaxstock.tracks import TrackResult 会传递加载 akshare,污染叶子契约、拖慢 report。新增赛道模块同理,只在使用处显式 import,不在 tracks/__init__ 里 re-export。
+
 ---
 
 ## 4. 重构铁律(每个 MR 都必须遵守)
