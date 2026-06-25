@@ -5,6 +5,9 @@
      PYTHONPATH=src python3 tests/report/test_claude_md.py   # 无 pytest
 """
 
+import ast
+import pathlib
+
 from vaxstock.report.claude_md import (
     build_claude_markdown,
     compact_for_claude,
@@ -101,11 +104,24 @@ def test_compact_drops_sector_keys():
     assert "us_market" in c and "macro" in c and "opportunity_scan" in c
 
 
-# report.claude_md 不得 import sources / analysis(分层守卫)
+# report 层不得 import sources / analysis(分层守卫)
+# 用 ast 静态解析 report/ 各模块的 import 目标, 确定性、不受其它测试文件 import 顺序影响
+# (旧版查运行时 sys.modules, 会被同进程先 import 的 test_ai(它经 ai.py 加载了 vaxstock.sources)污染而误判)
 def test_no_sources_analysis_import():
-    import sys
-    bad = [m for m in sys.modules if m.startswith("vaxstock.sources") or m.startswith("vaxstock.analysis")]
-    assert bad == [], f"report 层不应加载 sources/analysis: {bad}"
+    report_dir = pathlib.Path(__file__).resolve().parents[2] / "src" / "vaxstock" / "report"
+    offenders = []
+    for py in sorted(report_dir.glob("*.py")):
+        tree = ast.parse(py.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            targets = []
+            if isinstance(node, ast.ImportFrom):
+                targets.append(node.module or "")
+            elif isinstance(node, ast.Import):
+                targets.extend(a.name for a in node.names)
+            for t in targets:
+                if t.startswith("vaxstock.sources") or t.startswith("vaxstock.analysis"):
+                    offenders.append(f"{py.name}: {t}")
+    assert offenders == [], f"report 层不应 import sources/analysis: {offenders}"
 
 
 if __name__ == "__main__":
