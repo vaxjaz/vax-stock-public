@@ -486,6 +486,28 @@ class TushareSource:
         self._cache_set(cache_key, row)
         return row
 
+    # ============ 全市场单日 (用于涨跌家数/涨跌停聚合) ============
+
+    def get_market_daily(self, trade_date, fields="ts_code,pct_chg"):
+        """一次取全市场某交易日 daily(默认只取 ts_code,pct_chg 以减小负载)。
+
+        走 _safe_call(daemon线程 + join 真·墙钟超时)容错; 按 trade_date 缓存(收盘后不变)。
+        失败返回 None(由调用方按"待验证"处理, 不臆造)。
+        """
+        today = datetime.now().strftime("%Y%m%d")
+        cache_key = f"market_daily_{trade_date}_{today}"
+        cached = self._cache_get(cache_key, CACHE_TTL["daily"])
+        if cached:
+            return cached
+
+        df = self._safe_call("daily", trade_date=str(trade_date), fields=fields)
+        if df is None:
+            return None
+
+        records = df.to_dict("records")
+        self._cache_set(cache_key, records)
+        return records
+
 
 # ============ 单例 ============
 
@@ -622,3 +644,21 @@ def get_history_kline(source: Optional[TushareSource], code: str, days: int = HI
     except Exception as e:
         logger.warning(f"  ⚠️ {code} K线获取失败: {str(e)[:120]}")
         return None
+
+
+# ============ 个股资金流 (MR3: 删除东财兜底, 仅走 Tushare) ============
+
+def get_stock_moneyflow(source: Optional[TushareSource], code: str) -> Optional[Dict[str, Any]]:
+    """个股资金流(主力净流入汇总), 替代原东财 get_em_money_flow 的角色。
+
+    【MR3 减法】彻底移除东财兜底分支, 资金流只走 Tushare(get_moneyflow_summary)。
+    source 为空 / Tushare 无权限或取不到时, 直接返回 None —— 由上游按 P0 标"待验证"处理,
+    不再 fallback 东财、不臆造数据。
+
+    返回结构同 TushareSource.get_moneyflow_summary:
+      {main_inflow_today, main_inflow_today_ts, main_inflow_5d, main_inflow_10d,
+       latest_trade_date, buy_elg_amount, sell_elg_amount, buy_lg_amount, sell_lg_amount}
+    """
+    if source is None:
+        return None
+    return source.get_moneyflow_summary(code)
