@@ -133,11 +133,34 @@ def test_bad_date_rejected():
 
 
 def test_vetoes_type_enforced():
+    # list[2 str] 现在合法(JSON 往返后元组会变列表), 不应被拦
     r = _valid_available_true()
-    r["vetoes"] = [["名", "因"]]  # list 不是 tuple
+    r["vetoes"] = [["名", "因"]]
+    assert validate(r) == [], validate(r)
+    # 长度不对 -> 拦
+    r["vetoes"] = [("名",)]
     assert any("vetoes" in e for e in validate(r))
-    r["vetoes"] = [("名",)]  # 长度不对
+    # 元素非 str -> 拦
+    r["vetoes"] = [("名", 123)]
     assert any("vetoes" in e for e in validate(r))
+    # 元素不是 tuple/list -> 拦
+    r["vetoes"] = ["孤串"]
+    assert any("vetoes" in e for e in validate(r))
+
+
+def test_json_roundtrip_vetoes_still_valid():
+    """store.py 报告落盘后重载做 GPT5/Claude 交叉验证: json 往返把元组转成列表, 仍须合法。"""
+    import json
+
+    r = _valid_available_true()  # vetoes 用元组 [("SOX急跌", "隔夜-3%")]
+    assert validate(r) == [], validate(r)
+
+    loaded = json.loads(json.dumps(r, ensure_ascii=False))
+    # 往返后元组退化成列表
+    assert loaded["vetoes"] == [["SOX急跌", "隔夜-3%"]]
+    assert isinstance(loaded["vetoes"][0], list)
+    # 关键: 重载后的 TrackResult 仍校验通过
+    assert validate(loaded) == [], validate(loaded)
 
 
 def test_non_dict_result():

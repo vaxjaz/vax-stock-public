@@ -14,7 +14,7 @@ P0 铁律落地:
   - validate() 强制 available 与 position_ceiling/pending 的交叉一致性。
 """
 
-from typing import Dict, List, Tuple, TypedDict
+from typing import Dict, List, Optional, Tuple, TypedDict
 
 
 # ==================== 类型契约 ====================
@@ -124,8 +124,8 @@ def pending_result(
         track_name: str,
         date: str,
         reason: str,
-        pending_dims: List[str] = None,
-        signals: Dict[str, "Signal"] = None,
+        pending_dims: Optional[List[str]] = None,
+        signals: Optional[Dict[str, "Signal"]] = None,
 ) -> "TrackResult":
     """产出 available=False 的合规 TrackResult。
 
@@ -213,11 +213,13 @@ def validate(result: "TrackResult") -> List[str]:
 
     if _present("vetoes"):
         vs = result["vetoes"]
+        # 同时接受 tuple 和 list: JSON 落盘往返(json.dumps→json.loads)会把元组转成列表,
+        # store.py 报告落盘后重载做 GPT5/Claude 交叉验证必经此路径, 故 list 也合法。
         if not isinstance(vs, list) or not all(
-            isinstance(t, tuple) and len(t) == 2 and all(isinstance(x, str) for x in t)
+            isinstance(t, (tuple, list)) and len(t) == 2 and all(isinstance(x, str) for x in t)
             for t in vs
         ):
-            errors.append("vetoes 必须是 List[Tuple[str, str]]")
+            errors.append("vetoes 必须是 List[Tuple[str, str]] (元素 tuple/list 均可, 长度2、两元素皆 str)")
 
     if _present("position_ceiling"):
         pc = result["position_ceiling"]
