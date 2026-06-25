@@ -9,10 +9,21 @@
   PYTHONPATH=src python3 tests/tracks/test_ai.py      # 无 pytest 时
 """
 
+import importlib.util
+
+import vaxstock.tracks.ai as ai_mod
 from vaxstock.tracks import contract
-from vaxstock.tracks.ai import _assemble
+from vaxstock.tracks.ai import AITrack, _assemble
 
 DATE = "2026-06-25"
+
+# 注意: 不在模块顶层 import pandas(否则会让 test_assemble_pure_no_heavy_deps 误判 pandas 泄漏)。
+# 用 find_spec 仅探测可用性、不加载。pandas 缺失(本容器)-> 三条 status 路径测跳过, VPS venv 实跑。
+_HAS_PANDAS = importlib.util.find_spec("pandas") is not None
+
+
+class _SkipTest(Exception):
+    """无 pandas 等前置依赖时跳过(非失败)。"""
 
 
 def _good_signals():
@@ -129,20 +140,130 @@ def test_assemble_pure_no_heavy_deps():
     assert leaked == [], f"_assemble 路径泄漏了重依赖: {leaked}"
 
 
+# ── yfinance 交叉验证套墙钟超时(本 PR 核心): 直测 _yf_safe_latest_nvda_rev, 零网络 ──
+
+def test_yf_safe_timeout_returns_none_fast():
+    """注入会卡死的假 yfinance + 调小 YF_CALL_TIMEOUT -> 立即放弃返回 None, 不阻塞。"""
+    import sys
+    import time
+    import types
+
+    saved_to = ai_mod.YF_CALL_TIMEOUT
+    saved_mod = sys.modules.get("yfinance")
+    try:
+        ai_mod.YF_CALL_TIMEOUT = 0.3
+        fake = types.ModuleType("yfinance")
+
+        def _slow_ticker(symbol):
+            time.sleep(5)  # 远超 YF_CALL_TIMEOUT
+            raise RuntimeError("不该执行到这里(应已超时放弃)")
+
+        fake.Ticker = _slow_ticker
+        sys.modules["yfinance"] = fake
+
+        t0 = time.time()
+        val = ai_mod._yf_safe_latest_nvda_rev()
+        elapsed = time.time() - t0
+
+        assert val is None, "超时应返回 None"
+        assert elapsed < 2.0, f"join(0.3) 应立即放弃, 不等满 5s; 实测 {elapsed:.2f}s"
+    finally:
+        ai_mod.YF_CALL_TIMEOUT = saved_to
+        if saved_mod is not None:
+            sys.modules["yfinance"] = saved_mod
+        else:
+            sys.modules.pop("yfinance", None)
+
+
+def test_yf_safe_error_returns_none():
+    """假 yfinance 立即抛异常 -> _yf_safe 捕获返回 None(上层标单源, 不抛)。"""
+    import sys
+    import types
+
+    saved_mod = sys.modules.get("yfinance")
+    try:
+        fake = types.ModuleType("yfinance")
+
+        def _boom(symbol):
+            raise ValueError("boom")
+
+        fake.Ticker = _boom
+        sys.modules["yfinance"] = fake
+        assert ai_mod._yf_safe_latest_nvda_rev() is None
+    finally:
+        if saved_mod is not None:
+            sys.modules["yfinance"] = saved_mod
+        else:
+            sys.modules.pop("yfinance", None)
+
+
+# ── 三态 status 路径(需 pandas 构造 ak df; 缺 pandas 则跳过, VPS venv 实跑)──
+
+_AK_DATES = ["2024-03-31", "2024-06-30", "2024-09-30", "2024-12-31",
+             "2025-03-31", "2025-06-30", "2025-09-30", "2025-12-31"]
+
+
+def _make_ak_rev_df(amounts):
+    import pandas as pd
+    rows = [{"STD_ITEM_CODE": "004001001", "REPORT_DATE": _AK_DATES[i], "AMOUNT": amt}
+            for i, amt in enumerate(amounts)]
+    return pd.DataFrame(rows)
+
+
+def _prosperity_with(yf_val):
+    """ak 数据正常(6季), _yf_safe 返回 yf_val(monkeypatch) -> 跑 fetch_nvda_prosperity。"""
+    if not _HAS_PANDAS:
+        raise _SkipTest("无 pandas, 跳过(VPS venv 实跑)")
+    df = _make_ak_rev_df([100.0, 110.0, 120.0, 130.0, 140.0, 160.0])  # rev[-1]=160
+    saved_ak = ai_mod._ak_safe
+    saved_yf = ai_mod._yf_safe_latest_nvda_rev
+    try:
+        ai_mod._ak_safe = lambda *a, **k: df
+        ai_mod._yf_safe_latest_nvda_rev = lambda: yf_val
+        return AITrack().fetch_nvda_prosperity()
+    finally:
+        ai_mod._ak_safe = saved_ak
+        ai_mod._yf_safe_latest_nvda_rev = saved_yf
+
+
+def test_cross_single_source_when_yf_none():
+    # yfinance 超时/不可用 -> cross_ok=None -> 单源待交叉验证, 但 signal 仍产出(不卡不抛)
+    r = _prosperity_with(None)
+    assert r["signal"] is not None
+    assert r["status"] == "单源待交叉验证", r["status"]
+
+
+def test_cross_confirmed_when_close():
+    # 双源相差 <2% -> 已证实
+    r = _prosperity_with(160.0 * 1.005)
+    assert r["status"] == "已证实", r["status"]
+    assert r["cross_validated"] is True
+
+
+def test_cross_conflict_when_far():
+    # 双源相差 >2% -> 双源冲突待验证
+    r = _prosperity_with(160.0 * 1.5)
+    assert r["status"] == "双源冲突待验证", r["status"]
+
+
 if __name__ == "__main__":
     import sys
     fns = sorted((n, f) for n, f in globals().items()
                  if n.startswith("test_") and callable(f))
     failed = 0
+    skipped = 0
     for name, fn in fns:
         try:
             fn()
             print(f"  [PASS] {name}")
+        except _SkipTest as e:
+            skipped += 1
+            print(f"  [SKIP] {name}: {e}")
         except AssertionError as e:
             failed += 1
             print(f"  [FAIL] {name}: {e}")
         except Exception as e:
             failed += 1
             print(f"  [ERROR] {name}: {type(e).__name__}: {e}")
-    print(f"\n{len(fns)-failed}/{len(fns)} passed")
+    print(f"\n{len(fns)-failed-skipped}/{len(fns)} passed, {skipped} skipped")
     sys.exit(1 if failed else 0)
