@@ -3,7 +3,7 @@ name = "vaxstock"
 version = "0.1.0"
 description = "A股量化分析框架(重构版)"
 requires-python = ">=3.11"
-dependencies = ["requests", "tushare", "pandas", "numpy", "yfinance"]
+dependencies = ["requests", "tushare", "pandas", "numpy", "yfinance", "pyarrow"]
 
 [project.optional-dependencies]
 tracks = ["akshare"]
