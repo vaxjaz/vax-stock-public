@@ -151,3 +151,14 @@ SINA_HEADERS = {
 EM_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0 Safari/537.36",
 }
+
+# 个股盘中/日报预警阈值 (从单体脚本搬运, 逻辑零改; 供 indicators.scoring.calc_derived_metrics 使用)
+ALERT_RULES = {
+    "price_change_pct": 3.0,
+    "amplitude_pct": 5.0,
+    "volume_ratio": 1.8,
+    "position_high_pct": 85.0,
+    "position_low_pct": 15.0,
+    "main_inflow_yi": 1.0,        # 主力净流入超过1亿提示
+    "main_outflow_yi": -1.0,      # 主力净流出超过1亿提示
+}
