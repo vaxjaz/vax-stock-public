@@ -7,7 +7,7 @@ dependencies = ["requests", "tushare", "pandas", "numpy", "yfinance"]
 
 [project.optional-dependencies]
 tracks = ["akshare"]
-dev = ["pytest"]
+dev = ["pytest", "fastapi", "httpx"]
 
 [build-system]
 requires = ["setuptools>=61"]
