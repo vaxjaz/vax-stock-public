@@ -48,40 +48,39 @@ def build_stock_item(
     use_concepts = (source is not None
                     and config.SECRETS.get("auto_concept_sync", False))
 
-    # ---- 并发拉取所有相互独立的数据源 ----
-    # 原实现串行 8~9 次网络调用(冷缓存可达 90s 超时)。各调用彼此独立、无共享状态,
-    # 改为并发后墙钟≈最慢单项。⚠️ Tushare 并发安全性需在 VPS 上 `--once` 实测确认无误后再常驻。
-    tasks = {}
-    with _f.ThreadPoolExecutor(max_workers=8) as ex:
-        tasks["realtime"] = ex.submit(get_sina_realtime, code, name)
-        tasks["history"]  = ex.submit(get_history_kline, source, code)
-        if has_ts:
-            tasks["money_flow"]  = ex.submit(source.get_moneyflow_summary, code)
-            tasks["fina"]        = ex.submit(source.get_fina_indicator, code, 4)
-            tasks["forecast"]    = ex.submit(source.get_forecast, code, 2)
-            tasks["holder"]      = ex.submit(source.get_holder_number, code, 2)
-            tasks["daily_basic"] = ex.submit(source.get_daily_basic, code)
-        if use_concepts:
-            tasks["concepts"] = ex.submit(source.get_stock_concepts, code)
+    # ---- 取数: 新浪实时并行 + Tushare 串行 ----
+    # 【MR4.1 修正, VPS 实测确认】原 max_workers=8 并发同时打 Tushare 多个接口, 会触发账号
+    #   QPS/分钟频率限流: 请求排队反而更慢, daily_basic 等超过 _safe_call 的 12s 墙钟超时,
+    #   导致整个 item 取数失败。修正(稳定性优先于速度):
+    #     - 新浪实时(get_sina_realtime)是独立数据源、无严格 QPS, 单独 1 线程并行;
+    #     - 所有 Tushare 接口【串行】顺序调用, 任一时刻 Tushare 并发=1, 不再打爆 QPS。
+    #   实测各接口单独都快(新浪~3s / daily_basic~3.3s / daily~4s / kline~0.9s), 串行总耗时可控。
+    def _res(fn, *args, default=None):
+        if fn is None:
+            return default
+        try:
+            return fn(*args)
+        except Exception as e:
+            logger.debug(f"  ⚠️ {code} 取数失败({getattr(fn, '__name__', fn)}): {e}")
+            return default
 
-        def _res(key, default=None):
-            fut = tasks.get(key)
-            if fut is None:
-                return default
-            try:
-                return fut.result()
-            except Exception as e:
-                logger.debug(f"  ⚠️ {code} {key} 取数失败: {e}")
-                return default
+    with _f.ThreadPoolExecutor(max_workers=1) as ex:
+        sina_future = ex.submit(get_sina_realtime, code, name)  # 新浪与 Tushare 串行链并行
 
-        realtime    = _res("realtime")
-        history     = _res("history")
-        money_flow  = _res("money_flow")
-        fina_recs   = _res("fina")
-        forecasts   = _res("forecast")
-        holders     = _res("holder")
-        daily_basic = _res("daily_basic")
-        ts_concepts = _res("concepts")
+        # ---- Tushare 串行链(主线程顺序执行, 任一时刻并发=1, 规避 QPS 限流)----
+        history     = _res(get_history_kline, source, code)
+        money_flow  = _res(source.get_moneyflow_summary, code) if has_ts else None
+        fina_recs   = _res(source.get_fina_indicator, code, 4) if has_ts else None
+        forecasts   = _res(source.get_forecast, code, 2) if has_ts else None
+        holders     = _res(source.get_holder_number, code, 2) if has_ts else None
+        daily_basic = _res(source.get_daily_basic, code) if has_ts else None
+        ts_concepts = _res(source.get_stock_concepts, code) if use_concepts else None
+
+        try:
+            realtime = sina_future.result()
+        except Exception as e:
+            logger.debug(f"  ⚠️ {code} realtime 取数失败: {e}")
+            realtime = None
 
     # 资金流向: MR3 已移除东财兜底, 仅走 Tushare(money_flow 来自 source.get_moneyflow_summary)。
     # Tushare 无数据/无权限时 money_flow 保持 None —— 按 P0 标"待验证", 不再 fallback 东财。
