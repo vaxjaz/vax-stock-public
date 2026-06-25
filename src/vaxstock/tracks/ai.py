@@ -29,6 +29,7 @@ logger = logging.getLogger("ai_track")
 
 TRACK_NAME = "AI算力"
 AK_CALL_TIMEOUT = 20  # AkShare 墙钟超时(秒), 沿用主体系 daemon线程+join 模式
+YF_CALL_TIMEOUT = 15  # yfinance 墙钟超时(秒), 沿用 daemon线程+join 模式
 
 
 # ============================================================
@@ -101,6 +102,34 @@ def _ak_safe(fn_name: str, **kwargs):
         logger.warning(f"  ⚠️ ak.{fn_name} 失败: {str(box['err'])[:120]}")
         return None
     return box.get("df")
+
+
+def _yf_safe_latest_nvda_rev():
+    """yfinance 取 NVDA 最近季度营收(float), daemon+join 真超时。失败/超时->None(上层标单源)。
+
+    EOD 里唯一原本无超时的触网点: 国内 VPS 连 Yahoo 慢/挂会拖垮整个 evaluate→EOD,
+    故套用与 _ak_safe 同款 daemon线程+join 墙钟超时(不用 ThreadPoolExecutor)。
+    """
+    box = {}
+
+    def _run():
+        try:
+            import yfinance as yf
+            yrev = yf.Ticker("NVDA").quarterly_income_stmt.loc["Total Revenue"].dropna().astype(float).sort_index()
+            box["val"] = float(yrev.iloc[-1]) if len(yrev) >= 1 else None
+        except Exception as e:
+            box["err"] = e
+
+    t = threading.Thread(target=_run, name="yf_nvda", daemon=True)
+    t.start()
+    t.join(YF_CALL_TIMEOUT)
+    if t.is_alive():
+        logger.warning(f"  ⏱ yfinance NVDA 超时>{YF_CALL_TIMEOUT}s, 放弃交叉验证")
+        return None
+    if "err" in box:
+        logger.warning(f"  ⚠️ yfinance NVDA 失败: {str(box['err'])[:120]}")
+        return None
+    return box.get("val")
 
 
 # ============================================================
@@ -278,17 +307,12 @@ class AITrack:
         qoq_prev = rev[-2] / rev[-3] - 1
         accel = qoq_now - qoq_prev
 
-        # --- yfinance 交叉验证(P0: 单源不采信) ---
+        # --- yfinance 交叉验证(P0: 单源不采信; 调用套墙钟超时, 见 _yf_safe_latest_nvda_rev) ---
         cross_ok = None
-        try:
-            import yfinance as yf
-            yrev = yf.Ticker("NVDA").quarterly_income_stmt.loc["Total Revenue"].dropna().astype(float).sort_index()
-            if len(yrev) >= 1:
-                latest_ak = rev[-1]
-                latest_yf = float(yrev.iloc[-1])
-                cross_ok = abs(latest_ak - latest_yf) / latest_ak < 0.02  # 2%容差
-        except Exception:
-            cross_ok = None  # yfinance不可用, 单源标注
+        latest_yf = _yf_safe_latest_nvda_rev()
+        if latest_yf is not None:
+            cross_ok = abs(rev[-1] - latest_yf) / rev[-1] < 0.02  # 2%容差, 保持原语义
+        # latest_yf is None(不可用/超时) -> cross_ok 保持 None(单源待交叉验证), 与原行为一致
 
         # --- 三态(借鉴脚本F1, 但严格化) ---
         if yoy > 0 and accel >= 0:
