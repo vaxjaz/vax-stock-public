@@ -46,6 +46,9 @@ RULES_PROMPT_FILE = _S.get("intraday_rules_file") or str(config.PROJECT_ROOT / "
 
 _VALID_TYPES = {"price_above", "price_below", "pct_above", "pct_below"}
 
+# watchlist 概念标签惰性缓存(进程级, 本 PR 不热重载): None=未加载, {}=加载失败/空池(不臆造)
+_concepts_map = None
+
 DEFAULT_RULES = [
     {"code": "002475", "name": "立讯精密", "type": "price_above", "level": 69.0,
      "note": "📈 立讯站上69! 检查量能是否放大(放量才算真突破), 确认则买入3%, 止损66"},
@@ -137,6 +140,37 @@ def fetch_lite(code):
         return None
 
 
+def fetch_market_ctx() -> dict:
+    """拉大盘背景(走 api /market 缓存, 单一真相源): regime(新浪指数实时) + overview(涨跌家数, T日收盘聚合)。
+
+    方案A: intraday 只做消费者, 绝不自取 Tushare/全市场(不烧配额, 不重复算)。
+    失败 -> 降级 {"regime": None, "overview": {}}(P0: 缺数据不臆造, 由 _codex_verdict 标"待获取")。
+    """
+    url = f"{API_BASE}/market"
+    try:
+        with request.urlopen(url, timeout=QUOTE_TIMEOUT) as r:
+            j = json.loads(r.read().decode("utf-8"))
+        return {"regime": j.get("regime"), "overview": j.get("overview", {})}
+    except Exception as e:
+        logger.warning(f"/market 请求失败, 大盘背景降级为待获取: {e}")
+        return {"regime": None, "overview": {}}
+
+
+def _get_concepts(code) -> list:
+    """取该 code 的 watchlist 概念标签(惰性加载 config.load_watchlist 的 concepts_map, 进程级缓存)。
+
+    首次调用才读 watchlist.json; 加载失败 -> 缓存空 {}(不臆造概念)。本 PR 不做热重载。
+    """
+    global _concepts_map
+    if _concepts_map is None:
+        try:
+            _, _concepts_map = config.load_watchlist()
+        except Exception as e:
+            logger.warning(f"watchlist 概念标签加载失败, 本进程置空: {e}")
+            _concepts_map = {}
+    return _concepts_map.get(code, [])
+
+
 def _load_rules_prompt():
     """读 codex system prompt(盘中六铁律); 失败兜底极简铁律串(守住底线)。"""
     try:
@@ -148,12 +182,33 @@ def _load_rules_prompt():
                 "结论必须标注'盘中未定论',资金与评分以EOD报告为准。")
 
 
-def _codex_verdict(snapshot, trigger_note) -> Optional[str]:
-    """把盘中快照+触发原因喂 codex, 返回研判文本; 未启用/无 token/失败 -> None。"""
+def _codex_verdict(snapshot, trigger_note, *, market_ctx=None, concepts=None,
+                   fire_count=None) -> Optional[str]:
+    """把盘中快照+大盘背景+概念标签+今日触发次数喂 codex, 返回研判文本; 未启用/无 token/失败 -> None。
+
+    【口径铁律 · P0 数据诚实, 必须照写】
+      - regime 走新浪指数实时算(可信), 缺失写"待获取", 绝不臆造;
+      - 涨跌家数来自 Tushare 全市场 T日收盘聚合(盘中滞后), 行内必须标注, 否则 codex 会误读为实时大盘;
+      - 快照为 lite(无评分/无资金), 不得据此输出评分或买卖价或资金方向。
+    """
     if not (_CODEX_ENABLED and _CODEX_TOKEN):
         return None
-    user_msg = (f"本次触发: {trigger_note}\n"
-                f"实时快照(JSON):\n{json.dumps(snapshot, ensure_ascii=False)}")
+    market_ctx = market_ctx or {}
+    regime = market_ctx.get("regime")
+    ov = market_ctx.get("overview") or {}
+    breadth = (f"涨{ov.get('up_count', '?')}/跌{ov.get('down_count', '?')}/"
+               f"涨停{ov.get('limit_up_count', '?')}/跌停{ov.get('limit_down_count', '?')}"
+               if ov else "待获取")
+    concepts_str = "、".join(concepts) if concepts else "无标注"
+    nth = fire_count if fire_count else 1
+    user_msg = (
+        f"【本次触发】{trigger_note}\n"
+        f"【大盘背景】\n"
+        f"  实时regime: {regime or '待获取'}(新浪指数实时算)\n"
+        f"  涨跌家数(T日收盘聚合, 盘中滞后): {breadth}\n"
+        f"【标的】{snapshot.get('code', '?')}  概念: {concepts_str}  今日第{nth}次触发\n"
+        f"【实时快照(JSON, lite: 无评分/无资金)】\n{json.dumps(snapshot, ensure_ascii=False)}"
+    )
     return call_codex(_load_rules_prompt(), user_msg,
                       url=_CODEX_URL, model=_CODEX_MODEL, token=_CODEX_TOKEN, timeout=_CODEX_TIMEOUT)
 
@@ -174,8 +229,8 @@ def check_rule(rule, quote):
     return False
 
 
-def notify(rule, quote):
-    """触发: 控制台 + 微信 + 邮箱; 命中后拉快照喂 codex 研判, 经铁律校验后附入。"""
+def notify(rule, quote, fire_count=None):
+    """触发: 控制台 + 微信 + 邮箱; 命中后拉快照+大盘背景+概念标签喂 codex 研判, 经铁律校验后附入。"""
     price = quote.get("price")
     pct = quote.get("change_pct")
     amount_yi = (quote.get("amount") or 0) / 1e8
@@ -188,9 +243,15 @@ def notify(rule, quote):
         f"时间: {quote.get('trade_time', now_str())}  源: {quote.get('source', '?')}\n"
         f"⚠️ 盘中量能为代理值, 评分以EOD报告为准"
     )
-    # 命中后: 拉盘中快照 → codex 研判 → 铁律硬校验 → 附入(失败不影响原始告警)
+    # 命中后: 拉盘中快照 + 大盘背景(走 /market 缓存) + 概念标签 → codex 研判 → 铁律硬校验 → 附入
     snap = fetch_lite(rule["code"])
-    verdict = _codex_verdict(snap, rule.get("note", "")) if snap else None
+    if snap:
+        ctx = fetch_market_ctx()
+        concepts = _get_concepts(rule["code"])
+        verdict = _codex_verdict(snap, rule.get("note", ""), market_ctx=ctx,
+                                 concepts=concepts, fire_count=fire_count)
+    else:
+        verdict = None
     if verdict:
         verdict = enforce_intraday_rules(verdict)  # 输出层硬校验, 不靠 codex 自觉
         body += f"\n────────────\n🤖 codex盘中研判:\n{verdict}"
@@ -207,6 +268,8 @@ def run(once=False, force=False):
     for r in rules:
         r.setdefault("fired", False)
     fired_keys = set()  # 按 (code,type,level) 跨热重载记忆已触发
+    today_fire_count = {}   # {code: 今日已触发次数}(喂 codex 的"今日第N次触发")
+    fire_count_day = None    # 跨午夜归零的日期哨兵
 
     def _rule_key(r):
         return (r.get("code"), r.get("type"), r.get("level"))
@@ -230,6 +293,12 @@ def run(once=False, force=False):
         logger.warning(f"服务探活失败: {e} (继续尝试盯盘)")
 
     while True:
+        # 跨午夜归零: 新交易日清空今日触发计数(每轮循环起始检测)
+        _today = dt.date.today()
+        if _today != fire_count_day:
+            today_fire_count.clear()
+            fire_count_day = _today
+
         if not is_trading_time(force):
             n = dt.datetime.now()
             if n.time() > dt.time(15, 2):
@@ -264,7 +333,9 @@ def run(once=False, force=False):
                 if not qd:
                     continue
                 if check_rule(rule, qd):
-                    notify(rule, qd)
+                    code = rule["code"]
+                    today_fire_count[code] = today_fire_count.get(code, 0) + 1
+                    notify(rule, qd, fire_count=today_fire_count.get(code, 1))
                     rule["fired"] = True
                     fired_keys.add(_rule_key(rule))  # 跨热重载记忆
 
