@@ -1,0 +1,14 @@
+# 敏感配置(本地 chmod 600, 不上传任何外部系统; 模板见 secrets.json.example)
+script/config/secrets.json
+
+# 运行期状态 / 缓存 / 报告产物
+var/
+.cache_*
+
+# Python
+__pycache__/
+*.pyc
+
+# 杂项
+*.bak
+*.log
