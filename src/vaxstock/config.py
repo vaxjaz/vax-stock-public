@@ -12,9 +12,12 @@
 """
 
 import json
+import logging
 import os
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
+
+logger = logging.getLogger(__name__)
 
 # ==================== 路径锚点 ====================
 # config.py 位于 <repo>/src/vaxstock/config.py, 上溯三级得到仓库根
@@ -48,6 +51,7 @@ _ENV_OVERRIDES: Dict[str, str] = {
     "email_user": "EMAIL_USER",
     "email_authcode": "EMAIL_AUTHCODE",
     "email_to": "EMAIL_TO",
+    "email_cc": "EMAIL_CC",
     "pushplus_token": "PUSHPLUS_TOKEN",
     "yield_10y_pct": "YIELD_10Y_PCT",
     "auto_concept_sync": "AUTO_CONCEPT_SYNC",
@@ -96,6 +100,7 @@ def _load_secrets() -> Dict[str, Any]:
         "email_user": None,
         "email_authcode": None,
         "email_to": None,
+        "email_cc": None,
         "pushplus_token": "",
         "codex_token": None,
         "codex_url": None,
@@ -189,7 +194,8 @@ def load_watchlist() -> Tuple[Dict[str, str], Dict[str, List[str]]]:
             if info.get("concepts"):
                 concepts_map[code] = list(info["concepts"])
         return watchlist, concepts_map
-    except Exception:
+    except Exception as e:
+        logger.warning(f"watchlist.json 解析失败,返回空池: {str(e)[:80]}")
         return {}, {}
 
 
@@ -207,5 +213,6 @@ def load_holdings() -> Dict[str, Dict[str, Any]]:
         with open(path, "r", encoding="utf-8") as f:
             cfg = json.load(f)
         return {code: (info or {}) for code, info in (cfg.get("holdings") or {}).items()}
-    except Exception:
+    except Exception as e:
+        logger.warning(f"holdings.json 解析失败,返回空持仓: {str(e)[:80]}")
         return {}
