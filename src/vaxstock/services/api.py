@@ -117,7 +117,7 @@ def quote(codes: str = Query(...)):
 
 @app.get("/market")
 def market():
-    st = refresh_regime(force=True)
+    st = refresh_regime()  # 走 REGIME_TTL 缓存(与 monolith 一致); force 全市场重扫会烧配额且与 lite 防冷扫意图相悖
     return JSONResponse(_safe({"regime": st["regime"], "overview": st["overview"]}))
 
 
