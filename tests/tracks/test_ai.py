@@ -237,7 +237,9 @@ def test_cross_confirmed_when_close():
     # 双源相差 <2% -> 已证实
     r = _prosperity_with(160.0 * 1.005)
     assert r["status"] == "已证实", r["status"]
-    assert r["cross_validated"] is True
+    # cross_validated 源自 numpy 比较(rev[-1] 是 numpy.float64 -> numpy.bool_),
+    # 不能用 is 做身份比较(numpy.bool_(True) is True -> False), 转成 Python bool 再比
+    assert bool(r["cross_validated"]) is True
 
 
 def test_cross_conflict_when_far():
