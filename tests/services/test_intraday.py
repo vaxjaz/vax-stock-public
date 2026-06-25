@@ -3,12 +3,30 @@
 
 import ast
 import datetime as dt
+import json
 import pathlib
+import types
 
 import vaxstock.services.intraday as intra
 from vaxstock.services._intraday_rules import enforce_intraday_rules
 
 _REPO = pathlib.Path(__file__).resolve().parents[2]
+
+
+class _FakeResp:
+    """urllib 响应替身(支持 with ... as r: r.read()), 零网络。"""
+
+    def __init__(self, payload):
+        self._b = json.dumps(payload).encode("utf-8")
+
+    def read(self):
+        return self._b
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
 
 
 # ── 铁律硬校验器(重点, 纯函数) ──
@@ -78,12 +96,15 @@ def test_is_trading_time_boundaries():
 
 # ── notify 链路: 命中 -> codex verdict 过铁律校验 -> 推送被调 ──
 def test_notify_chain_verdict_through_validator():
-    saved = (intra.fetch_lite, intra._codex_verdict, intra.push_wechat, intra.push_email)
+    saved = (intra.fetch_lite, intra.fetch_market_ctx, intra._get_concepts,
+             intra._codex_verdict, intra.push_wechat, intra.push_email)
     pushed = {}
     try:
         intra.fetch_lite = lambda code: {"code": code, "price": 70.0}
+        intra.fetch_market_ctx = lambda: {"regime": "momentum", "overview": {}}  # 零网络
+        intra._get_concepts = lambda code: []
         # codex 故意返回越界文本(含评分), 验证 notify 用 enforce 包裹
-        intra._codex_verdict = lambda snap, note: "评分: 2.8 建议买入"
+        intra._codex_verdict = lambda snap, note, **kw: "评分: 2.8 建议买入"
         intra.push_wechat = lambda title, body, pushplus_token=None: pushed.update(wx=(title, body)) or True
         intra.push_email = lambda title, body, smtp_conf=None: pushed.update(em=(title, body)) or True
 
@@ -97,15 +118,19 @@ def test_notify_chain_verdict_through_validator():
         assert "[铁律校验]" in body  # verdict 越界被校验器标注(证明经 enforce)
         assert "站上69" in body  # 原始告警 note 在
     finally:
-        intra.fetch_lite, intra._codex_verdict, intra.push_wechat, intra.push_email = saved
+        (intra.fetch_lite, intra.fetch_market_ctx, intra._get_concepts,
+         intra._codex_verdict, intra.push_wechat, intra.push_email) = saved
 
 
 def test_notify_no_codex_when_verdict_none():
-    saved = (intra.fetch_lite, intra._codex_verdict, intra.push_wechat, intra.push_email)
+    saved = (intra.fetch_lite, intra.fetch_market_ctx, intra._get_concepts,
+             intra._codex_verdict, intra.push_wechat, intra.push_email)
     pushed = {}
     try:
         intra.fetch_lite = lambda code: {"code": code}
-        intra._codex_verdict = lambda snap, note: None  # codex 不可用
+        intra.fetch_market_ctx = lambda: {"regime": None, "overview": {}}
+        intra._get_concepts = lambda code: []
+        intra._codex_verdict = lambda snap, note, **kw: None  # codex 不可用
         intra.push_wechat = lambda title, body, pushplus_token=None: pushed.update(wx=body) or True
         intra.push_email = lambda title, body, smtp_conf=None: True
         intra.notify({"code": "x", "name": "X", "type": "price_below", "level": 1.0, "note": "破位"},
@@ -113,7 +138,8 @@ def test_notify_no_codex_when_verdict_none():
         assert "codex盘中研判" not in pushed["wx"]  # 无 verdict 不附 codex 段
         assert "破位" in pushed["wx"]
     finally:
-        intra.fetch_lite, intra._codex_verdict, intra.push_wechat, intra.push_email = saved
+        (intra.fetch_lite, intra.fetch_market_ctx, intra._get_concepts,
+         intra._codex_verdict, intra.push_wechat, intra.push_email) = saved
 
 
 # ── 依赖守卫(ast 静态): intraday.py 不 import monolith / 东财 ──
@@ -131,6 +157,197 @@ def test_intraday_no_forbidden_imports():
                  "hot_sector_scanner", "macro_indicators"]
     offenders = [t for t in tokens if any(fb in t for fb in forbidden)]
     assert offenders == [], f"intraday.py 不应 import monolith/东财: {offenders}"
+
+
+# ── C2b: fetch_market_ctx 走 /market 缓存(消费者), 解析 / 失败降级 ──
+def test_fetch_market_ctx_parses():
+    saved = intra.request
+    try:
+        intra.request = types.SimpleNamespace(urlopen=lambda url, timeout=None: _FakeResp(
+            {"regime": "tech_bull",
+             "overview": {"up_count": 3000, "down_count": 1500,
+                          "limit_up_count": 40, "limit_down_count": 5}}))
+        ctx = intra.fetch_market_ctx()
+        assert ctx["regime"] == "tech_bull"
+        assert ctx["overview"]["up_count"] == 3000
+        assert ctx["overview"]["limit_down_count"] == 5
+    finally:
+        intra.request = saved
+
+
+def test_fetch_market_ctx_degrades_on_error():
+    saved = intra.request
+
+    def _boom(*a, **k):
+        raise OSError("connection refused")
+
+    try:
+        intra.request = types.SimpleNamespace(urlopen=_boom)
+        ctx = intra.fetch_market_ctx()
+        assert ctx == {"regime": None, "overview": {}}  # 降级, 不臆造
+    finally:
+        intra.request = saved
+
+
+# ── C2b: _codex_verdict 上下文注入(口径铁律: regime 标实时, 涨跌家数标T日收盘滞后) ──
+def test_codex_verdict_injects_context_labels():
+    saved = (intra.call_codex, intra._CODEX_ENABLED, intra._CODEX_TOKEN)
+    cap = {}
+    try:
+        intra._CODEX_ENABLED, intra._CODEX_TOKEN = True, "TK"
+        intra.call_codex = lambda system, user, **kw: cap.update(user=user) or "盘中倾向: 观察"
+        out = intra._codex_verdict(
+            {"code": "002475", "price": 70.0}, "站上69",
+            market_ctx={"regime": "tech_bull",
+                        "overview": {"up_count": 3000, "down_count": 1500,
+                                     "limit_up_count": 40, "limit_down_count": 5}},
+            concepts=["消费电子", "AI硬件"], fire_count=2)
+        assert out == "盘中倾向: 观察"
+        um = cap["user"]
+        # 口径铁律(P0): 这两条标注一字不可省, 否则 codex 误读为实时大盘
+        assert "T日收盘聚合, 盘中滞后" in um
+        assert "新浪指数实时算" in um
+        assert "涨3000/跌1500/涨停40/跌停5" in um
+        assert "tech_bull" in um
+        assert "消费电子" in um and "AI硬件" in um
+        assert "今日第2次触发" in um
+        assert "站上69" in um and "002475" in um
+    finally:
+        intra.call_codex, intra._CODEX_ENABLED, intra._CODEX_TOKEN = saved
+
+
+def test_codex_verdict_degrades_missing_ctx_to_pending():
+    saved = (intra.call_codex, intra._CODEX_ENABLED, intra._CODEX_TOKEN)
+    cap = {}
+    try:
+        intra._CODEX_ENABLED, intra._CODEX_TOKEN = True, "TK"
+        intra.call_codex = lambda system, user, **kw: cap.update(user=user) or "ok"
+        intra._codex_verdict({"code": "x"}, "破位",
+                             market_ctx={"regime": None, "overview": {}},
+                             concepts=[], fire_count=None)
+        um = cap["user"]
+        assert "待获取" in um        # regime 缺失不臆造
+        assert "今日第1次触发" in um  # fire_count None -> 1
+        assert "无标注" in um        # 无概念标签
+    finally:
+        intra.call_codex, intra._CODEX_ENABLED, intra._CODEX_TOKEN = saved
+
+
+def test_codex_verdict_none_when_disabled():
+    saved = (intra.call_codex, intra._CODEX_ENABLED, intra._CODEX_TOKEN)
+    called = {"v": False}
+    try:
+        intra._CODEX_TOKEN = None  # 无 token -> 早退, 不调 codex
+        intra.call_codex = lambda *a, **k: called.__setitem__("v", True) or "x"
+        assert intra._codex_verdict({"code": "x"}, "n", market_ctx={"regime": "m"}) is None
+        assert called["v"] is False
+    finally:
+        intra.call_codex, intra._CODEX_ENABLED, intra._CODEX_TOKEN = saved
+
+
+# ── C2b: _get_concepts 惰性加载 + 进程级缓存 + 失败降级 ──
+def test_get_concepts_lazy_loads_and_caches():
+    import vaxstock.config as cfg
+    saved_map, saved_load = intra._concepts_map, cfg.load_watchlist
+    calls = {"n": 0}
+    try:
+        intra._concepts_map = None  # 复位惰性缓存
+
+        def _load():
+            calls["n"] += 1
+            return {"002475": "立讯"}, {"002475": ["消费电子", "AI硬件"]}
+
+        cfg.load_watchlist = _load
+        assert intra._get_concepts("002475") == ["消费电子", "AI硬件"]
+        assert intra._get_concepts("000001") == []          # 未标注 -> 空
+        assert intra._get_concepts("002475") == ["消费电子", "AI硬件"]
+        assert calls["n"] == 1                               # 惰性: 只读一次(进程级缓存)
+    finally:
+        intra._concepts_map, cfg.load_watchlist = saved_map, saved_load
+
+
+def test_get_concepts_degrades_to_empty_on_error():
+    import vaxstock.config as cfg
+    saved_map, saved_load = intra._concepts_map, cfg.load_watchlist
+    try:
+        intra._concepts_map = None
+
+        def _boom():
+            raise OSError("watchlist.json 损坏")
+
+        cfg.load_watchlist = _boom
+        assert intra._get_concepts("002475") == []  # 加载失败 -> 空, 不臆造概念
+        assert intra._concepts_map == {}             # 缓存空 dict, 不反复重试
+    finally:
+        intra._concepts_map, cfg.load_watchlist = saved_map, saved_load
+
+
+# ── C2b: run() 今日触发计数 —— 同 code 多规则递增; 跨日清零 ──
+def test_run_fire_count_increments_per_code():
+    saved = (intra.load_rules, intra.fetch_quotes, intra.notify, intra.request)
+    calls = []
+    try:
+        intra.load_rules = lambda: [
+            {"code": "002475", "name": "立讯", "type": "price_above", "level": 69.0, "note": "a"},
+            {"code": "002475", "name": "立讯", "type": "pct_above", "level": 1.0, "note": "b"},
+        ]
+        intra.fetch_quotes = lambda codes: {"002475": {"name": "立讯", "price": 70.0, "change_pct": 2.0}}
+        intra.notify = lambda rule, quote, fire_count=None: calls.append((rule["type"], fire_count))
+        intra.request = types.SimpleNamespace(urlopen=lambda *a, **k: _FakeResp({"regime": "x"}))
+        intra.run(once=True, force=True)
+        # 同 code 两条规则同轮均触发 -> 计数 1,2
+        assert sorted(fc for _, fc in calls) == [1, 2]
+    finally:
+        intra.load_rules, intra.fetch_quotes, intra.notify, intra.request = saved
+
+
+def test_run_fire_count_resets_on_new_day():
+    _Stop = type("_Stop", (Exception,), {})
+    saved = (intra.load_rules, intra.fetch_quotes, intra.notify, intra.request,
+             intra.dt, intra.time)
+    calls = []
+    rule_a = {"code": "002475", "name": "立讯", "type": "price_above", "level": 69.0, "note": "a"}
+    rule_b = {"code": "002475", "name": "立讯", "type": "pct_above", "level": 1.0, "note": "b"}
+    ls = {"n": 0}
+
+    def _load():  # call1(loop前)=A; call2(iter1热重载)=A; call3(iter2热重载)=A+B
+        ls["n"] += 1
+        return [dict(rule_a)] if ls["n"] <= 2 else [dict(rule_a), dict(rule_b)]
+
+    dates = [dt.date(2026, 6, 25), dt.date(2026, 6, 26), dt.date(2026, 6, 26)]
+    di = {"i": 0}
+
+    def _today():
+        v = dates[min(di["i"], len(dates) - 1)]
+        di["i"] += 1
+        return v
+
+    sl = {"n": 0}
+
+    def _sleep(_s):
+        sl["n"] += 1
+        if sl["n"] >= 2:  # iter1、iter2 各处理完后各 sleep 一次, 第2次后停
+            raise _Stop()
+
+    try:
+        intra.load_rules = _load
+        intra.fetch_quotes = lambda codes: {"002475": {"name": "立讯", "price": 70.0, "change_pct": 2.0}}
+        intra.notify = lambda rule, quote, fire_count=None: calls.append((rule["type"], fire_count))
+        intra.request = types.SimpleNamespace(urlopen=lambda *a, **k: _FakeResp({"regime": "x"}))
+        intra.dt = types.SimpleNamespace(
+            date=types.SimpleNamespace(today=_today),
+            datetime=dt.datetime, time=dt.time, timedelta=dt.timedelta)
+        intra.time = types.SimpleNamespace(sleep=_sleep)
+        try:
+            intra.run(once=False, force=True)
+        except _Stop:
+            pass
+        # iter1(6/25): A 触发 fc=1; iter2(6/26 跨日清零): B 触发应回到 fc=1(未清零则为2)
+        assert ("price_above", 1) in calls
+        assert ("pct_above", 1) in calls, f"跨日未清零计数, 实际: {calls}"
+    finally:
+        (intra.load_rules, intra.fetch_quotes, intra.notify, intra.request,
+         intra.dt, intra.time) = saved
 
 
 if __name__ == "__main__":
