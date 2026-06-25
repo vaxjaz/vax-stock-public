@@ -10,8 +10,77 @@ import json
 import os
 import shutil
 import tempfile
+from pathlib import Path
 
+from vaxstock import config
 from vaxstock.report.store import cleanup, store_report
+
+
+# ── 落盘根目录解析: 显式入参 > SECRETS["report_dir"] > 缺省 config.REPORTS_DIR(绝对 var/reports) ──
+def test_default_dir_uses_config_reports_dir():
+    """缺省(不传 report_dir 且 SECRETS 无 report_dir)-> 落到绝对 config.REPORTS_DIR, 非相对 ./reports。"""
+    tmp = tempfile.mkdtemp(prefix="vaxstore_rd_")
+    saved_dir, saved_sec = config.REPORTS_DIR, config.SECRETS
+    try:
+        config.REPORTS_DIR = Path(tmp)
+        config.SECRETS = {}  # 无 report_dir
+        paths = store_report({"generated_at": "x"}, {}, "md")  # 不传 report_dir
+        assert paths["payload"].startswith(str(Path(tmp).resolve())), paths["payload"]
+        assert os.path.isabs(paths["payload"])
+    finally:
+        config.REPORTS_DIR, config.SECRETS = saved_dir, saved_sec
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_explicit_arg_overrides():
+    """显式 report_dir 优先于 SECRETS 与缺省。"""
+    tmp_arg = tempfile.mkdtemp(prefix="vaxstore_arg_")
+    tmp_cfg = tempfile.mkdtemp(prefix="vaxstore_cfg_")
+    saved_dir, saved_sec = config.REPORTS_DIR, config.SECRETS
+    try:
+        config.REPORTS_DIR = Path(tmp_cfg)
+        config.SECRETS = {"report_dir": tmp_cfg}
+        paths = store_report({"generated_at": "x"}, {}, "md", report_dir=tmp_arg)
+        assert paths["payload"].startswith(str(Path(tmp_arg).resolve()))
+        assert not paths["payload"].startswith(str(Path(tmp_cfg).resolve()))
+    finally:
+        config.REPORTS_DIR, config.SECRETS = saved_dir, saved_sec
+        shutil.rmtree(tmp_arg, ignore_errors=True)
+        shutil.rmtree(tmp_cfg, ignore_errors=True)
+
+
+def test_secrets_report_dir_over_default_under_arg():
+    """SECRETS["report_dir"] 优先于缺省 config.REPORTS_DIR、低于显式入参。"""
+    tmp_sec = tempfile.mkdtemp(prefix="vaxstore_sec_")
+    tmp_def = tempfile.mkdtemp(prefix="vaxstore_def_")
+    saved_dir, saved_sec = config.REPORTS_DIR, config.SECRETS
+    try:
+        config.REPORTS_DIR = Path(tmp_def)
+        config.SECRETS = {"report_dir": tmp_sec}
+        # 不传入参 -> 用 SECRETS 的 report_dir(覆盖缺省)
+        paths = store_report({"generated_at": "x"}, {}, "md")
+        assert paths["payload"].startswith(str(Path(tmp_sec).resolve()))
+        assert not paths["payload"].startswith(str(Path(tmp_def).resolve()))
+    finally:
+        config.REPORTS_DIR, config.SECRETS = saved_dir, saved_sec
+        shutil.rmtree(tmp_sec, ignore_errors=True)
+        shutil.rmtree(tmp_def, ignore_errors=True)
+
+
+def test_default_dir_idempotent_same_day():
+    """缺省路径下同日两次落盘 -> 目录文件数不增(覆盖, 幂等)。"""
+    tmp = tempfile.mkdtemp(prefix="vaxstore_idem_")
+    saved_dir, saved_sec = config.REPORTS_DIR, config.SECRETS
+    try:
+        config.REPORTS_DIR = Path(tmp)
+        config.SECRETS = {}
+        store_report({"generated_at": "x", "v": 1}, {}, "md1")
+        day_dir = os.path.dirname(store_report({"generated_at": "x", "v": 2}, {}, "md2")["payload"])
+        files = sorted(os.listdir(day_dir))
+        assert files == ["claude.json", "claude.md", "payload.json"], files  # 仅三件套, 不增
+    finally:
+        config.REPORTS_DIR, config.SECRETS = saved_dir, saved_sec
+        shutil.rmtree(tmp, ignore_errors=True)
 
 
 def test_store_report_writes_three_files():

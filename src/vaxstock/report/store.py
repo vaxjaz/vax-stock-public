@@ -21,9 +21,17 @@ logger = logging.getLogger(__name__)
 
 
 def _resolve_report_dir(report_dir: Optional[str]) -> Path:
-    if report_dir is None:
-        report_dir = config.SECRETS.get("report_dir", "./reports")
-    return Path(report_dir)
+    """报告根目录解析。优先级: 显式入参 > SECRETS["report_dir"] > 绝对 config.REPORTS_DIR。
+
+    缺省用绝对 config.REPORTS_DIR(var/reports), 而非相对 "./reports":
+    消除 cron 工作目录漂移, 且避免落到仓库根被 git 跟踪。
+    """
+    if report_dir is not None:
+        return Path(report_dir)
+    configured = config.SECRETS.get("report_dir")  # 用户显式配了才用
+    if configured:
+        return Path(configured)
+    return config.REPORTS_DIR  # 缺省: 绝对 var/reports
 
 
 def _parse_date_dir(name: str) -> Optional[dt.date]:
