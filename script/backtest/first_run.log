@@ -1,0 +1,1646 @@
+13:37:11 [INFO] 
+############################################################
+13:37:11 [INFO] # 因子IC回测框架 v1.0
+13:37:11 [INFO] # 数据更新: full | 回测: 执行
+13:37:11 [INFO] # 回测期: 20230512 ~ 20260610
+13:37:11 [INFO] ############################################################
+
+13:37:11 [INFO] ============================================================
+13:37:11 [INFO] 步骤1: 更新数据 [模式: full]
+13:37:11 [INFO] ============================================================
+13:37:11 [INFO] 📋 刷新沪深300成分股...
+13:37:11 [INFO] 📥 下载沪深300成分股...
+13:37:19 [INFO]   ✅ 沪深300成分股 300只 已存入
+13:37:19 [INFO] 📥 开始更新 300 只股票 [模式=full, 截止=20260610]
+13:38:03 [INFO]   [10/300] 002475: K923 B923 F923 财56 股268
+13:38:42 [INFO]   [20/300] 300274: K923 B923 F923 财55 股104
+13:39:24 [INFO]   [30/300] 601288: K923 B923 F923 财55 股78
+13:40:07 [INFO]   [40/300] 600150: K909 B909 F909 财54 股108
+13:40:47 [INFO]   [50/300] 603019: K913 B913 F913 财51 股102
+13:41:28 [INFO]   [60/300] 600522: K923 B923 F923 财55 股101
+13:42:14 [INFO]   [70/300] 000792: K923 B923 F923 财55 股223
+13:42:54 [INFO]   [80/300] 600016: K923 B923 F923 财55 股113
+13:43:36 [INFO]   [90/300] 300014: K923 B923 F923 财55 股281
+13:44:17 [INFO]   [100/300] 601766: K923 B923 F923 财55 股86
+13:44:58 [INFO]   [110/300] 002466: K923 B923 F923 财55 股355
+13:45:40 [INFO]   [120/300] 601818: K923 B923 F923 财55 股78
+13:46:19 [INFO]   [130/300] 601658: K923 B923 F923 财49 股34
+13:46:56 [INFO]   [140/300] 601872: K923 B923 F923 财56 股158
+13:47:37 [INFO]   [150/300] 600795: K923 B923 F923 财54 股112
+13:48:13 [INFO]   [160/300] 600066: K922 B922 F922 财54 股116
+13:48:56 [INFO]   [170/300] 002311: K923 B923 F923 财56 股81
+13:49:48 [INFO]   [180/300] 600460: K923 B923 F923 财56 股105
+13:50:30 [INFO]   [190/300] 000157: K923 B923 F923 财55 股212
+13:51:13 [INFO]   [200/300] 002236: K923 B923 F923 财56 股82
+13:51:59 [INFO]   [210/300] 601898: K923 B923 F923 财56 股101
+13:52:34 [INFO]   [220/300] 002252: K913 B913 F913 财56 股200
+13:53:24 [INFO]   [230/300] 601878: K923 B923 F923 财55 股44
+13:54:03 [INFO]   [240/300] 000002: K923 B923 F923 财56 股131
+13:54:45 [INFO]   [250/300] 600600: K923 B923 F923 财56 股120
+13:55:22 [INFO]   [260/300] 300251: K923 B923 F923 财56 股64
+13:56:07 [INFO]   [270/300] 600085: K923 B923 F923 财55 股119
+13:56:54 [INFO]   [280/300] 000596: K923 B923 F923 财55 股132
+13:57:34 [INFO]   [290/300] 600161: K923 B923 F923 财53 股112
+13:58:15 [INFO]   [300/300] 001391: K347 B347 F347 财29 股13
+13:58:15 [INFO] ✅ 数据更新完成: 300/300 成功 | 新增 K线274575 估值274575 资金273981 | 刷新 财务15477 股东30751
+13:58:15 [INFO] ============================================================
+13:58:15 [INFO] 步骤2: 计算因子
+13:58:15 [INFO] ============================================================
+13:58:15 [INFO] 📊 开始计算 300 只股票的因子...
+13:58:15 [INFO]   📖 加载K线数据到内存...
+13:58:16 [INFO]   📖 加载估值数据到内存...
+13:58:19 [INFO]   📖 加载资金流数据到内存...
+13:58:20 [INFO]   📖 加载财务数据到内存...
+13:58:21 [INFO]   📖 加载股东户数到内存...
+13:58:29 [INFO]   [50/300] 已计算
+13:58:36 [INFO]   [100/300] 已计算
+13:58:44 [INFO]   [150/300] 已计算
+13:58:51 [INFO]   [200/300] 已计算
+13:58:59 [INFO]   [250/300] 已计算
+13:59:06 [INFO]   [300/300] 已计算
+13:59:06 [INFO] ✅ 因子计算完成: 222242行, 300只股票
+13:59:06 [INFO] 💾 因子矩阵已保存: /opt/stock-report/backtest/data/factors.parquet
+13:59:06 [INFO] ============================================================
+13:59:06 [INFO] 步骤3: IC回测
+13:59:06 [INFO] ============================================================
+13:59:06 [INFO]   🧮 计算因子: holder_change_pct
+13:59:15 [INFO]   🧮 计算因子: turnover_zscore
+13:59:24 [INFO]   🧮 计算因子: inflow_slope
+13:59:34 [INFO]   🧮 计算因子: inflow_10d
+13:59:43 [INFO]   🧮 计算因子: pe_percentile_1y
+13:59:52 [INFO]   🧮 计算因子: position_20d_pct
+14:00:03 [INFO]   🧮 计算因子: price_vs_ma5_pct
+14:00:12 [INFO]   🧮 计算因子: rsi_14
+14:00:22 [INFO]   🧮 计算因子: np_yoy
+14:00:31 [INFO]   🧮 计算因子: right_side_score
+14:00:40 [INFO] ============================================================
+14:00:40 [INFO] 步骤4: 分位回测
+14:00:40 [INFO] ============================================================
+14:00:40 [INFO]   📊 分位回测: holder_change_pct
+14:00:44 [INFO]   📊 分位回测: turnover_zscore
+14:00:48 [INFO]   📊 分位回测: inflow_slope
+14:00:52 [INFO]   📊 分位回测: inflow_10d
+14:00:56 [INFO]   📊 分位回测: pe_percentile_1y
+14:01:01 [INFO]   📊 分位回测: position_20d_pct
+14:01:05 [INFO]   📊 分位回测: price_vs_ma5_pct
+14:01:09 [INFO]   📊 分位回测: rsi_14
+14:01:13 [INFO]   📊 分位回测: np_yoy
+14:01:17 [INFO]   📊 分位回测: right_side_score
+14:01:21 [INFO] ============================================================
+14:01:21 [INFO] 步骤5: 生成HTML报告
+14:01:21 [INFO] ============================================================
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 27599 (\N{CJK UNIFIED IDEOGRAPH-6BCF}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 26085 (\N{CJK UNIFIED IDEOGRAPH-65E5}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 32929 (\N{CJK UNIFIED IDEOGRAPH-80A1}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 19996 (\N{CJK UNIFIED IDEOGRAPH-4E1C}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 25143 (\N{CJK UNIFIED IDEOGRAPH-6237}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 25968 (\N{CJK UNIFIED IDEOGRAPH-6570}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 21464 (\N{CJK UNIFIED IDEOGRAPH-53D8}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 21270 (\N{CJK UNIFIED IDEOGRAPH-5316}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 26102 (\N{CJK UNIFIED IDEOGRAPH-65F6}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 24207 (\N{CJK UNIFIED IDEOGRAPH-5E8F}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 22343 (\N{CJK UNIFIED IDEOGRAPH-5747}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 20540 (\N{CJK UNIFIED IDEOGRAPH-503C}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 20132 (\N{CJK UNIFIED IDEOGRAPH-4EA4}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 26131 (\N{CJK UNIFIED IDEOGRAPH-6613}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 21495 (\N{CJK UNIFIED IDEOGRAPH-53F7}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 32047 (\N{CJK UNIFIED IDEOGRAPH-7D2F}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 35745 (\N{CJK UNIFIED IDEOGRAPH-8BA1}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 27599 (\N{CJK UNIFIED IDEOGRAPH-6BCF}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 26085 (\N{CJK UNIFIED IDEOGRAPH-65E5}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 32929 (\N{CJK UNIFIED IDEOGRAPH-80A1}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 19996 (\N{CJK UNIFIED IDEOGRAPH-4E1C}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 25143 (\N{CJK UNIFIED IDEOGRAPH-6237}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 25968 (\N{CJK UNIFIED IDEOGRAPH-6570}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 21464 (\N{CJK UNIFIED IDEOGRAPH-53D8}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 21270 (\N{CJK UNIFIED IDEOGRAPH-5316}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 26102 (\N{CJK UNIFIED IDEOGRAPH-65F6}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 24207 (\N{CJK UNIFIED IDEOGRAPH-5E8F}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 22343 (\N{CJK UNIFIED IDEOGRAPH-5747}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 20540 (\N{CJK UNIFIED IDEOGRAPH-503C}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 20132 (\N{CJK UNIFIED IDEOGRAPH-4EA4}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 26131 (\N{CJK UNIFIED IDEOGRAPH-6613}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 21495 (\N{CJK UNIFIED IDEOGRAPH-53F7}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 32047 (\N{CJK UNIFIED IDEOGRAPH-7D2F}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 35745 (\N{CJK UNIFIED IDEOGRAPH-8BA1}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 35843 (\N{CJK UNIFIED IDEOGRAPH-8C03}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 20179 (\N{CJK UNIFIED IDEOGRAPH-4ED3}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 27425 (\N{CJK UNIFIED IDEOGRAPH-6B21}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 25968 (\N{CJK UNIFIED IDEOGRAPH-6570}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 32047 (\N{CJK UNIFIED IDEOGRAPH-7D2F}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 35745 (\N{CJK UNIFIED IDEOGRAPH-8BA1}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 25910 (\N{CJK UNIFIED IDEOGRAPH-6536}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 30410 (\N{CJK UNIFIED IDEOGRAPH-76CA}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 32929 (\N{CJK UNIFIED IDEOGRAPH-80A1}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 19996 (\N{CJK UNIFIED IDEOGRAPH-4E1C}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 25143 (\N{CJK UNIFIED IDEOGRAPH-6237}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 21464 (\N{CJK UNIFIED IDEOGRAPH-53D8}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 21270 (\N{CJK UNIFIED IDEOGRAPH-5316}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 22810 (\N{CJK UNIFIED IDEOGRAPH-591A}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 31354 (\N{CJK UNIFIED IDEOGRAPH-7A7A}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 32452 (\N{CJK UNIFIED IDEOGRAPH-7EC4}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 21512 (\N{CJK UNIFIED IDEOGRAPH-5408}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 65288 (\N{FULLWIDTH LEFT PARENTHESIS}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 24050 (\N{CJK UNIFIED IDEOGRAPH-5DF2}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 25187 (\N{CJK UNIFIED IDEOGRAPH-6263}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 38500 (\N{CJK UNIFIED IDEOGRAPH-9664}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 20132 (\N{CJK UNIFIED IDEOGRAPH-4EA4}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 26131 (\N{CJK UNIFIED IDEOGRAPH-6613}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 25104 (\N{CJK UNIFIED IDEOGRAPH-6210}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 26412 (\N{CJK UNIFIED IDEOGRAPH-672C}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 65289 (\N{FULLWIDTH RIGHT PARENTHESIS}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 32047 (\N{CJK UNIFIED IDEOGRAPH-7D2F}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 35745 (\N{CJK UNIFIED IDEOGRAPH-8BA1}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 25910 (\N{CJK UNIFIED IDEOGRAPH-6536}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 30410 (\N{CJK UNIFIED IDEOGRAPH-76CA}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 32929 (\N{CJK UNIFIED IDEOGRAPH-80A1}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 19996 (\N{CJK UNIFIED IDEOGRAPH-4E1C}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 25143 (\N{CJK UNIFIED IDEOGRAPH-6237}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 25968 (\N{CJK UNIFIED IDEOGRAPH-6570}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 21464 (\N{CJK UNIFIED IDEOGRAPH-53D8}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 21270 (\N{CJK UNIFIED IDEOGRAPH-5316}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 22810 (\N{CJK UNIFIED IDEOGRAPH-591A}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 31354 (\N{CJK UNIFIED IDEOGRAPH-7A7A}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 32452 (\N{CJK UNIFIED IDEOGRAPH-7EC4}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 21512 (\N{CJK UNIFIED IDEOGRAPH-5408}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 65288 (\N{FULLWIDTH LEFT PARENTHESIS}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 24050 (\N{CJK UNIFIED IDEOGRAPH-5DF2}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 25187 (\N{CJK UNIFIED IDEOGRAPH-6263}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 38500 (\N{CJK UNIFIED IDEOGRAPH-9664}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 20132 (\N{CJK UNIFIED IDEOGRAPH-4EA4}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 26131 (\N{CJK UNIFIED IDEOGRAPH-6613}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 25104 (\N{CJK UNIFIED IDEOGRAPH-6210}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 26412 (\N{CJK UNIFIED IDEOGRAPH-672C}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 65289 (\N{FULLWIDTH RIGHT PARENTHESIS}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 35843 (\N{CJK UNIFIED IDEOGRAPH-8C03}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 20179 (\N{CJK UNIFIED IDEOGRAPH-4ED3}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 27425 (\N{CJK UNIFIED IDEOGRAPH-6B21}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 27599 (\N{CJK UNIFIED IDEOGRAPH-6BCF}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 26085 (\N{CJK UNIFIED IDEOGRAPH-65E5}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 25442 (\N{CJK UNIFIED IDEOGRAPH-6362}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 25163 (\N{CJK UNIFIED IDEOGRAPH-624B}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 29575 (\N{CJK UNIFIED IDEOGRAPH-7387}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 26102 (\N{CJK UNIFIED IDEOGRAPH-65F6}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 24207 (\N{CJK UNIFIED IDEOGRAPH-5E8F}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 22343 (\N{CJK UNIFIED IDEOGRAPH-5747}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 20540 (\N{CJK UNIFIED IDEOGRAPH-503C}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 20132 (\N{CJK UNIFIED IDEOGRAPH-4EA4}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 26131 (\N{CJK UNIFIED IDEOGRAPH-6613}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 21495 (\N{CJK UNIFIED IDEOGRAPH-53F7}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 32047 (\N{CJK UNIFIED IDEOGRAPH-7D2F}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 35745 (\N{CJK UNIFIED IDEOGRAPH-8BA1}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 27599 (\N{CJK UNIFIED IDEOGRAPH-6BCF}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 26085 (\N{CJK UNIFIED IDEOGRAPH-65E5}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 25442 (\N{CJK UNIFIED IDEOGRAPH-6362}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 25163 (\N{CJK UNIFIED IDEOGRAPH-624B}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 29575 (\N{CJK UNIFIED IDEOGRAPH-7387}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 26102 (\N{CJK UNIFIED IDEOGRAPH-65F6}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 24207 (\N{CJK UNIFIED IDEOGRAPH-5E8F}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 22343 (\N{CJK UNIFIED IDEOGRAPH-5747}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 20540 (\N{CJK UNIFIED IDEOGRAPH-503C}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 21495 (\N{CJK UNIFIED IDEOGRAPH-53F7}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 35843 (\N{CJK UNIFIED IDEOGRAPH-8C03}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 20179 (\N{CJK UNIFIED IDEOGRAPH-4ED3}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 27425 (\N{CJK UNIFIED IDEOGRAPH-6B21}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 25968 (\N{CJK UNIFIED IDEOGRAPH-6570}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 32047 (\N{CJK UNIFIED IDEOGRAPH-7D2F}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 35745 (\N{CJK UNIFIED IDEOGRAPH-8BA1}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 25910 (\N{CJK UNIFIED IDEOGRAPH-6536}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 30410 (\N{CJK UNIFIED IDEOGRAPH-76CA}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 25442 (\N{CJK UNIFIED IDEOGRAPH-6362}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 25163 (\N{CJK UNIFIED IDEOGRAPH-624B}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 29575 (\N{CJK UNIFIED IDEOGRAPH-7387}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 22810 (\N{CJK UNIFIED IDEOGRAPH-591A}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 31354 (\N{CJK UNIFIED IDEOGRAPH-7A7A}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 32452 (\N{CJK UNIFIED IDEOGRAPH-7EC4}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 21512 (\N{CJK UNIFIED IDEOGRAPH-5408}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 65288 (\N{FULLWIDTH LEFT PARENTHESIS}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 24050 (\N{CJK UNIFIED IDEOGRAPH-5DF2}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 25187 (\N{CJK UNIFIED IDEOGRAPH-6263}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 38500 (\N{CJK UNIFIED IDEOGRAPH-9664}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 20132 (\N{CJK UNIFIED IDEOGRAPH-4EA4}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 26131 (\N{CJK UNIFIED IDEOGRAPH-6613}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 25104 (\N{CJK UNIFIED IDEOGRAPH-6210}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 26412 (\N{CJK UNIFIED IDEOGRAPH-672C}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 65289 (\N{FULLWIDTH RIGHT PARENTHESIS}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 32047 (\N{CJK UNIFIED IDEOGRAPH-7D2F}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 35745 (\N{CJK UNIFIED IDEOGRAPH-8BA1}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 25910 (\N{CJK UNIFIED IDEOGRAPH-6536}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 30410 (\N{CJK UNIFIED IDEOGRAPH-76CA}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 25442 (\N{CJK UNIFIED IDEOGRAPH-6362}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 25163 (\N{CJK UNIFIED IDEOGRAPH-624B}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 29575 (\N{CJK UNIFIED IDEOGRAPH-7387}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 22810 (\N{CJK UNIFIED IDEOGRAPH-591A}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 31354 (\N{CJK UNIFIED IDEOGRAPH-7A7A}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 32452 (\N{CJK UNIFIED IDEOGRAPH-7EC4}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 21512 (\N{CJK UNIFIED IDEOGRAPH-5408}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 65288 (\N{FULLWIDTH LEFT PARENTHESIS}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 24050 (\N{CJK UNIFIED IDEOGRAPH-5DF2}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 25187 (\N{CJK UNIFIED IDEOGRAPH-6263}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 38500 (\N{CJK UNIFIED IDEOGRAPH-9664}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 20132 (\N{CJK UNIFIED IDEOGRAPH-4EA4}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 26131 (\N{CJK UNIFIED IDEOGRAPH-6613}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 25104 (\N{CJK UNIFIED IDEOGRAPH-6210}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 26412 (\N{CJK UNIFIED IDEOGRAPH-672C}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 65289 (\N{FULLWIDTH RIGHT PARENTHESIS}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 35843 (\N{CJK UNIFIED IDEOGRAPH-8C03}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 20179 (\N{CJK UNIFIED IDEOGRAPH-4ED3}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 27425 (\N{CJK UNIFIED IDEOGRAPH-6B21}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 25968 (\N{CJK UNIFIED IDEOGRAPH-6570}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 27599 (\N{CJK UNIFIED IDEOGRAPH-6BCF}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 26085 (\N{CJK UNIFIED IDEOGRAPH-65E5}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 36164 (\N{CJK UNIFIED IDEOGRAPH-8D44}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 37329 (\N{CJK UNIFIED IDEOGRAPH-91D1}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 27969 (\N{CJK UNIFIED IDEOGRAPH-6D41}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 26012 (\N{CJK UNIFIED IDEOGRAPH-659C}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 29575 (\N{CJK UNIFIED IDEOGRAPH-7387}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 26102 (\N{CJK UNIFIED IDEOGRAPH-65F6}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 24207 (\N{CJK UNIFIED IDEOGRAPH-5E8F}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 22343 (\N{CJK UNIFIED IDEOGRAPH-5747}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 20540 (\N{CJK UNIFIED IDEOGRAPH-503C}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 20132 (\N{CJK UNIFIED IDEOGRAPH-4EA4}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 26131 (\N{CJK UNIFIED IDEOGRAPH-6613}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 21495 (\N{CJK UNIFIED IDEOGRAPH-53F7}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 32047 (\N{CJK UNIFIED IDEOGRAPH-7D2F}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 35745 (\N{CJK UNIFIED IDEOGRAPH-8BA1}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 27599 (\N{CJK UNIFIED IDEOGRAPH-6BCF}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 26085 (\N{CJK UNIFIED IDEOGRAPH-65E5}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 36164 (\N{CJK UNIFIED IDEOGRAPH-8D44}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 37329 (\N{CJK UNIFIED IDEOGRAPH-91D1}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 27969 (\N{CJK UNIFIED IDEOGRAPH-6D41}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 26012 (\N{CJK UNIFIED IDEOGRAPH-659C}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 26102 (\N{CJK UNIFIED IDEOGRAPH-65F6}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 24207 (\N{CJK UNIFIED IDEOGRAPH-5E8F}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 22343 (\N{CJK UNIFIED IDEOGRAPH-5747}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 20540 (\N{CJK UNIFIED IDEOGRAPH-503C}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 21495 (\N{CJK UNIFIED IDEOGRAPH-53F7}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 35843 (\N{CJK UNIFIED IDEOGRAPH-8C03}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 20179 (\N{CJK UNIFIED IDEOGRAPH-4ED3}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 27425 (\N{CJK UNIFIED IDEOGRAPH-6B21}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 25968 (\N{CJK UNIFIED IDEOGRAPH-6570}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 32047 (\N{CJK UNIFIED IDEOGRAPH-7D2F}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 35745 (\N{CJK UNIFIED IDEOGRAPH-8BA1}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 25910 (\N{CJK UNIFIED IDEOGRAPH-6536}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 30410 (\N{CJK UNIFIED IDEOGRAPH-76CA}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 36164 (\N{CJK UNIFIED IDEOGRAPH-8D44}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 37329 (\N{CJK UNIFIED IDEOGRAPH-91D1}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 27969 (\N{CJK UNIFIED IDEOGRAPH-6D41}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 26012 (\N{CJK UNIFIED IDEOGRAPH-659C}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 29575 (\N{CJK UNIFIED IDEOGRAPH-7387}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 22810 (\N{CJK UNIFIED IDEOGRAPH-591A}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 31354 (\N{CJK UNIFIED IDEOGRAPH-7A7A}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 32452 (\N{CJK UNIFIED IDEOGRAPH-7EC4}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 21512 (\N{CJK UNIFIED IDEOGRAPH-5408}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 65288 (\N{FULLWIDTH LEFT PARENTHESIS}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 24050 (\N{CJK UNIFIED IDEOGRAPH-5DF2}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 25187 (\N{CJK UNIFIED IDEOGRAPH-6263}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 38500 (\N{CJK UNIFIED IDEOGRAPH-9664}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 20132 (\N{CJK UNIFIED IDEOGRAPH-4EA4}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 26131 (\N{CJK UNIFIED IDEOGRAPH-6613}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 25104 (\N{CJK UNIFIED IDEOGRAPH-6210}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 26412 (\N{CJK UNIFIED IDEOGRAPH-672C}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 65289 (\N{FULLWIDTH RIGHT PARENTHESIS}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 32047 (\N{CJK UNIFIED IDEOGRAPH-7D2F}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 35745 (\N{CJK UNIFIED IDEOGRAPH-8BA1}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 25910 (\N{CJK UNIFIED IDEOGRAPH-6536}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 30410 (\N{CJK UNIFIED IDEOGRAPH-76CA}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 36164 (\N{CJK UNIFIED IDEOGRAPH-8D44}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 37329 (\N{CJK UNIFIED IDEOGRAPH-91D1}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 27969 (\N{CJK UNIFIED IDEOGRAPH-6D41}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 26012 (\N{CJK UNIFIED IDEOGRAPH-659C}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 29575 (\N{CJK UNIFIED IDEOGRAPH-7387}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 22810 (\N{CJK UNIFIED IDEOGRAPH-591A}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 31354 (\N{CJK UNIFIED IDEOGRAPH-7A7A}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 32452 (\N{CJK UNIFIED IDEOGRAPH-7EC4}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 21512 (\N{CJK UNIFIED IDEOGRAPH-5408}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 65288 (\N{FULLWIDTH LEFT PARENTHESIS}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 24050 (\N{CJK UNIFIED IDEOGRAPH-5DF2}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 25187 (\N{CJK UNIFIED IDEOGRAPH-6263}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 38500 (\N{CJK UNIFIED IDEOGRAPH-9664}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 20132 (\N{CJK UNIFIED IDEOGRAPH-4EA4}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 26131 (\N{CJK UNIFIED IDEOGRAPH-6613}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 25104 (\N{CJK UNIFIED IDEOGRAPH-6210}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 26412 (\N{CJK UNIFIED IDEOGRAPH-672C}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 65289 (\N{FULLWIDTH RIGHT PARENTHESIS}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 35843 (\N{CJK UNIFIED IDEOGRAPH-8C03}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 20179 (\N{CJK UNIFIED IDEOGRAPH-4ED3}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 27425 (\N{CJK UNIFIED IDEOGRAPH-6B21}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 25968 (\N{CJK UNIFIED IDEOGRAPH-6570}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 27599 (\N{CJK UNIFIED IDEOGRAPH-6BCF}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 26085 (\N{CJK UNIFIED IDEOGRAPH-65E5}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 20027 (\N{CJK UNIFIED IDEOGRAPH-4E3B}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 21147 (\N{CJK UNIFIED IDEOGRAPH-529B}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 20928 (\N{CJK UNIFIED IDEOGRAPH-51C0}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 27969 (\N{CJK UNIFIED IDEOGRAPH-6D41}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 20837 (\N{CJK UNIFIED IDEOGRAPH-5165}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 26102 (\N{CJK UNIFIED IDEOGRAPH-65F6}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 24207 (\N{CJK UNIFIED IDEOGRAPH-5E8F}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 22343 (\N{CJK UNIFIED IDEOGRAPH-5747}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 20540 (\N{CJK UNIFIED IDEOGRAPH-503C}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 20132 (\N{CJK UNIFIED IDEOGRAPH-4EA4}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 26131 (\N{CJK UNIFIED IDEOGRAPH-6613}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 21495 (\N{CJK UNIFIED IDEOGRAPH-53F7}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 32047 (\N{CJK UNIFIED IDEOGRAPH-7D2F}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 35745 (\N{CJK UNIFIED IDEOGRAPH-8BA1}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 27599 (\N{CJK UNIFIED IDEOGRAPH-6BCF}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 26085 (\N{CJK UNIFIED IDEOGRAPH-65E5}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 20027 (\N{CJK UNIFIED IDEOGRAPH-4E3B}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 21147 (\N{CJK UNIFIED IDEOGRAPH-529B}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 20928 (\N{CJK UNIFIED IDEOGRAPH-51C0}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 20837 (\N{CJK UNIFIED IDEOGRAPH-5165}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 26102 (\N{CJK UNIFIED IDEOGRAPH-65F6}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 24207 (\N{CJK UNIFIED IDEOGRAPH-5E8F}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 22343 (\N{CJK UNIFIED IDEOGRAPH-5747}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 20540 (\N{CJK UNIFIED IDEOGRAPH-503C}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 21495 (\N{CJK UNIFIED IDEOGRAPH-53F7}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 35843 (\N{CJK UNIFIED IDEOGRAPH-8C03}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 20179 (\N{CJK UNIFIED IDEOGRAPH-4ED3}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 27425 (\N{CJK UNIFIED IDEOGRAPH-6B21}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 25968 (\N{CJK UNIFIED IDEOGRAPH-6570}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 32047 (\N{CJK UNIFIED IDEOGRAPH-7D2F}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 35745 (\N{CJK UNIFIED IDEOGRAPH-8BA1}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 25910 (\N{CJK UNIFIED IDEOGRAPH-6536}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 30410 (\N{CJK UNIFIED IDEOGRAPH-76CA}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 26085 (\N{CJK UNIFIED IDEOGRAPH-65E5}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 20027 (\N{CJK UNIFIED IDEOGRAPH-4E3B}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 21147 (\N{CJK UNIFIED IDEOGRAPH-529B}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 20928 (\N{CJK UNIFIED IDEOGRAPH-51C0}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 27969 (\N{CJK UNIFIED IDEOGRAPH-6D41}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 20837 (\N{CJK UNIFIED IDEOGRAPH-5165}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 22810 (\N{CJK UNIFIED IDEOGRAPH-591A}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 31354 (\N{CJK UNIFIED IDEOGRAPH-7A7A}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 32452 (\N{CJK UNIFIED IDEOGRAPH-7EC4}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 21512 (\N{CJK UNIFIED IDEOGRAPH-5408}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 65288 (\N{FULLWIDTH LEFT PARENTHESIS}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 24050 (\N{CJK UNIFIED IDEOGRAPH-5DF2}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 25187 (\N{CJK UNIFIED IDEOGRAPH-6263}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 38500 (\N{CJK UNIFIED IDEOGRAPH-9664}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 20132 (\N{CJK UNIFIED IDEOGRAPH-4EA4}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 26131 (\N{CJK UNIFIED IDEOGRAPH-6613}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 25104 (\N{CJK UNIFIED IDEOGRAPH-6210}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 26412 (\N{CJK UNIFIED IDEOGRAPH-672C}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 65289 (\N{FULLWIDTH RIGHT PARENTHESIS}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 32047 (\N{CJK UNIFIED IDEOGRAPH-7D2F}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 35745 (\N{CJK UNIFIED IDEOGRAPH-8BA1}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 25910 (\N{CJK UNIFIED IDEOGRAPH-6536}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 30410 (\N{CJK UNIFIED IDEOGRAPH-76CA}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 26085 (\N{CJK UNIFIED IDEOGRAPH-65E5}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 20027 (\N{CJK UNIFIED IDEOGRAPH-4E3B}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 21147 (\N{CJK UNIFIED IDEOGRAPH-529B}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 20928 (\N{CJK UNIFIED IDEOGRAPH-51C0}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 27969 (\N{CJK UNIFIED IDEOGRAPH-6D41}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 20837 (\N{CJK UNIFIED IDEOGRAPH-5165}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 22810 (\N{CJK UNIFIED IDEOGRAPH-591A}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 31354 (\N{CJK UNIFIED IDEOGRAPH-7A7A}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 32452 (\N{CJK UNIFIED IDEOGRAPH-7EC4}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 21512 (\N{CJK UNIFIED IDEOGRAPH-5408}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 65288 (\N{FULLWIDTH LEFT PARENTHESIS}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 24050 (\N{CJK UNIFIED IDEOGRAPH-5DF2}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 25187 (\N{CJK UNIFIED IDEOGRAPH-6263}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 38500 (\N{CJK UNIFIED IDEOGRAPH-9664}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 20132 (\N{CJK UNIFIED IDEOGRAPH-4EA4}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 26131 (\N{CJK UNIFIED IDEOGRAPH-6613}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 25104 (\N{CJK UNIFIED IDEOGRAPH-6210}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 26412 (\N{CJK UNIFIED IDEOGRAPH-672C}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 65289 (\N{FULLWIDTH RIGHT PARENTHESIS}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 35843 (\N{CJK UNIFIED IDEOGRAPH-8C03}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 20179 (\N{CJK UNIFIED IDEOGRAPH-4ED3}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 27425 (\N{CJK UNIFIED IDEOGRAPH-6B21}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 25968 (\N{CJK UNIFIED IDEOGRAPH-6570}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 27599 (\N{CJK UNIFIED IDEOGRAPH-6BCF}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 26085 (\N{CJK UNIFIED IDEOGRAPH-65E5}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 21382 (\N{CJK UNIFIED IDEOGRAPH-5386}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 21490 (\N{CJK UNIFIED IDEOGRAPH-53F2}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 30334 (\N{CJK UNIFIED IDEOGRAPH-767E}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 20998 (\N{CJK UNIFIED IDEOGRAPH-5206}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 20301 (\N{CJK UNIFIED IDEOGRAPH-4F4D}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 26102 (\N{CJK UNIFIED IDEOGRAPH-65F6}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 24207 (\N{CJK UNIFIED IDEOGRAPH-5E8F}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 22343 (\N{CJK UNIFIED IDEOGRAPH-5747}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 20540 (\N{CJK UNIFIED IDEOGRAPH-503C}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 20132 (\N{CJK UNIFIED IDEOGRAPH-4EA4}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 26131 (\N{CJK UNIFIED IDEOGRAPH-6613}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 21495 (\N{CJK UNIFIED IDEOGRAPH-53F7}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 32047 (\N{CJK UNIFIED IDEOGRAPH-7D2F}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 35745 (\N{CJK UNIFIED IDEOGRAPH-8BA1}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 27599 (\N{CJK UNIFIED IDEOGRAPH-6BCF}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 21382 (\N{CJK UNIFIED IDEOGRAPH-5386}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 21490 (\N{CJK UNIFIED IDEOGRAPH-53F2}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 30334 (\N{CJK UNIFIED IDEOGRAPH-767E}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 20998 (\N{CJK UNIFIED IDEOGRAPH-5206}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 20301 (\N{CJK UNIFIED IDEOGRAPH-4F4D}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 26102 (\N{CJK UNIFIED IDEOGRAPH-65F6}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 24207 (\N{CJK UNIFIED IDEOGRAPH-5E8F}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 22343 (\N{CJK UNIFIED IDEOGRAPH-5747}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 20540 (\N{CJK UNIFIED IDEOGRAPH-503C}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 21495 (\N{CJK UNIFIED IDEOGRAPH-53F7}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 35843 (\N{CJK UNIFIED IDEOGRAPH-8C03}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 20179 (\N{CJK UNIFIED IDEOGRAPH-4ED3}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 27425 (\N{CJK UNIFIED IDEOGRAPH-6B21}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 25968 (\N{CJK UNIFIED IDEOGRAPH-6570}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 32047 (\N{CJK UNIFIED IDEOGRAPH-7D2F}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 35745 (\N{CJK UNIFIED IDEOGRAPH-8BA1}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 25910 (\N{CJK UNIFIED IDEOGRAPH-6536}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 30410 (\N{CJK UNIFIED IDEOGRAPH-76CA}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 21382 (\N{CJK UNIFIED IDEOGRAPH-5386}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 21490 (\N{CJK UNIFIED IDEOGRAPH-53F2}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 30334 (\N{CJK UNIFIED IDEOGRAPH-767E}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 20998 (\N{CJK UNIFIED IDEOGRAPH-5206}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 20301 (\N{CJK UNIFIED IDEOGRAPH-4F4D}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 22810 (\N{CJK UNIFIED IDEOGRAPH-591A}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 31354 (\N{CJK UNIFIED IDEOGRAPH-7A7A}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 32452 (\N{CJK UNIFIED IDEOGRAPH-7EC4}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 21512 (\N{CJK UNIFIED IDEOGRAPH-5408}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 65288 (\N{FULLWIDTH LEFT PARENTHESIS}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 24050 (\N{CJK UNIFIED IDEOGRAPH-5DF2}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 25187 (\N{CJK UNIFIED IDEOGRAPH-6263}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 38500 (\N{CJK UNIFIED IDEOGRAPH-9664}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 20132 (\N{CJK UNIFIED IDEOGRAPH-4EA4}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 26131 (\N{CJK UNIFIED IDEOGRAPH-6613}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 25104 (\N{CJK UNIFIED IDEOGRAPH-6210}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 26412 (\N{CJK UNIFIED IDEOGRAPH-672C}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 65289 (\N{FULLWIDTH RIGHT PARENTHESIS}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 32047 (\N{CJK UNIFIED IDEOGRAPH-7D2F}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 35745 (\N{CJK UNIFIED IDEOGRAPH-8BA1}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 25910 (\N{CJK UNIFIED IDEOGRAPH-6536}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 30410 (\N{CJK UNIFIED IDEOGRAPH-76CA}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 21382 (\N{CJK UNIFIED IDEOGRAPH-5386}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 21490 (\N{CJK UNIFIED IDEOGRAPH-53F2}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 30334 (\N{CJK UNIFIED IDEOGRAPH-767E}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 20998 (\N{CJK UNIFIED IDEOGRAPH-5206}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 20301 (\N{CJK UNIFIED IDEOGRAPH-4F4D}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 22810 (\N{CJK UNIFIED IDEOGRAPH-591A}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 31354 (\N{CJK UNIFIED IDEOGRAPH-7A7A}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 32452 (\N{CJK UNIFIED IDEOGRAPH-7EC4}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 21512 (\N{CJK UNIFIED IDEOGRAPH-5408}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 65288 (\N{FULLWIDTH LEFT PARENTHESIS}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 24050 (\N{CJK UNIFIED IDEOGRAPH-5DF2}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 25187 (\N{CJK UNIFIED IDEOGRAPH-6263}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 38500 (\N{CJK UNIFIED IDEOGRAPH-9664}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 20132 (\N{CJK UNIFIED IDEOGRAPH-4EA4}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 26131 (\N{CJK UNIFIED IDEOGRAPH-6613}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 25104 (\N{CJK UNIFIED IDEOGRAPH-6210}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 26412 (\N{CJK UNIFIED IDEOGRAPH-672C}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 65289 (\N{FULLWIDTH RIGHT PARENTHESIS}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 35843 (\N{CJK UNIFIED IDEOGRAPH-8C03}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 20179 (\N{CJK UNIFIED IDEOGRAPH-4ED3}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 27425 (\N{CJK UNIFIED IDEOGRAPH-6B21}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 25968 (\N{CJK UNIFIED IDEOGRAPH-6570}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 27599 (\N{CJK UNIFIED IDEOGRAPH-6BCF}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 26085 (\N{CJK UNIFIED IDEOGRAPH-65E5}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 20301 (\N{CJK UNIFIED IDEOGRAPH-4F4D}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 32622 (\N{CJK UNIFIED IDEOGRAPH-7F6E}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 26102 (\N{CJK UNIFIED IDEOGRAPH-65F6}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 24207 (\N{CJK UNIFIED IDEOGRAPH-5E8F}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 22343 (\N{CJK UNIFIED IDEOGRAPH-5747}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 20540 (\N{CJK UNIFIED IDEOGRAPH-503C}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 20132 (\N{CJK UNIFIED IDEOGRAPH-4EA4}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 26131 (\N{CJK UNIFIED IDEOGRAPH-6613}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 21495 (\N{CJK UNIFIED IDEOGRAPH-53F7}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 32047 (\N{CJK UNIFIED IDEOGRAPH-7D2F}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 35745 (\N{CJK UNIFIED IDEOGRAPH-8BA1}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 27599 (\N{CJK UNIFIED IDEOGRAPH-6BCF}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 26085 (\N{CJK UNIFIED IDEOGRAPH-65E5}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 32622 (\N{CJK UNIFIED IDEOGRAPH-7F6E}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 26102 (\N{CJK UNIFIED IDEOGRAPH-65F6}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 24207 (\N{CJK UNIFIED IDEOGRAPH-5E8F}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 22343 (\N{CJK UNIFIED IDEOGRAPH-5747}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 20540 (\N{CJK UNIFIED IDEOGRAPH-503C}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 21495 (\N{CJK UNIFIED IDEOGRAPH-53F7}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 35843 (\N{CJK UNIFIED IDEOGRAPH-8C03}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 20179 (\N{CJK UNIFIED IDEOGRAPH-4ED3}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 27425 (\N{CJK UNIFIED IDEOGRAPH-6B21}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 25968 (\N{CJK UNIFIED IDEOGRAPH-6570}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 32047 (\N{CJK UNIFIED IDEOGRAPH-7D2F}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 35745 (\N{CJK UNIFIED IDEOGRAPH-8BA1}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 25910 (\N{CJK UNIFIED IDEOGRAPH-6536}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 30410 (\N{CJK UNIFIED IDEOGRAPH-76CA}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 26085 (\N{CJK UNIFIED IDEOGRAPH-65E5}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 20301 (\N{CJK UNIFIED IDEOGRAPH-4F4D}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 32622 (\N{CJK UNIFIED IDEOGRAPH-7F6E}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 22810 (\N{CJK UNIFIED IDEOGRAPH-591A}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 31354 (\N{CJK UNIFIED IDEOGRAPH-7A7A}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 32452 (\N{CJK UNIFIED IDEOGRAPH-7EC4}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 21512 (\N{CJK UNIFIED IDEOGRAPH-5408}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 65288 (\N{FULLWIDTH LEFT PARENTHESIS}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 24050 (\N{CJK UNIFIED IDEOGRAPH-5DF2}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 25187 (\N{CJK UNIFIED IDEOGRAPH-6263}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 38500 (\N{CJK UNIFIED IDEOGRAPH-9664}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 20132 (\N{CJK UNIFIED IDEOGRAPH-4EA4}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 26131 (\N{CJK UNIFIED IDEOGRAPH-6613}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 25104 (\N{CJK UNIFIED IDEOGRAPH-6210}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 26412 (\N{CJK UNIFIED IDEOGRAPH-672C}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 65289 (\N{FULLWIDTH RIGHT PARENTHESIS}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 32047 (\N{CJK UNIFIED IDEOGRAPH-7D2F}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 35745 (\N{CJK UNIFIED IDEOGRAPH-8BA1}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 25910 (\N{CJK UNIFIED IDEOGRAPH-6536}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 30410 (\N{CJK UNIFIED IDEOGRAPH-76CA}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 26085 (\N{CJK UNIFIED IDEOGRAPH-65E5}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 20301 (\N{CJK UNIFIED IDEOGRAPH-4F4D}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 32622 (\N{CJK UNIFIED IDEOGRAPH-7F6E}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 22810 (\N{CJK UNIFIED IDEOGRAPH-591A}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 31354 (\N{CJK UNIFIED IDEOGRAPH-7A7A}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 32452 (\N{CJK UNIFIED IDEOGRAPH-7EC4}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 21512 (\N{CJK UNIFIED IDEOGRAPH-5408}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 65288 (\N{FULLWIDTH LEFT PARENTHESIS}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 24050 (\N{CJK UNIFIED IDEOGRAPH-5DF2}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 25187 (\N{CJK UNIFIED IDEOGRAPH-6263}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 38500 (\N{CJK UNIFIED IDEOGRAPH-9664}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 20132 (\N{CJK UNIFIED IDEOGRAPH-4EA4}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 26131 (\N{CJK UNIFIED IDEOGRAPH-6613}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 25104 (\N{CJK UNIFIED IDEOGRAPH-6210}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 26412 (\N{CJK UNIFIED IDEOGRAPH-672C}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 65289 (\N{FULLWIDTH RIGHT PARENTHESIS}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 35843 (\N{CJK UNIFIED IDEOGRAPH-8C03}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 20179 (\N{CJK UNIFIED IDEOGRAPH-4ED3}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 27425 (\N{CJK UNIFIED IDEOGRAPH-6B21}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 25968 (\N{CJK UNIFIED IDEOGRAPH-6570}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 27599 (\N{CJK UNIFIED IDEOGRAPH-6BCF}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 26085 (\N{CJK UNIFIED IDEOGRAPH-65E5}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 20559 (\N{CJK UNIFIED IDEOGRAPH-504F}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 31163 (\N{CJK UNIFIED IDEOGRAPH-79BB}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 24230 (\N{CJK UNIFIED IDEOGRAPH-5EA6}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 26102 (\N{CJK UNIFIED IDEOGRAPH-65F6}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 24207 (\N{CJK UNIFIED IDEOGRAPH-5E8F}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 22343 (\N{CJK UNIFIED IDEOGRAPH-5747}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 20540 (\N{CJK UNIFIED IDEOGRAPH-503C}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 20132 (\N{CJK UNIFIED IDEOGRAPH-4EA4}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 26131 (\N{CJK UNIFIED IDEOGRAPH-6613}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 21495 (\N{CJK UNIFIED IDEOGRAPH-53F7}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 32047 (\N{CJK UNIFIED IDEOGRAPH-7D2F}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 35745 (\N{CJK UNIFIED IDEOGRAPH-8BA1}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 27599 (\N{CJK UNIFIED IDEOGRAPH-6BCF}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 20559 (\N{CJK UNIFIED IDEOGRAPH-504F}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 31163 (\N{CJK UNIFIED IDEOGRAPH-79BB}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 24230 (\N{CJK UNIFIED IDEOGRAPH-5EA6}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 26102 (\N{CJK UNIFIED IDEOGRAPH-65F6}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 24207 (\N{CJK UNIFIED IDEOGRAPH-5E8F}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 22343 (\N{CJK UNIFIED IDEOGRAPH-5747}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 20540 (\N{CJK UNIFIED IDEOGRAPH-503C}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 21495 (\N{CJK UNIFIED IDEOGRAPH-53F7}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 35843 (\N{CJK UNIFIED IDEOGRAPH-8C03}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 20179 (\N{CJK UNIFIED IDEOGRAPH-4ED3}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 27425 (\N{CJK UNIFIED IDEOGRAPH-6B21}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 25968 (\N{CJK UNIFIED IDEOGRAPH-6570}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 32047 (\N{CJK UNIFIED IDEOGRAPH-7D2F}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 35745 (\N{CJK UNIFIED IDEOGRAPH-8BA1}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 25910 (\N{CJK UNIFIED IDEOGRAPH-6536}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 30410 (\N{CJK UNIFIED IDEOGRAPH-76CA}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 20559 (\N{CJK UNIFIED IDEOGRAPH-504F}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 31163 (\N{CJK UNIFIED IDEOGRAPH-79BB}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 24230 (\N{CJK UNIFIED IDEOGRAPH-5EA6}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 22810 (\N{CJK UNIFIED IDEOGRAPH-591A}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 31354 (\N{CJK UNIFIED IDEOGRAPH-7A7A}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 32452 (\N{CJK UNIFIED IDEOGRAPH-7EC4}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 21512 (\N{CJK UNIFIED IDEOGRAPH-5408}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 65288 (\N{FULLWIDTH LEFT PARENTHESIS}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 24050 (\N{CJK UNIFIED IDEOGRAPH-5DF2}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 25187 (\N{CJK UNIFIED IDEOGRAPH-6263}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 38500 (\N{CJK UNIFIED IDEOGRAPH-9664}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 20132 (\N{CJK UNIFIED IDEOGRAPH-4EA4}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 26131 (\N{CJK UNIFIED IDEOGRAPH-6613}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 25104 (\N{CJK UNIFIED IDEOGRAPH-6210}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 26412 (\N{CJK UNIFIED IDEOGRAPH-672C}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 65289 (\N{FULLWIDTH RIGHT PARENTHESIS}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 32047 (\N{CJK UNIFIED IDEOGRAPH-7D2F}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 35745 (\N{CJK UNIFIED IDEOGRAPH-8BA1}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 25910 (\N{CJK UNIFIED IDEOGRAPH-6536}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 30410 (\N{CJK UNIFIED IDEOGRAPH-76CA}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 20559 (\N{CJK UNIFIED IDEOGRAPH-504F}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 31163 (\N{CJK UNIFIED IDEOGRAPH-79BB}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 24230 (\N{CJK UNIFIED IDEOGRAPH-5EA6}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 22810 (\N{CJK UNIFIED IDEOGRAPH-591A}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 31354 (\N{CJK UNIFIED IDEOGRAPH-7A7A}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 32452 (\N{CJK UNIFIED IDEOGRAPH-7EC4}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 21512 (\N{CJK UNIFIED IDEOGRAPH-5408}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 65288 (\N{FULLWIDTH LEFT PARENTHESIS}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 24050 (\N{CJK UNIFIED IDEOGRAPH-5DF2}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 25187 (\N{CJK UNIFIED IDEOGRAPH-6263}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 38500 (\N{CJK UNIFIED IDEOGRAPH-9664}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 20132 (\N{CJK UNIFIED IDEOGRAPH-4EA4}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 26131 (\N{CJK UNIFIED IDEOGRAPH-6613}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 25104 (\N{CJK UNIFIED IDEOGRAPH-6210}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 26412 (\N{CJK UNIFIED IDEOGRAPH-672C}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 65289 (\N{FULLWIDTH RIGHT PARENTHESIS}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 35843 (\N{CJK UNIFIED IDEOGRAPH-8C03}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 20179 (\N{CJK UNIFIED IDEOGRAPH-4ED3}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 27425 (\N{CJK UNIFIED IDEOGRAPH-6B21}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 25968 (\N{CJK UNIFIED IDEOGRAPH-6570}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 27599 (\N{CJK UNIFIED IDEOGRAPH-6BCF}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 26085 (\N{CJK UNIFIED IDEOGRAPH-65E5}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 26102 (\N{CJK UNIFIED IDEOGRAPH-65F6}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 24207 (\N{CJK UNIFIED IDEOGRAPH-5E8F}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 22343 (\N{CJK UNIFIED IDEOGRAPH-5747}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 20540 (\N{CJK UNIFIED IDEOGRAPH-503C}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 20132 (\N{CJK UNIFIED IDEOGRAPH-4EA4}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 26131 (\N{CJK UNIFIED IDEOGRAPH-6613}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 21495 (\N{CJK UNIFIED IDEOGRAPH-53F7}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 32047 (\N{CJK UNIFIED IDEOGRAPH-7D2F}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 35745 (\N{CJK UNIFIED IDEOGRAPH-8BA1}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 27599 (\N{CJK UNIFIED IDEOGRAPH-6BCF}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 26085 (\N{CJK UNIFIED IDEOGRAPH-65E5}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 26102 (\N{CJK UNIFIED IDEOGRAPH-65F6}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 24207 (\N{CJK UNIFIED IDEOGRAPH-5E8F}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 22343 (\N{CJK UNIFIED IDEOGRAPH-5747}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 20540 (\N{CJK UNIFIED IDEOGRAPH-503C}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 21495 (\N{CJK UNIFIED IDEOGRAPH-53F7}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 35843 (\N{CJK UNIFIED IDEOGRAPH-8C03}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 20179 (\N{CJK UNIFIED IDEOGRAPH-4ED3}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 27425 (\N{CJK UNIFIED IDEOGRAPH-6B21}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 25968 (\N{CJK UNIFIED IDEOGRAPH-6570}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 32047 (\N{CJK UNIFIED IDEOGRAPH-7D2F}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 35745 (\N{CJK UNIFIED IDEOGRAPH-8BA1}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 25910 (\N{CJK UNIFIED IDEOGRAPH-6536}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 30410 (\N{CJK UNIFIED IDEOGRAPH-76CA}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 22810 (\N{CJK UNIFIED IDEOGRAPH-591A}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 31354 (\N{CJK UNIFIED IDEOGRAPH-7A7A}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 32452 (\N{CJK UNIFIED IDEOGRAPH-7EC4}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 21512 (\N{CJK UNIFIED IDEOGRAPH-5408}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 65288 (\N{FULLWIDTH LEFT PARENTHESIS}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 24050 (\N{CJK UNIFIED IDEOGRAPH-5DF2}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 25187 (\N{CJK UNIFIED IDEOGRAPH-6263}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 38500 (\N{CJK UNIFIED IDEOGRAPH-9664}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 20132 (\N{CJK UNIFIED IDEOGRAPH-4EA4}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 26131 (\N{CJK UNIFIED IDEOGRAPH-6613}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 25104 (\N{CJK UNIFIED IDEOGRAPH-6210}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 26412 (\N{CJK UNIFIED IDEOGRAPH-672C}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 65289 (\N{FULLWIDTH RIGHT PARENTHESIS}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 32047 (\N{CJK UNIFIED IDEOGRAPH-7D2F}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 35745 (\N{CJK UNIFIED IDEOGRAPH-8BA1}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 25910 (\N{CJK UNIFIED IDEOGRAPH-6536}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 30410 (\N{CJK UNIFIED IDEOGRAPH-76CA}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 22810 (\N{CJK UNIFIED IDEOGRAPH-591A}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 31354 (\N{CJK UNIFIED IDEOGRAPH-7A7A}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 32452 (\N{CJK UNIFIED IDEOGRAPH-7EC4}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 21512 (\N{CJK UNIFIED IDEOGRAPH-5408}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 65288 (\N{FULLWIDTH LEFT PARENTHESIS}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 24050 (\N{CJK UNIFIED IDEOGRAPH-5DF2}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 25187 (\N{CJK UNIFIED IDEOGRAPH-6263}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 38500 (\N{CJK UNIFIED IDEOGRAPH-9664}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 20132 (\N{CJK UNIFIED IDEOGRAPH-4EA4}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 26131 (\N{CJK UNIFIED IDEOGRAPH-6613}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 25104 (\N{CJK UNIFIED IDEOGRAPH-6210}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 26412 (\N{CJK UNIFIED IDEOGRAPH-672C}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 65289 (\N{FULLWIDTH RIGHT PARENTHESIS}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 35843 (\N{CJK UNIFIED IDEOGRAPH-8C03}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 20179 (\N{CJK UNIFIED IDEOGRAPH-4ED3}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 27425 (\N{CJK UNIFIED IDEOGRAPH-6B21}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 25968 (\N{CJK UNIFIED IDEOGRAPH-6570}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 27599 (\N{CJK UNIFIED IDEOGRAPH-6BCF}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 26085 (\N{CJK UNIFIED IDEOGRAPH-65E5}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 20928 (\N{CJK UNIFIED IDEOGRAPH-51C0}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 21033 (\N{CJK UNIFIED IDEOGRAPH-5229}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 21516 (\N{CJK UNIFIED IDEOGRAPH-540C}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 27604 (\N{CJK UNIFIED IDEOGRAPH-6BD4}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 26102 (\N{CJK UNIFIED IDEOGRAPH-65F6}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 24207 (\N{CJK UNIFIED IDEOGRAPH-5E8F}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 22343 (\N{CJK UNIFIED IDEOGRAPH-5747}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 20540 (\N{CJK UNIFIED IDEOGRAPH-503C}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 20132 (\N{CJK UNIFIED IDEOGRAPH-4EA4}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 26131 (\N{CJK UNIFIED IDEOGRAPH-6613}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 21495 (\N{CJK UNIFIED IDEOGRAPH-53F7}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 32047 (\N{CJK UNIFIED IDEOGRAPH-7D2F}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 35745 (\N{CJK UNIFIED IDEOGRAPH-8BA1}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 27599 (\N{CJK UNIFIED IDEOGRAPH-6BCF}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 26085 (\N{CJK UNIFIED IDEOGRAPH-65E5}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 20928 (\N{CJK UNIFIED IDEOGRAPH-51C0}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 21033 (\N{CJK UNIFIED IDEOGRAPH-5229}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 21516 (\N{CJK UNIFIED IDEOGRAPH-540C}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 27604 (\N{CJK UNIFIED IDEOGRAPH-6BD4}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 26102 (\N{CJK UNIFIED IDEOGRAPH-65F6}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 24207 (\N{CJK UNIFIED IDEOGRAPH-5E8F}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 22343 (\N{CJK UNIFIED IDEOGRAPH-5747}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 20540 (\N{CJK UNIFIED IDEOGRAPH-503C}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 21495 (\N{CJK UNIFIED IDEOGRAPH-53F7}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 35843 (\N{CJK UNIFIED IDEOGRAPH-8C03}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 20179 (\N{CJK UNIFIED IDEOGRAPH-4ED3}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 27425 (\N{CJK UNIFIED IDEOGRAPH-6B21}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 25968 (\N{CJK UNIFIED IDEOGRAPH-6570}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 32047 (\N{CJK UNIFIED IDEOGRAPH-7D2F}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 35745 (\N{CJK UNIFIED IDEOGRAPH-8BA1}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 25910 (\N{CJK UNIFIED IDEOGRAPH-6536}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 30410 (\N{CJK UNIFIED IDEOGRAPH-76CA}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 20928 (\N{CJK UNIFIED IDEOGRAPH-51C0}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 21033 (\N{CJK UNIFIED IDEOGRAPH-5229}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 21516 (\N{CJK UNIFIED IDEOGRAPH-540C}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 27604 (\N{CJK UNIFIED IDEOGRAPH-6BD4}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 22810 (\N{CJK UNIFIED IDEOGRAPH-591A}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 31354 (\N{CJK UNIFIED IDEOGRAPH-7A7A}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 32452 (\N{CJK UNIFIED IDEOGRAPH-7EC4}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 21512 (\N{CJK UNIFIED IDEOGRAPH-5408}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 65288 (\N{FULLWIDTH LEFT PARENTHESIS}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 24050 (\N{CJK UNIFIED IDEOGRAPH-5DF2}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 25187 (\N{CJK UNIFIED IDEOGRAPH-6263}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 38500 (\N{CJK UNIFIED IDEOGRAPH-9664}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 20132 (\N{CJK UNIFIED IDEOGRAPH-4EA4}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 26131 (\N{CJK UNIFIED IDEOGRAPH-6613}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 25104 (\N{CJK UNIFIED IDEOGRAPH-6210}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 26412 (\N{CJK UNIFIED IDEOGRAPH-672C}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 65289 (\N{FULLWIDTH RIGHT PARENTHESIS}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 32047 (\N{CJK UNIFIED IDEOGRAPH-7D2F}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 35745 (\N{CJK UNIFIED IDEOGRAPH-8BA1}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 25910 (\N{CJK UNIFIED IDEOGRAPH-6536}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 30410 (\N{CJK UNIFIED IDEOGRAPH-76CA}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 20928 (\N{CJK UNIFIED IDEOGRAPH-51C0}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 21033 (\N{CJK UNIFIED IDEOGRAPH-5229}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 21516 (\N{CJK UNIFIED IDEOGRAPH-540C}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 27604 (\N{CJK UNIFIED IDEOGRAPH-6BD4}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 22810 (\N{CJK UNIFIED IDEOGRAPH-591A}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 31354 (\N{CJK UNIFIED IDEOGRAPH-7A7A}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 32452 (\N{CJK UNIFIED IDEOGRAPH-7EC4}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 21512 (\N{CJK UNIFIED IDEOGRAPH-5408}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 65288 (\N{FULLWIDTH LEFT PARENTHESIS}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 24050 (\N{CJK UNIFIED IDEOGRAPH-5DF2}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 25187 (\N{CJK UNIFIED IDEOGRAPH-6263}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 38500 (\N{CJK UNIFIED IDEOGRAPH-9664}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 20132 (\N{CJK UNIFIED IDEOGRAPH-4EA4}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 26131 (\N{CJK UNIFIED IDEOGRAPH-6613}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 25104 (\N{CJK UNIFIED IDEOGRAPH-6210}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 26412 (\N{CJK UNIFIED IDEOGRAPH-672C}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 65289 (\N{FULLWIDTH RIGHT PARENTHESIS}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 35843 (\N{CJK UNIFIED IDEOGRAPH-8C03}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 20179 (\N{CJK UNIFIED IDEOGRAPH-4ED3}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 27425 (\N{CJK UNIFIED IDEOGRAPH-6B21}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 25968 (\N{CJK UNIFIED IDEOGRAPH-6570}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 27599 (\N{CJK UNIFIED IDEOGRAPH-6BCF}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 26085 (\N{CJK UNIFIED IDEOGRAPH-65E5}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 21491 (\N{CJK UNIFIED IDEOGRAPH-53F3}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 20391 (\N{CJK UNIFIED IDEOGRAPH-4FA7}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 20449 (\N{CJK UNIFIED IDEOGRAPH-4FE1}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 21495 (\N{CJK UNIFIED IDEOGRAPH-53F7}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 21512 (\N{CJK UNIFIED IDEOGRAPH-5408}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 25104 (\N{CJK UNIFIED IDEOGRAPH-6210}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 35780 (\N{CJK UNIFIED IDEOGRAPH-8BC4}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 20998 (\N{CJK UNIFIED IDEOGRAPH-5206}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 26102 (\N{CJK UNIFIED IDEOGRAPH-65F6}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 24207 (\N{CJK UNIFIED IDEOGRAPH-5E8F}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 22343 (\N{CJK UNIFIED IDEOGRAPH-5747}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 20540 (\N{CJK UNIFIED IDEOGRAPH-503C}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 20132 (\N{CJK UNIFIED IDEOGRAPH-4EA4}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 26131 (\N{CJK UNIFIED IDEOGRAPH-6613}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 32047 (\N{CJK UNIFIED IDEOGRAPH-7D2F}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:81: UserWarning: Glyph 35745 (\N{CJK UNIFIED IDEOGRAPH-8BA1}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 27599 (\N{CJK UNIFIED IDEOGRAPH-6BCF}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 26085 (\N{CJK UNIFIED IDEOGRAPH-65E5}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 21491 (\N{CJK UNIFIED IDEOGRAPH-53F3}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 20391 (\N{CJK UNIFIED IDEOGRAPH-4FA7}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 20449 (\N{CJK UNIFIED IDEOGRAPH-4FE1}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 21495 (\N{CJK UNIFIED IDEOGRAPH-53F7}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 35780 (\N{CJK UNIFIED IDEOGRAPH-8BC4}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 20998 (\N{CJK UNIFIED IDEOGRAPH-5206}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 26102 (\N{CJK UNIFIED IDEOGRAPH-65F6}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 24207 (\N{CJK UNIFIED IDEOGRAPH-5E8F}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 22343 (\N{CJK UNIFIED IDEOGRAPH-5747}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 20540 (\N{CJK UNIFIED IDEOGRAPH-503C}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 35843 (\N{CJK UNIFIED IDEOGRAPH-8C03}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 20179 (\N{CJK UNIFIED IDEOGRAPH-4ED3}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 27425 (\N{CJK UNIFIED IDEOGRAPH-6B21}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 25968 (\N{CJK UNIFIED IDEOGRAPH-6570}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 32047 (\N{CJK UNIFIED IDEOGRAPH-7D2F}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 35745 (\N{CJK UNIFIED IDEOGRAPH-8BA1}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 25910 (\N{CJK UNIFIED IDEOGRAPH-6536}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 30410 (\N{CJK UNIFIED IDEOGRAPH-76CA}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 21491 (\N{CJK UNIFIED IDEOGRAPH-53F3}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 20391 (\N{CJK UNIFIED IDEOGRAPH-4FA7}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 20449 (\N{CJK UNIFIED IDEOGRAPH-4FE1}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 21495 (\N{CJK UNIFIED IDEOGRAPH-53F7}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 21512 (\N{CJK UNIFIED IDEOGRAPH-5408}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 25104 (\N{CJK UNIFIED IDEOGRAPH-6210}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 35780 (\N{CJK UNIFIED IDEOGRAPH-8BC4}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 20998 (\N{CJK UNIFIED IDEOGRAPH-5206}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 22810 (\N{CJK UNIFIED IDEOGRAPH-591A}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 31354 (\N{CJK UNIFIED IDEOGRAPH-7A7A}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 32452 (\N{CJK UNIFIED IDEOGRAPH-7EC4}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 65288 (\N{FULLWIDTH LEFT PARENTHESIS}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 24050 (\N{CJK UNIFIED IDEOGRAPH-5DF2}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 25187 (\N{CJK UNIFIED IDEOGRAPH-6263}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 38500 (\N{CJK UNIFIED IDEOGRAPH-9664}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 20132 (\N{CJK UNIFIED IDEOGRAPH-4EA4}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 26131 (\N{CJK UNIFIED IDEOGRAPH-6613}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 26412 (\N{CJK UNIFIED IDEOGRAPH-672C}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:100: UserWarning: Glyph 65289 (\N{FULLWIDTH RIGHT PARENTHESIS}) missing from font(s) DejaVu Sans.
+  plt.tight_layout()
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 32047 (\N{CJK UNIFIED IDEOGRAPH-7D2F}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 35745 (\N{CJK UNIFIED IDEOGRAPH-8BA1}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 25910 (\N{CJK UNIFIED IDEOGRAPH-6536}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 30410 (\N{CJK UNIFIED IDEOGRAPH-76CA}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 21491 (\N{CJK UNIFIED IDEOGRAPH-53F3}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 20391 (\N{CJK UNIFIED IDEOGRAPH-4FA7}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 20449 (\N{CJK UNIFIED IDEOGRAPH-4FE1}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 21495 (\N{CJK UNIFIED IDEOGRAPH-53F7}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 21512 (\N{CJK UNIFIED IDEOGRAPH-5408}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 25104 (\N{CJK UNIFIED IDEOGRAPH-6210}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 35780 (\N{CJK UNIFIED IDEOGRAPH-8BC4}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 20998 (\N{CJK UNIFIED IDEOGRAPH-5206}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 22810 (\N{CJK UNIFIED IDEOGRAPH-591A}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 31354 (\N{CJK UNIFIED IDEOGRAPH-7A7A}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 32452 (\N{CJK UNIFIED IDEOGRAPH-7EC4}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 65288 (\N{FULLWIDTH LEFT PARENTHESIS}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 24050 (\N{CJK UNIFIED IDEOGRAPH-5DF2}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 25187 (\N{CJK UNIFIED IDEOGRAPH-6263}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 38500 (\N{CJK UNIFIED IDEOGRAPH-9664}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 20132 (\N{CJK UNIFIED IDEOGRAPH-4EA4}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 26131 (\N{CJK UNIFIED IDEOGRAPH-6613}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 26412 (\N{CJK UNIFIED IDEOGRAPH-672C}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 65289 (\N{FULLWIDTH RIGHT PARENTHESIS}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 35843 (\N{CJK UNIFIED IDEOGRAPH-8C03}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 20179 (\N{CJK UNIFIED IDEOGRAPH-4ED3}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 27425 (\N{CJK UNIFIED IDEOGRAPH-6B21}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+/opt/stock-report/backtest/report_generator.py:47: UserWarning: Glyph 25968 (\N{CJK UNIFIED IDEOGRAPH-6570}) missing from font(s) DejaVu Sans.
+  fig.savefig(buf, format="png", dpi=80, bbox_inches="tight")
+14:01:33 [INFO] 📄 HTML报告已生成: /opt/stock-report/backtest/reports/ic_report_20260610_1401.html
+14:01:33 [INFO] 
+============================================================
+14:01:33 [INFO] ✅ 全部完成
+14:01:33 [INFO] 📄 报告: /opt/stock-report/backtest/reports/ic_report_20260610_1401.html
+14:01:33 [INFO] ============================================================
+
+
+================================================================================
+因子IC汇总（T+10日，按|IC|降序）
+================================================================================
+ 排名         因子              code       方向    IC均值   ICIR  胜率%    t值  天数
+  1   10日主力净流入        inflow_10d positive  0.0224  2.341 56.9  4.00 735
+  2      净利同比%            np_yoy positive  0.0201  2.152 54.4  3.67 735
+  3    股东户数变化% holder_change_pct negative -0.0174 -2.766 43.0 -4.72 735
+  4   右侧信号合成评分  right_side_score positive  0.0132  1.975 56.5  3.37 735
+  5    PE历史百分位  pe_percentile_1y negative -0.0125 -1.324 46.7 -2.26 735
+  6     MA5偏离度  price_vs_ma5_pct positive -0.0086 -0.728 47.1 -1.24 735
+  7 换手率Z-score   turnover_zscore  neutral -0.0072 -0.856 47.8 -1.46 735
+  8     20日位置%  position_20d_pct negative  0.0068  0.586 53.5  1.00 735
+  9      RSI14            rsi_14 negative  0.0038  0.320 54.7  0.55 735
+ 10      资金流斜率      inflow_slope positive -0.0025 -0.274 50.7 -0.47 735
+================================================================================
+
+
+====================================================================================================
+分位回测汇总（多空组合，已扣除交易成本15bps/次）
+====================================================================================================
+ 排名         因子       方向    年化%   波动%    夏普  最大回撤%  胜率%  调仓次数    q0    q1    q2    q3    q4
+  1   10日主力净流入 positive   8.82 14.78  0.60 -19.30 56.8    74 0.217 0.381 0.350 0.398 0.759
+  2     MA5偏离度 positive   8.02 19.16  0.42 -25.44 52.7    74 0.434 0.402 0.316 0.442 0.521
+  3      资金流斜率 positive   6.93 17.27  0.40 -14.62 48.6    74 0.486 0.397 0.350 0.353 0.519
+  4 换手率Z-score  neutral   6.73 14.14  0.48 -16.72 48.6    74 0.399 0.358 0.378 0.402 0.585
+  5    股东户数变化% negative   3.86 10.24  0.38 -11.91 50.0    74 0.611 0.368 0.364 0.392 0.379
+  6      净利同比% positive   1.67 15.05  0.11 -31.26 52.7    74 0.365 0.245 0.336 0.556 0.610
+  7   右侧信号合成评分 positive   0.32 12.35  0.03 -15.25 54.1    74 0.417 0.384 0.427 0.434 0.427
+  8    PE历史百分位 negative -11.95 14.25 -0.84 -31.77 47.9    73 0.210 0.336 0.499 0.603 0.510
+  9     20日位置% negative -20.23 16.76 -1.21 -53.30 39.7    73 0.164 0.309 0.391 0.484 0.756
+ 10      RSI14 negative -21.94 18.58 -1.18 -57.76 41.9    74 0.179 0.287 0.416 0.414 0.823
+====================================================================================================
+
