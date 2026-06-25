@@ -163,7 +163,16 @@ def collect_payload(source) -> Tuple[Dict[str, Any], List[TrackResult]]:
     payload["sector_analysis"] = {"available": False, "pending": "东财砍除无Tushare替代,待验证"}
     payload["hot_sector_scan"] = {"available": False, "pending": "hot_sector_scanner 未迁包,待验证"}
     payload["opportunity_scan"] = {"available": False, "pending": "opportunity_scanner 未迁包,待验证"}
-    payload["macro"] = {"available": False, "pending": "macro_indicators 未迁包,待验证"}
+
+    # 宏观环境(MR-Macro B1+2): 接真值, 已迁 5 维(1/2/3/4/6); 维度5/社融留 B3/B4。
+    # MacroIndicator 就近懒导入(其依赖 pandas/pyarrow, 不污染 collect 顶层); summary 内逐维容错。
+    # 任何异常(含无 pandas 环境)降级为 available=False, 不崩 collect、不臆造(P0)。
+    try:
+        from vaxstock.indicators.macro import MacroIndicator
+        payload["macro"] = MacroIndicator(source).summary()
+    except Exception as e:
+        logger.warning(f"  ⚠️ 宏观指标采集失败: {str(e)[:120]}")
+        payload["macro"] = {"available": False, "pending": f"macro 采集异常: {str(e)[:80]}"}
 
     logger.info("[4/5] 获取持仓与观察池(逐票装配, regime 显式传参)...")
     holdings = config.load_holdings()
