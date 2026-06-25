@@ -162,3 +162,50 @@ ALERT_RULES = {
     "main_inflow_yi": 1.0,        # 主力净流入超过1亿提示
     "main_outflow_yi": -1.0,      # 主力净流出超过1亿提示
 }
+
+
+# ==================== 标的池加载(观察池 / 持仓) ====================
+# 在使用处(如 services.collect)按需调用, 返回局部变量, 不建任何模块级 WATCHLIST/HOLDINGS 全局。
+
+def load_watchlist() -> Tuple[Dict[str, str], Dict[str, List[str]]]:
+    """从 CONFIG_DIR/watchlist.json 加载观察池。
+
+    返回 (watchlist, concepts_map):
+      - watchlist:    {code: name}
+      - concepts_map: {code: [手动概念...]}
+    文件缺失/损坏 -> ({}, {})(P0: 缺数据不臆造, 由调用方自行处理空池)。
+    """
+    path = CONFIG_DIR / "watchlist.json"
+    if not path.exists():
+        return {}, {}
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            cfg = json.load(f)
+        watchlist: Dict[str, str] = {}
+        concepts_map: Dict[str, List[str]] = {}
+        for code, info in (cfg.get("watchlist") or {}).items():
+            info = info or {}
+            watchlist[code] = info.get("name", "")
+            if info.get("concepts"):
+                concepts_map[code] = list(info["concepts"])
+        return watchlist, concepts_map
+    except Exception:
+        return {}, {}
+
+
+def load_holdings() -> Dict[str, Dict[str, Any]]:
+    """从 CONFIG_DIR/holdings.json 加载持仓真相(可选)。
+
+    返回 {code: {"name", "cost", "shares"}}; 文件缺失/损坏 -> {}。
+    注: holdings.json 在 v2 架构下标注"VPS不读"(持仓真相由 Claude 端维护);
+        此处做成可选加载——缺失即空持仓, 兼容 VPS 仅观察池的形态。
+    """
+    path = CONFIG_DIR / "holdings.json"
+    if not path.exists():
+        return {}
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            cfg = json.load(f)
+        return {code: (info or {}) for code, info in (cfg.get("holdings") or {}).items()}
+    except Exception:
+        return {}
