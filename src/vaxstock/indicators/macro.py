@@ -2,14 +2,14 @@
 """宏观环境指标采集(indicators 层, MR-Macro 乙方案 B1+2)。
 
 由 monolith script/macro_indicators.py 忠实迁入(逻辑零改动), 本 PR 落地骨架 + 缓存层 +
-信号评级 + 轻中 5 维(维度 1/2/3/4/6); 维度 5(全市场宽度透视表)与维度 7(社融脉冲)分别留给
-B3 / B4, 本 PR 不迁。
+信号评级 + 维度 1/2/3/4/5/6; 社融脉冲(维度 7)留给 B4, 本 PR 不迁。
 
-【已迁 5 维】
+【已迁维度】
   1. 5 大宽基 ETF 净申赎(fund_share / fund_daily)
   2. 融资买入额 / 两市成交额 3 年百分位(margin + index_daily; 必须 SSE+SZSE 双交易所齐全)
   3. 全 A 换手率 3 年百分位(index_dailybasic 中证全指代理)
   4. 沪深 300 ERP(index_dailybasic PE + AkShare 10 年国债, 失败走 fallback 常数)
+  5. 全市场宽度(B3): 高于MA60/MA200比例(按交易日批量拉 daily 透视) + 中证全指MA250乖离
   6. M1 月度同比(cn_m)
 
 【B1+2 去副作用 / v2 适配(只改"怎么取数"与"住哪", 不改"算什么")】
@@ -21,7 +21,7 @@ B3 / B4, 本 PR 不迁。
   - AkShare 国债收益率: import 放方法内(懒导入, import 本模块不连网), 并额外加 daemon+join
     墙钟超时(AK_YIELD_TIMEOUT), 防国内 VPS 连接挂死。
 
-维度 5 在 summary() 中暂返 available=False 占位(留 B3); 社融维度 7 不组装(留 B4)。
+维度 5(全市场宽度: 高于MA60/MA200比例 + 中证全指MA250乖离)已迁(B3); 社融维度 7 不组装(留 B4)。
 """
 
 import logging
@@ -40,7 +40,7 @@ logger = logging.getLogger(__name__)
 # AkShare 国债收益率墙钟超时(秒): 沿用 ai.py _yf_safe 的 daemon线程+join 模式, 防连接挂死
 AK_YIELD_TIMEOUT = 20
 
-# ==================== 标的清单(仅保留已迁 5 维所需) ====================
+# ==================== 标的清单 ====================
 
 # 5 大宽基 ETF(选规模最大的代表)
 ETF_BASKET = {
@@ -53,6 +53,13 @@ ETF_BASKET = {
 
 # 沪深 300 PE-TTM 来源(维度 4 ERP)
 HS300_INDEX = "000300.SH"
+
+# 中证全指(代理万得全A, Tushare 不支持万得指数; 维度5 MA250 BIAS 用)
+WHOLE_MARKET_PROXY = "000985.CSI"
+
+# 维度5 未结算守卫阈值: 单日全A(主板+创业板, 已滤北交所8/科创688)daily 正常约 4000+ 行;
+# 行数 < 此值视为未结算/接口异常, 跳过不写 pivot(防半截数据污染历史)。
+MIN_DAILY_ROWS = 1000
 
 
 # ==================== 信号阈值表(对应 04_quant_framework.md v1.3, 原样保留全维) ====================
@@ -180,8 +187,8 @@ def combine_signals(signal_list: List[str]) -> str:
     """根据所有维度信号, 综合判断宏观regime
     ✅✅算2个✅, ❌❌算2个❌, 🚫忽略
 
-    B1+2 注: 当前只喂已迁的 5 维信号(缺维度5的2个宽度信号 + 维度7社融),
-    占比逻辑不依赖固定维度数, regime 仍可算; B3/B4 补齐后 regime 更全。
+    注: 喂已迁的维度 1/2/3/4/5/6 信号(B3 补齐维度5的宽度/乖离信号; 缺维度7社融留 B4),
+    占比逻辑不依赖固定维度数, regime 仍可算; B4 补齐后 regime 更全。
     """
     bull = signal_list.count("✅") + 2 * signal_list.count("✅✅")
     bear = signal_list.count("❌") + 2 * signal_list.count("❌❌")
@@ -280,7 +287,7 @@ def _ymd_minus(ymd: str, days: int) -> str:
 # ==================== 主类 ====================
 
 class MacroIndicator:
-    """宏观环境指标采集主类(B1+2: 已迁 5 维, 维度5/7 留 B3/B4)"""
+    """宏观环境指标采集主类(已迁维度 1/2/3/4/5/6; 社融维度7 留 B4)"""
 
     # 全A 换手率代理指数候选(按优先级)
     # 注意: Tushare 的 index_dailybasic 不支持 .CSI 后缀, 要用 .SH
@@ -694,15 +701,219 @@ class MacroIndicator:
         self.cache.save(cache_name, merged)
         return merged
 
+    # ============ 维度5: 全A宽度(MA60/MA200/MA250 BIAS) ============
+    # 算法字节级照搬 monolith; 取数走 self._safe_call, 增量缓存走 self.cache。
+    # B3 幂等防护: stocks_daily_pivot 用 append_unique keep="last"(收盘真值覆盖); 维度5 是 EOD
+    # 收盘指标, 假设收盘后(含次日凌晨05:00)运行, trade_date 已定稿。逐日拉 daily 加未结算守卫
+    # (行数 < MIN_DAILY_ROWS 跳过不写), 防盘中/未就绪误跑把半截数据写进 pivot 污染历史。
+    # 性能注: 首次回填 stocks_daily_pivot 需数分钟~数十分钟(全A多年日K), 日常增量<1分钟;
+    # 是 EOD 冷启动慢的来源, 属本质非 bug。
+
+    def fetch_market_breadth(self, days: int = 5 * 252) -> Optional[Dict[str, pd.DataFrame]]:
+        """全A宽度三指标
+        - above_ma60_pct: 高于MA60的股票比例
+        - above_ma200_pct: 高于MA200的股票比例
+        - ma250_bias: 中证全指相对MA250的乖离率
+
+        返回: {
+          "breadth": DataFrame(trade_date, above_ma60_pct, above_ma200_pct,
+                               above_ma60_percentile_5y, above_ma200_percentile_5y),
+          "bias": DataFrame(trade_date, idx_close, ma250, bias_pct, percentile_5y)
+        }
+
+        简化策略: 用中证全指(000985.CSI)代理全市场。首次回填数据量大(见类注释性能注)。
+        """
+        return {
+            "breadth": self._fetch_breadth_ma_ratio(days),
+            "bias": self._fetch_ma250_bias(days),
+        }
+
+    def _fetch_ma250_bias(self, days: int = 5 * 252) -> Optional[pd.DataFrame]:
+        """中证全指 MA250 BIAS (简单实现)"""
+        cache_name = "ma250_bias_history"
+        existing = self.cache.load(cache_name)
+
+        # 需要250天的历史才能算 MA250, 所以多拉一些
+        last_date = self.cache.last_date(cache_name)
+        if last_date:
+            start_date = _ymd_minus(last_date, -1)
+        else:
+            start_date = _ymd_minus(_today_ymd(), days + 300)
+        end_date = _today_ymd()
+
+        logger.info(f"  拉取中证全指收盘价 {start_date} → {end_date}")
+        df = self._safe_call("index_daily", ts_code=WHOLE_MARKET_PROXY,
+                             start_date=start_date, end_date=end_date,
+                             fields="trade_date,close")
+        if df is None or len(df) == 0:
+            return existing
+
+        df = df.rename(columns={"close": "idx_close"})
+        merged = self.cache.append_unique(cache_name + "_raw", df, dedup_keys=["trade_date"])
+        merged = merged.sort_values("trade_date").reset_index(drop=True)
+
+        merged["ma250"] = merged["idx_close"].rolling(250, min_periods=200).mean()
+        merged["bias_pct"] = (merged["idx_close"] - merged["ma250"]) / merged["ma250"] * 100
+
+        # 5年百分位
+        window = 1250
+        def _rolling_pct(s: pd.Series) -> pd.Series:
+            out = []
+            for i in range(len(s)):
+                start = max(0, i - window + 1)
+                wd = s.iloc[start:i + 1]
+                if len(wd) < window // 2 or s.iloc[i] is None or pd.isna(s.iloc[i]):
+                    out.append(np.nan)
+                else:
+                    out.append((wd < s.iloc[i]).sum() / len(wd) * 100)
+            return pd.Series(out, index=s.index)
+
+        merged["percentile_5y"] = _rolling_pct(merged["bias_pct"])
+        self.cache.save(cache_name, merged)
+        return merged
+
+    def _fetch_breadth_ma_ratio(self, days: int = 5 * 252) -> Optional[pd.DataFrame]:
+        """全A高于MA60/MA200比例 - 按交易日批量拉取(每个交易日 1 次 daily, 非按股票循环)。"""
+        cache_name = "market_breadth_ratio_history"
+        existing = self.cache.load(cache_name)
+
+        today_ymd = _today_ymd()
+
+        # 1. 加载日K缓存
+        kline_cache = self.cache.load("stocks_daily_pivot")
+
+        # 2. 决定需要拉取的交易日范围
+        if kline_cache is not None and len(kline_cache) > 0 and "trade_date" in kline_cache.columns:
+            kline_last = str(kline_cache["trade_date"].max())
+            if kline_last >= today_ymd:
+                logger.info(f"  全A日K缓存已最新({kline_last}), 跳过拉取")
+                # 数据没新增, 但仍需重算 breadth(确保最新)
+                return self._compute_breadth_from_klines(kline_cache, cache_name)
+            start_fetch = _ymd_minus(kline_last, -1)  # 缓存最新日期 +1
+        else:
+            # 首次回填: 5年 + 280天缓冲(为算 MA250 需要)
+            start_fetch = _ymd_minus(today_ymd, days + 280)
+            kline_last = None
+
+        end_fetch = today_ymd
+        logger.info(f"  全A日K拉取范围 {start_fetch} → {end_fetch}")
+
+        # 3. 获取需要拉取的交易日列表(用上证综指反查交易日历)
+        trade_cal_df = self._safe_call("index_daily", ts_code="000001.SH",
+                                       start_date=start_fetch, end_date=end_fetch,
+                                       fields="trade_date")
+        if trade_cal_df is None or len(trade_cal_df) == 0:
+            logger.info(f"  无新交易日 ({start_fetch}→{end_fetch}), 用现有缓存")
+            if kline_cache is not None and len(kline_cache) > 0:
+                return self._compute_breadth_from_klines(kline_cache, cache_name)
+            return existing
+
+        trade_dates = sorted(trade_cal_df["trade_date"].astype(str).unique().tolist())
+        # 排除已缓存的日期
+        if kline_last:
+            trade_dates = [d for d in trade_dates if d > kline_last]
+        logger.info(f"  需要拉取 {len(trade_dates)} 个交易日的全A数据")
+
+        if not trade_dates:
+            logger.info("  无新交易日需要拉取")
+            if kline_cache is not None and len(kline_cache) > 0:
+                return self._compute_breadth_from_klines(kline_cache, cache_name)
+            return existing
+
+        # 4. 按交易日批量拉取(每个交易日 1 次 API)
+        new_klines = []
+        log_interval = max(1, len(trade_dates) // 20)  # 最多打 20 条进度
+        for i, trade_date in enumerate(trade_dates):
+            if i % log_interval == 0 or i == len(trade_dates) - 1:
+                logger.info(f"  全A按日拉取进度: {i+1}/{len(trade_dates)} (日期={trade_date})")
+            df = self._safe_call("daily", trade_date=trade_date,
+                                 fields="ts_code,trade_date,close")
+            # B3 未结算守卫: 行数异常(空/远少于全市场)视为未结算/接口异常 -> 跳过不写,
+            # 防盘中或数据未就绪误跑把半截 daily 写进 pivot 污染历史(凌晨5点正常跑 T 日已定稿)。
+            if df is None or len(df) < MIN_DAILY_ROWS:
+                logger.warning(f"  {trade_date} daily 行数异常({0 if df is None else len(df)}), "
+                               f"疑未结算/接口异常, 跳过不写pivot")
+                continue
+            # 过滤北交所(8字头)+ 科创板(688) — 与 v1.3 行为一致
+            df = df[~df["ts_code"].str.startswith(("8", "688"))].copy()
+            new_klines.append(df)
+
+        if new_klines:
+            new_df = pd.concat(new_klines, ignore_index=True)
+            kline_cache = self.cache.append_unique(
+                "stocks_daily_pivot", new_df, dedup_keys=["ts_code", "trade_date"]
+            )
+            logger.info(f"  日K增量: 新增{len(new_df)}行")
+
+        if kline_cache is None or len(kline_cache) == 0:
+            return existing
+
+        return self._compute_breadth_from_klines(kline_cache, cache_name)
+
+    def _compute_breadth_from_klines(self, kline_cache: pd.DataFrame,
+                                     cache_name: str) -> pd.DataFrame:
+        """从全A日K缓存计算 above_ma60/above_ma200 比例 + 5年百分位。
+
+        独立成方法: 数据缓存已最新时可跳过拉取, 只重算指标。算法原样照搬(where/掩码/min_periods)。
+        """
+        # 1. 透视成 wide 表(date 为 index, ts_code 为 columns, close 为值)
+        logger.info("  计算 MA60/MA200 比例...")
+        wide = kline_cache.pivot_table(index="trade_date", columns="ts_code",
+                                       values="close", aggfunc="last")
+        wide = wide.sort_index()
+
+        ma60 = wide.rolling(60, min_periods=40).mean()
+        ma200 = wide.rolling(200, min_periods=120).mean()
+
+        # 有效股票数 = MA 非空且 close 非空的股票数
+        valid_60 = (~ma60.isna() & ~wide.isna()).sum(axis=1)
+        valid_200 = (~ma200.isna() & ~wide.isna()).sum(axis=1)
+
+        # 用 where 确保只统计 MA 有效的股票
+        above_ma60_mask = (wide > ma60).where(~ma60.isna() & ~wide.isna(), 0)
+        above_ma200_mask = (wide > ma200).where(~ma200.isna() & ~wide.isna(), 0)
+
+        above_ma60_count = above_ma60_mask.sum(axis=1)
+        above_ma200_count = above_ma200_mask.sum(axis=1)
+
+        breadth = pd.DataFrame({
+            "trade_date": wide.index,
+            "above_ma60_pct": (above_ma60_count / valid_60.replace(0, np.nan) * 100).values,
+            "above_ma200_pct": (above_ma200_count / valid_200.replace(0, np.nan) * 100).values,
+            "valid_count_ma60": valid_60.values,
+            "valid_count_ma200": valid_200.values,
+        }).reset_index(drop=True)
+
+        # 2. 算5年滚动百分位
+        breadth = breadth.sort_values("trade_date").reset_index(drop=True)
+        window = 1250
+        def _rolling_pct(s: pd.Series) -> pd.Series:
+            out = []
+            for i in range(len(s)):
+                start = max(0, i - window + 1)
+                wd = s.iloc[start:i + 1].dropna()
+                cur = s.iloc[i]
+                if len(wd) < window // 2 or pd.isna(cur):
+                    out.append(np.nan)
+                else:
+                    out.append((wd < cur).sum() / len(wd) * 100)
+            return pd.Series(out, index=s.index)
+
+        breadth["above_ma60_percentile_5y"] = _rolling_pct(breadth["above_ma60_pct"])
+        breadth["above_ma200_percentile_5y"] = _rolling_pct(breadth["above_ma200_pct"])
+
+        self.cache.save(cache_name, breadth)
+        return breadth
+
     # ============ 综合摘要 + Regime ============
 
     def summary(self) -> Dict[str, Any]:
-        """生成当日宏观摘要(B1+2: 已迁 5 维 1/2/3/4/6), 带信号评级和综合 regime 判断。
+        """生成当日宏观摘要(已迁维度 1/2/3/4/5/6), 带信号评级和综合 regime 判断。
 
-        维度5(全市场宽度透视表)暂返 available=False 占位(留 B3); 社融维度7不组装(留 B4)。
+        维度5(全市场宽度: MA60/MA200比例 + 中证全指MA250乖离)已迁(B3); 社融维度7不组装(留 B4)。
         逐维 try-except 隔离: 单维失败进 errors, 不崩整体。
         """
-        logger.info("===== 宏观数据采集开始(B1+2: 5维) =====")
+        logger.info("===== 宏观数据采集开始(维度 1/2/3/4/5/6) =====")
 
         result: Dict[str, Any] = {
             "timestamp": datetime.now().isoformat(),
@@ -834,11 +1045,65 @@ class MacroIndicator:
             logger.warning(f"ERP采集失败: {e}")
             result["errors"].append(f"hs300_erp: {e}")
 
-        # 维度5: 全市场宽度(MA60/MA200/MA250 BIAS)—— B3 迁移, 本 PR 占位不调用
-        result["indicators"]["breadth"] = {
-            "available": False,
-            "pending": "维度5全市场透视表 留 B3 迁移",
-        }
+        # 维度5: 全市场宽度(MA60/MA200比例 + 中证全指MA250乖离)
+        # 信号方向/阈值键照 monolith: 三者均 lower_better(比例/乖离越低越超跌看多, 越高越过热看空)。
+        try:
+            mb = self.fetch_market_breadth()
+            breadth_df = (mb or {}).get("breadth")
+            bias_df = (mb or {}).get("bias")
+            breadth_out = {"available": False}
+            bsignals = []
+
+            # 5a + 5b: 高于 MA60 / MA200 比例
+            if breadth_df is not None and len(breadth_df) > 0:
+                breadth_df = breadth_df.sort_values("trade_date")
+                latest = breadth_df.iloc[-1]
+                above_ma60 = float(latest["above_ma60_pct"]) if not pd.isna(latest["above_ma60_pct"]) else None
+                above_ma200 = float(latest["above_ma200_pct"]) if not pd.isna(latest["above_ma200_pct"]) else None
+                pct60 = float(latest["above_ma60_percentile_5y"]) if not pd.isna(latest.get("above_ma60_percentile_5y")) else None
+                pct200 = float(latest["above_ma200_percentile_5y"]) if not pd.isna(latest.get("above_ma200_percentile_5y")) else None
+                sig_60 = grade_signal(above_ma60, SIGNAL_THRESHOLDS["above_ma60_pct"], direction="lower_better")
+                sig_200 = grade_signal(above_ma200, SIGNAL_THRESHOLDS["above_ma200_pct"], direction="lower_better")
+                breadth_out.update({
+                    "available": True,
+                    "above_ma60_pct": above_ma60,
+                    "above_ma60_percentile_5y": pct60,
+                    "above_ma60_signal": sig_60,
+                    "valid_count_ma60": int(latest.get("valid_count_ma60", 0)),
+                    "above_ma200_pct": above_ma200,
+                    "above_ma200_percentile_5y": pct200,
+                    "above_ma200_signal": sig_200,
+                    "valid_count_ma200": int(latest.get("valid_count_ma200", 0)),
+                    "latest_date": str(latest["trade_date"]),
+                })
+                bsignals.extend([sig_60, sig_200])
+            else:
+                result["errors"].append("market_breadth_ma: 全A宽度计算返回空")
+
+            # 5c: 中证全指 MA250 BIAS
+            if bias_df is not None and len(bias_df) > 0:
+                bias_df = bias_df.sort_values("trade_date")
+                latest = bias_df.iloc[-1]
+                bias = float(latest["bias_pct"]) if not pd.isna(latest["bias_pct"]) else None
+                bpct = float(latest["percentile_5y"]) if not pd.isna(latest["percentile_5y"]) else None
+                sig_bias = grade_signal(bias, SIGNAL_THRESHOLDS["ma250_bias"], direction="lower_better")
+                breadth_out.update({
+                    "available": True,
+                    "ma250_bias_pct": bias,
+                    "ma250_bias_percentile_5y": bpct,
+                    "ma250_bias_signal": sig_bias,
+                    "bias_latest_date": str(latest["trade_date"]),
+                })
+                bsignals.append(sig_bias)
+            else:
+                result["errors"].append("ma250_bias: 中证全指 BIAS 计算返回空")
+
+            result["indicators"]["breadth"] = breadth_out
+            result["signals"].extend(bsignals)
+        except Exception as e:
+            logger.warning(f"市场宽度采集失败: {e}")
+            result["errors"].append(f"market_breadth: {e}")
+            result["indicators"]["breadth"] = {"available": False}
 
         # 维度6: M1 同比
         try:
@@ -879,5 +1144,5 @@ class MacroIndicator:
         result["bearish_count"] = result["signals"].count("❌") + 2 * result["signals"].count("❌❌")
 
         logger.info(f"===== 宏观数据采集完成: {result['macro_regime']} "
-                    f"(✅×{result['bullish_count']} / ❌×{result['bearish_count']}, 5维) =====")
+                    f"(✅×{result['bullish_count']} / ❌×{result['bearish_count']}, 6维) =====")
         return result
