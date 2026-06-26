@@ -154,6 +154,103 @@ def test_health_no_source_construction():
         api._src = saved
 
 
+# ── 6. 观察池 GET-API: 鉴权(503/401/200) + 二段式 + 限速 + 概念空拒绝 ──
+def _pool_tmp(api):
+    """把 pool_admin 写路径/取数 seam 指到 tmp(零网络); 返回 restore。"""
+    import json as _json
+    import tempfile as _tf
+    pa = api.pool_admin
+    d = _tf.mkdtemp(prefix="vaxpoolapi_")
+    saved = (pa.WATCHLIST_FILE, pa.AUDIT_FILE, pa.get_sina_realtime, api.WATCH_WRITE_KEY,
+             list(api._pool_calls))
+    pa.WATCHLIST_FILE = pathlib.Path(d) / "watchlist.json"
+    pa.AUDIT_FILE = pathlib.Path(d) / "pool_audit.jsonl"
+    pa.get_sina_realtime = lambda code, exp="": {"name": "贵州茅台"}
+    pa.WATCHLIST_FILE.write_text(_json.dumps(
+        {"holdings": {}, "watchlist": {}, "hot_sectors": []}, ensure_ascii=False), encoding="utf-8")
+
+    def restore():
+        pa.WATCHLIST_FILE, pa.AUDIT_FILE, pa.get_sina_realtime, api.WATCH_WRITE_KEY, api._pool_calls[:] = (
+            saved[0], saved[1], saved[2], saved[3], saved[4])
+        shutil.rmtree(d, ignore_errors=True)
+    return pa, d, restore
+
+
+def test_pool_auth_503_when_key_unset():
+    api, client = _client_and_api()
+    pa, d, restore = _pool_tmp(api)
+    try:
+        api.WATCH_WRITE_KEY = ""   # 未配 -> 池 API 关闭
+        r = client.get("/pool/commit", params={"action": "add", "code": "600519", "concepts": "白酒"})
+        assert r.status_code == 503, r.text
+    finally:
+        restore()
+
+
+def test_pool_auth_401_and_200():
+    api, client = _client_and_api()
+    pa, d, restore = _pool_tmp(api)
+    try:
+        api.WATCH_WRITE_KEY = "SEKRET"
+        # 无 token -> 401
+        assert client.get("/pool/list").status_code == 401
+        # 错 token -> 401
+        assert client.get("/pool/list", params={"token": "wrong"}).status_code == 401
+        # 对 token(query)-> 200
+        assert client.get("/pool/list", params={"token": "SEKRET"}).status_code == 200
+        # 对 token(header)-> 200
+        assert client.get("/pool/list", headers={"X-Watch-Key": "SEKRET"}).status_code == 200
+    finally:
+        restore()
+
+
+def test_pool_two_stage_propose_then_commit():
+    api, client = _client_and_api()
+    pa, d, restore = _pool_tmp(api)
+    try:
+        api.WATCH_WRITE_KEY = "K"
+        # propose: 回显不写
+        r = client.get("/pool/propose", params={"token": "K", "action": "add",
+                                                 "code": "600519", "concepts": "白酒,消费"})
+        assert r.status_code == 200 and r.json()["preview"]["concepts"] == ["白酒", "消费"]
+        assert pa.list_pool()["count"] == 0       # propose 未写
+        # commit: 真写
+        r2 = client.get("/pool/commit", params={"token": "K", "action": "add",
+                                                 "code": "600519", "concepts": "白酒,消费"})
+        assert r2.status_code == 200 and r2.json()["ok"] is True
+        assert "600519" in pa.list_pool()["watchlist"]
+        assert pa.AUDIT_FILE.exists()             # 审计追加
+    finally:
+        restore()
+
+
+def test_pool_commit_empty_concepts_rejected():
+    api, client = _client_and_api()
+    pa, d, restore = _pool_tmp(api)
+    try:
+        api.WATCH_WRITE_KEY = "K"
+        api._get_source = lambda: None            # 无 Tushare 兜底
+        r = client.get("/pool/commit", params={"token": "K", "action": "add", "code": "000002"})
+        assert r.status_code == 200 and r.json()["ok"] is False and "concepts" in r.json()["error"]
+        assert "000002" not in pa.list_pool()["watchlist"]
+    finally:
+        restore()
+
+
+def test_pool_rate_limit_429():
+    api, client = _client_and_api()
+    pa, d, restore = _pool_tmp(api)
+    try:
+        api.WATCH_WRITE_KEY = "K"
+        # focus 是写端点, 连打 >20 次触发 429
+        codes = [client.get("/pool/focus", params={"token": "K", "concepts": "AI算力"}).status_code
+                 for _ in range(22)]
+        assert 429 in codes, codes
+        assert codes[:20].count(200) == 20        # 前 20 次正常
+    finally:
+        restore()
+
+
 if __name__ == "__main__":
     import sys
     fns = sorted((n, f) for n, f in globals().items()
