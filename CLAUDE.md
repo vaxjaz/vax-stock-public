@@ -100,8 +100,8 @@ tracks/__init__.py 严禁 import ai 或任何会触网/加载重依赖(akshare/p
     - [ ] C2c T-1 EOD 基准引入 + 校验器升级(昨日限定词白名单)
     - [ ] C2d 盘中演变记忆 + 主动盘面体检 + /intraday/ask 咨询端点
     - [x] B1+2 macro 迁包(骨架+5维: ETF/M1/融资/换手/ERP)
-    - [ ] B3 macro 维度5(全市场 breadth MA60/200 + MA250乖离)
-    - [ ] B4 macro 第7维 社融脉冲(sf_month 权限已确认✅)
+    - [x] B3 macro 维度5(全市场 breadth MA60/200 + MA250乖离)  # PR#27
+    - [x] B4 macro 第7维 社融脉冲(sf_month 权限已确认✅)  # PR#28, 维度7迁入, macro 7维齐
     - [x] C3a deploy/ 纳入仓库(v2 三服务 systemd unit + EOD timer + README 切换手册)
     - [ ] C3b VPS 切线上(运维: v2 一刀切顶替 v1, 仅 backtest cron 保留; 切换非代码 PR)
 - [ ] **MR-Eval 线(预测追踪反哺,独立线)**:
