@@ -24,6 +24,8 @@ from urllib import parse, request
 from vaxstock import config
 from vaxstock.report.notify import push_email, push_wechat
 from vaxstock.services._intraday_rules import enforce_intraday_rules
+from vaxstock.services._t1_baseline import load_t1_baseline
+from vaxstock.services.forecast_recorder import record_forecast
 from vaxstock.sources.codex import call_codex
 
 logger = logging.getLogger(__name__)
@@ -182,14 +184,19 @@ def _load_rules_prompt():
                 "结论必须标注'盘中未定论',资金与评分以EOD报告为准。")
 
 
-def _codex_verdict(snapshot, trigger_note, *, market_ctx=None, concepts=None,
-                   fire_count=None) -> Optional[str]:
-    """把盘中快照+大盘背景+概念标签+今日触发次数喂 codex, 返回研判文本; 未启用/无 token/失败 -> None。
+# 本策略一行逻辑(硬编码, 喂 codex 做假设检验的"策略锚")
+_STRATEGY_LINE = "【本策略逻辑】价值+成长+左侧, 不追高; 右侧评分=资金/业绩/户数三因子, ≥2.0可介入"
 
-    【口径铁律 · P0 数据诚实, 必须照写】
+
+def _codex_verdict(snapshot, trigger_note, *, market_ctx=None, concepts=None,
+                   fire_count=None, t1_baseline=None) -> Optional[str]:
+    """喂 codex 做"今日行为 vs 昨日 thesis"假设检验, 返回 codex 原始 JSON 文本; 未启用/无 token/失败 -> None。
+
+    注入: ① T-1 EOD 基准(昨日定稿, 可引用) ② 本策略逻辑 ③ 大盘背景 ④ lite 实时快照。
+    【口径铁律 · P0 数据诚实】
       - regime 走新浪指数实时算(可信), 缺失写"待获取", 绝不臆造;
-      - 涨跌家数来自 Tushare 全市场 T日收盘聚合(盘中滞后), 行内必须标注, 否则 codex 会误读为实时大盘;
-      - 快照为 lite(无评分/无资金), 不得据此输出评分或买卖价或资金方向。
+      - 涨跌家数来自 Tushare 全市场 T日收盘聚合(盘中滞后), 行内必须标注;
+      - 快照为 lite(无评分/无资金), 盘中不得新生成评分/买卖价/资金方向; T-1 基准是昨日定稿, 可引用。
     """
     if not (_CODEX_ENABLED and _CODEX_TOKEN):
         return None
@@ -201,8 +208,17 @@ def _codex_verdict(snapshot, trigger_note, *, market_ctx=None, concepts=None,
                if ov else "待获取")
     concepts_str = "、".join(concepts) if concepts else "无标注"
     nth = fire_count if fire_count else 1
+    if t1_baseline:
+        b = t1_baseline
+        t1_line = (f"【昨日EOD基准(T-1定稿, 可引用)】评分{b.get('score')}[{b.get('grade')}]/"
+                   f"10日资金{b.get('main_inflow_10d')}/20日位置{b.get('position_20d_pct')}%/"
+                   f"基准日={b.get('baseline_date')}")
+    else:
+        t1_line = "【无T-1基准】此票不在观察池或昨日无定稿结论"
     user_msg = (
         f"【本次触发】{trigger_note}\n"
+        f"{t1_line}\n"
+        f"{_STRATEGY_LINE}\n"
         f"【大盘背景】\n"
         f"  实时regime: {regime or '待获取'}(新浪指数实时算)\n"
         f"  涨跌家数(T日收盘聚合, 盘中滞后): {breadth}\n"
@@ -211,6 +227,24 @@ def _codex_verdict(snapshot, trigger_note, *, market_ctx=None, concepts=None,
     )
     return call_codex(_load_rules_prompt(), user_msg,
                       url=_CODEX_URL, model=_CODEX_MODEL, token=_CODEX_TOKEN, timeout=_CODEX_TIMEOUT)
+
+
+def _parse_codex_json(raw) -> Optional[dict]:
+    """把 codex 返回文本解析为预测 JSON; 失败返 None(容错: 上层降级纯价位告警, 不崩)。
+
+    宽容处理 codex 可能的 markdown 围栏: 去 ``` 包裹, 截取首个 { 到末个 }。
+    """
+    if not raw or not isinstance(raw, str):
+        return None
+    txt = raw.strip()
+    i, j = txt.find("{"), txt.rfind("}")
+    if i == -1 or j == -1 or j < i:
+        return None
+    try:
+        obj = json.loads(txt[i:j + 1])
+        return obj if isinstance(obj, dict) else None
+    except Exception:
+        return None
 
 
 def check_rule(rule, quote):
@@ -230,7 +264,12 @@ def check_rule(rule, quote):
 
 
 def notify(rule, quote, fire_count=None):
-    """触发: 控制台 + 微信 + 邮箱; 命中后拉快照+大盘背景+概念标签喂 codex 研判, 经铁律校验后附入。"""
+    """触发: 控制台+微信+邮箱; 命中后拉快照+T-1基准+大盘背景喂 codex → JSON 预测 → 渲染推送 + 冻结 forecast。
+
+    codex 现出结构化 JSON(verdict/direction/confidence/falsify_if...); 解析失败则降级纯价位告警(不崩)。
+    forecast 只收体系内标的(有 T-1 基准 或 在概念池): 池外临时票出研判但不写 forecast(防回测污染)。
+    """
+    code = rule["code"]
     price = quote.get("price")
     pct = quote.get("change_pct")
     amount_yi = (quote.get("amount") or 0) / 1e8
@@ -243,18 +282,48 @@ def notify(rule, quote, fire_count=None):
         f"时间: {quote.get('trade_time', now_str())}  源: {quote.get('source', '?')}\n"
         f"⚠️ 盘中量能为代理值, 评分以EOD报告为准"
     )
-    # 命中后: 拉盘中快照 + 大盘背景(走 /market 缓存) + 概念标签 → codex 研判 → 铁律硬校验 → 附入
-    snap = fetch_lite(rule["code"])
+
+    # 命中后: 拉 lite 快照 + T-1 基准 + 概念 + 大盘背景 → codex 假设检验 JSON
+    snap = fetch_lite(code)
+    t1 = load_t1_baseline(code)
+    concepts = _get_concepts(code)
+    ctx = None
+    raw = None
     if snap:
         ctx = fetch_market_ctx()
-        concepts = _get_concepts(rule["code"])
-        verdict = _codex_verdict(snap, rule.get("note", ""), market_ctx=ctx,
-                                 concepts=concepts, fire_count=fire_count)
-    else:
-        verdict = None
-    if verdict:
-        verdict = enforce_intraday_rules(verdict)  # 输出层硬校验, 不靠 codex 自觉
-        body += f"\n────────────\n🤖 codex盘中研判:\n{verdict}"
+        raw = _codex_verdict(snap, rule.get("note", ""), market_ctx=ctx,
+                             concepts=concepts, fire_count=fire_count, t1_baseline=t1)
+
+    structured = _parse_codex_json(raw)
+    if structured:
+        # reasoning 过铁律硬校验(昨日限定词白名单); 回写校验后文本
+        reasoning = enforce_intraday_rules(str(structured.get("reasoning", "")))
+        structured["reasoning"] = reasoning
+        conf = structured.get("confidence")
+        conf_str = f"{conf:.0%}" if isinstance(conf, (int, float)) else "?"
+        body += (
+            f"\n────────────\n🤖 盘中研判:\n"
+            f"状态: {structured.get('verdict', '?')}\n"
+            f"方向: {structured.get('direction', '?')}  置信: {conf_str}\n"
+            f"{reasoning}\n"
+            f"(盘中代理,未定论;评分资金以EOD为准)"
+        )
+        # 冻结 forecast(池外票 guard): 体系内(有T-1基准 或 在概念池)才写, 防回测样本污染
+        in_pool = (t1 is not None) or bool(concepts)
+        if in_pool:
+            inputs_ref = {
+                "baseline_date": (t1 or {}).get("baseline_date"),
+                "t1_baseline": t1,
+                "lite_snapshot": snap,
+                "regime": (ctx or {}).get("regime"),
+            }
+            record_forecast(code, quote.get("trade_date"), rule.get("note", ""),
+                            inputs_ref, structured, reasoning,
+                            structured.get("falsify_if", ""))
+        else:
+            logger.info(f"{code} 池外临时票(无T-1基准且不在概念池): 出研判, 不写 forecast(防回测污染)")
+    elif raw:
+        logger.warning(f"{code} codex 返回非 JSON, 降级纯价位告警: {str(raw)[:80]}")
 
     logger.info(f"\n{'='*40}\n🚨 {title}\n{body}\n{'='*40}")
     push_wechat(title, body, pushplus_token=_PUSHPLUS_TOKEN)
