@@ -2,7 +2,7 @@
 """宏观环境指标采集(indicators 层, MR-Macro 乙方案 B1+2)。
 
 由 monolith script/macro_indicators.py 忠实迁入(逻辑零改动), 本 PR 落地骨架 + 缓存层 +
-信号评级 + 维度 1/2/3/4/5/6; 社融脉冲(维度 7)留给 B4, 本 PR 不迁。
+信号评级 + 维度 1-7 全部迁入(B4 补齐社融维度7)。
 
 【已迁维度】
   1. 5 大宽基 ETF 净申赎(fund_share / fund_daily)
@@ -11,6 +11,7 @@
   4. 沪深 300 ERP(index_dailybasic PE + AkShare 10 年国债, 失败走 fallback 常数)
   5. 全市场宽度(B3): 高于MA60/MA200比例(按交易日批量拉 daily 透视) + 中证全指MA250乖离
   6. M1 月度同比(cn_m)
+  7. 社融信贷脉冲(B4): sf_month, TTM同比(脉冲) + 加速度(方向型信号)
 
 【B1+2 去副作用 / v2 适配(只改"怎么取数"与"住哪", 不改"算什么")】
   - 取数走注入的 source(TushareSource), 顶层不连网、不建 client;
@@ -21,7 +22,7 @@
   - AkShare 国债收益率: import 放方法内(懒导入, import 本模块不连网), 并额外加 daemon+join
     墙钟超时(AK_YIELD_TIMEOUT), 防国内 VPS 连接挂死。
 
-维度 5(全市场宽度: 高于MA60/MA200比例 + 中证全指MA250乖离)已迁(B3); 社融维度 7 不组装(留 B4)。
+维度 5(全市场宽度)已迁(B3); 维度 7(社融信贷脉冲)已迁(B4)。至此宏观 7 维全部进包。
 """
 
 import logging
@@ -187,8 +188,7 @@ def combine_signals(signal_list: List[str]) -> str:
     """根据所有维度信号, 综合判断宏观regime
     ✅✅算2个✅, ❌❌算2个❌, 🚫忽略
 
-    注: 喂已迁的维度 1/2/3/4/5/6 信号(B3 补齐维度5的宽度/乖离信号; 缺维度7社融留 B4),
-    占比逻辑不依赖固定维度数, regime 仍可算; B4 补齐后 regime 更全。
+    注: 维度 1-7 全部喂入(B4 补齐社融维度7); 占比逻辑不依赖固定维度数, regime 按 signal 列表占比算。
     """
     bull = signal_list.count("✅") + 2 * signal_list.count("✅✅")
     bear = signal_list.count("❌") + 2 * signal_list.count("❌❌")
@@ -287,7 +287,7 @@ def _ymd_minus(ymd: str, days: int) -> str:
 # ==================== 主类 ====================
 
 class MacroIndicator:
-    """宏观环境指标采集主类(已迁维度 1/2/3/4/5/6; 社融维度7 留 B4)"""
+    """宏观环境指标采集主类(已迁维度 1-7)"""
 
     # 全A 换手率代理指数候选(按优先级)
     # 注意: Tushare 的 index_dailybasic 不支持 .CSI 后缀, 要用 .SH
@@ -570,6 +570,78 @@ class MacroIndicator:
 
         self.cache.save(cache_name, cn_m_df)
         return cn_m_df
+
+    # ============ 维度7: 社融信贷脉冲 ============
+
+    def fetch_sf_pulse(self, months: int = 12 * 8) -> Optional[pd.DataFrame]:
+        """社融信贷脉冲, 近8年(算TTM同比的二阶加速度需 12+12+缓冲 >= 36个月)。
+
+        数据源: Tushare sf_month (社会融资规模月度), 复用 _safe_call + cache, 与 cn_m 同架构。
+        返回: DataFrame columns = [month, sf_inc, sf_ttm, sf_pulse_yoy, sf_pulse_accel]
+              month: YYYYMM
+              sf_inc: 当月社融增量(单位以Tushare原始为准, 比例计算不受单位影响)
+              sf_ttm: 12个月滚动和(去季节性)
+              sf_pulse_yoy: TTM同比(%) = 信贷脉冲水平
+              sf_pulse_accel: 脉冲同比的环比差分(pp) = 加速度
+
+        字段已于 B4 实测确认: month / inc_month(当月增量, 亿元) 均命中探针候选, 探针保留作兜底。
+        拉不到/历史不足/断月 返回 None(上层标待验证)。
+        """
+        cache_name = "sf_pulse_history"
+
+        logger.info(f"  拉取社融月度数据(近{months}个月)")
+        df = self._safe_call("sf_month", start_m="201501")
+        if df is None or len(df) == 0:
+            logger.warning("sf_month 返回空, 社融脉冲标待验证")
+            return self.cache.load(cache_name)
+
+        # --- 字段自适应探针(P0: 不臆测字段名/单位) ---
+        cols = list(df.columns)
+        month_col = "month" if "month" in cols else cols[0]
+        inc_candidates = [c for c in ("inc_month", "inc_val", "sf_inc") if c in cols]
+        if not inc_candidates:
+            logger.warning(f"  sf_month 未识别到增量列, 实际列={cols}; 标待验证")
+            return self.cache.load(cache_name)
+        inc_col = inc_candidates[0]
+
+        df = df[[month_col, inc_col]].copy()
+        df.columns = ["month", "sf_inc"]
+        df["month"] = df["month"].astype(str)
+        df["sf_inc"] = pd.to_numeric(df["sf_inc"], errors="coerce")
+        df = df.dropna(subset=["sf_inc"]).sort_values("month").reset_index(drop=True)
+
+        # --- 月份连续性校验(P0: 断月不静默跳过) ---
+        months_seq = pd.to_datetime(df["month"], format="%Y%m", errors="coerce")
+        if months_seq.isna().any():
+            logger.warning("  sf_month 月份格式异常, 标待验证")
+            return self.cache.load(cache_name)
+        expected = pd.period_range(months_seq.min().to_period("M"),
+                                   months_seq.max().to_period("M"), freq="M")
+        actual = months_seq.dt.to_period("M")
+        missing = sorted(set(expected) - set(actual))
+        if missing:
+            logger.warning(f"  社融数据断月 {len(missing)} 个: {[str(m) for m in missing[:6]]}; "
+                           f"TTM滚动和受影响, 标待验证")
+            return self.cache.load(cache_name)
+
+        # --- 计算: TTM去季节性 -> 脉冲 -> 加速度 ---
+        if len(df) < 36:
+            logger.warning(f"  社融历史仅{len(df)}月(<36), 不足以算二阶加速度, 标待验证")
+            return self.cache.load(cache_name)
+
+        df["sf_ttm"] = df["sf_inc"].rolling(12).sum()
+        df["sf_pulse_yoy"] = df["sf_ttm"].pct_change(12) * 100
+        df["sf_pulse_accel"] = df["sf_pulse_yoy"].diff()
+        df = df.dropna(subset=["sf_pulse_yoy", "sf_pulse_accel"]).reset_index(drop=True)
+
+        if len(df) == 0:
+            logger.warning("  社融脉冲计算后为空, 标待验证")
+            return self.cache.load(cache_name)
+
+        self.cache.save(cache_name, df)
+        logger.info(f"  ✅ 社融脉冲 {len(df)} 行, 最新脉冲YoY={df['sf_pulse_yoy'].iloc[-1]:+.2f}% "
+                    f"加速度={df['sf_pulse_accel'].iloc[-1]:+.2f}pp")
+        return df
 
     # ============ 维度1: 5大宽基ETF净申赎 ============
 
@@ -908,12 +980,12 @@ class MacroIndicator:
     # ============ 综合摘要 + Regime ============
 
     def summary(self) -> Dict[str, Any]:
-        """生成当日宏观摘要(已迁维度 1/2/3/4/5/6), 带信号评级和综合 regime 判断。
+        """生成当日宏观摘要(已迁维度 1-7), 带信号评级和综合 regime 判断。
 
-        维度5(全市场宽度: MA60/MA200比例 + 中证全指MA250乖离)已迁(B3); 社融维度7不组装(留 B4)。
+        维度5(全市场宽度)已迁(B3); 维度7(社融信贷脉冲)已迁(B4)。
         逐维 try-except 隔离: 单维失败进 errors, 不崩整体。
         """
-        logger.info("===== 宏观数据采集开始(维度 1/2/3/4/5/6) =====")
+        logger.info("===== 宏观数据采集开始(维度 1-7) =====")
 
         result: Dict[str, Any] = {
             "timestamp": datetime.now().isoformat(),
@@ -1138,11 +1210,38 @@ class MacroIndicator:
             logger.warning(f"M1采集失败: {e}")
             result["errors"].append(f"m1_yoy: {e}")
 
-        # 综合 macro regime(基于已迁 5 维信号; B3/B4 补齐后更全)
+        # 维度7: 社融信贷脉冲(方向型信号: 脉冲为正且加速→✅; 仅为正→⚠️; 否则→❌)
+        try:
+            sf_df = self.fetch_sf_pulse()
+            if sf_df is not None and len(sf_df) > 0:
+                sf_df = sf_df.sort_values("month")
+                latest = sf_df.iloc[-1]
+                pulse = float(latest["sf_pulse_yoy"])
+                accel = float(latest["sf_pulse_accel"])
+                if pulse > 0 and accel > 0:
+                    sig = "✅"
+                elif pulse > 0:
+                    sig = "⚠️"
+                else:
+                    sig = "❌"
+                result["indicators"]["sf_pulse"] = {
+                    "pulse_yoy_pct": pulse,
+                    "accel_pp": accel,
+                    "signal": sig,
+                    "latest_month": str(latest["month"]),
+                }
+                result["signals"].append(sig)
+            else:
+                result["errors"].append("sf_pulse: fetch_sf_pulse 返回空(标待验证)")
+        except Exception as e:
+            logger.warning(f"社融脉冲采集失败: {e}")
+            result["errors"].append(f"sf_pulse: {e}")
+
+        # 综合 macro regime(维度 1-7 全部喂入)
         result["macro_regime"] = combine_signals(result["signals"])
         result["bullish_count"] = result["signals"].count("✅") + 2 * result["signals"].count("✅✅")
         result["bearish_count"] = result["signals"].count("❌") + 2 * result["signals"].count("❌❌")
 
         logger.info(f"===== 宏观数据采集完成: {result['macro_regime']} "
-                    f"(✅×{result['bullish_count']} / ❌×{result['bearish_count']}, 6维) =====")
+                    f"(✅×{result['bullish_count']} / ❌×{result['bearish_count']}, 7维) =====")
         return result
