@@ -23,6 +23,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from vaxstock import config
+from vaxstock.services import pool_admin
 from vaxstock.analysis.stock_item import build_stock_item
 from vaxstock.indicators.regime import detect_market_regime
 from vaxstock.indicators.scoring import calc_derived_metrics
@@ -251,6 +252,95 @@ def watch_replace(rules: List[WatchRule] = Body(...), x_watch_key: Optional[str]
         data = [r.dict() for r in rules]
         _write_rules(data)
     return {"ok": True, "count": len(data)}
+
+
+# ---------- 观察池管理 GET-API(便于 Claude 经 web_fetch 调用; 二段式 confirm + 限速 + 审计) ----------
+# [P1] token+HTTP 裸奔为临时方案(域名 HTTP, 固定 WATCH_WRITE_KEY), 用户已知并接受; 后续 MCP+HTTPS 收口。
+_POOL_RATE_MAX = 20            # 写端点每分钟上限
+_pool_calls: List[float] = []  # 滑窗时间戳
+_pool_rate_lock = threading.Lock()
+
+
+def _check_pool_key(token: Optional[str], x_watch_key: Optional[str]) -> None:
+    """池端点鉴权: 复用 WATCH_WRITE_KEY。未配 -> 503(整个池 API 关闭); token 不符 -> 401。
+    token 从 ?token= 或 X-Watch-Key header 任一取(Claude web_fetch 只能 GET, 故支持 query token)。"""
+    if not WATCH_WRITE_KEY:
+        raise HTTPException(503, "池管理 API 未启用: 未配置 WATCH_WRITE_KEY(临时方案, 设环境变量启用)")
+    if (token or x_watch_key) != WATCH_WRITE_KEY:
+        raise HTTPException(401, "invalid pool key")
+
+
+def _pool_rate_check() -> None:
+    """写端点内存限速: 每分钟 ≤ _POOL_RATE_MAX 次, 超限 429。"""
+    with _pool_rate_lock:
+        now = time.time()
+        _pool_calls[:] = [t for t in _pool_calls if now - t < 60]
+        if len(_pool_calls) >= _POOL_RATE_MAX:
+            raise HTTPException(429, f"池写操作限速: 每分钟 ≤ {_POOL_RATE_MAX} 次")
+        _pool_calls.append(now)
+
+
+def _split_concepts(concepts: Optional[str]) -> List[str]:
+    """逗号分隔字符串 -> list; None/空 -> []。"""
+    if not concepts:
+        return []
+    return [c.strip() for c in concepts.replace("，", ",").split(",") if c.strip()]
+
+
+@app.get("/pool/list")
+def pool_list(token: Optional[str] = Query(None), x_watch_key: Optional[str] = Header(None)):
+    _check_pool_key(token, x_watch_key)
+    return JSONResponse(_safe({"ok": True, "action": "list", "detail": pool_admin.list_pool()}))
+
+
+@app.get("/pool/propose")
+def pool_propose(action: str = Query(...), code: str = Query(...),
+                 concepts: Optional[str] = Query(None),
+                 token: Optional[str] = Query(None), x_watch_key: Optional[str] = Header(None)):
+    """二段式第一步: 回显将写入内容, 不落盘。本期只支持 action=add。"""
+    _check_pool_key(token, x_watch_key)
+    if action != "add":
+        return JSONResponse({"ok": False, "action": action, "error": "propose 仅支持 action=add"})
+    preview = pool_admin.propose_add(code, _split_concepts(concepts), source=_get_source())
+    return JSONResponse(_safe({"ok": True, "action": "propose_add", "code": code, "preview": preview}))
+
+
+@app.get("/pool/commit")
+def pool_commit(action: str = Query(...), code: str = Query(...),
+                concepts: Optional[str] = Query(None),
+                token: Optional[str] = Query(None), x_watch_key: Optional[str] = Header(None)):
+    """二段式第二步: 真写入 + 审计。action=add|remove|update_concepts。"""
+    _check_pool_key(token, x_watch_key)
+    _pool_rate_check()
+    cs = _split_concepts(concepts)
+    try:
+        if action == "add":
+            pool_admin.commit_add(code, cs, source=_get_source())
+        elif action == "remove":
+            pool_admin.remove(code)
+        elif action == "update_concepts":
+            pool_admin.update_concepts(code, cs)
+        else:
+            return JSONResponse({"ok": False, "action": action,
+                                 "error": "action 须为 add|remove|update_concepts"})
+    except pool_admin.PoolError as e:
+        return JSONResponse({"ok": False, "action": action, "code": code, "error": str(e)})
+    return JSONResponse(_safe({"ok": True, "action": action, "code": code,
+                               "detail": pool_admin.list_pool()}))
+
+
+@app.get("/pool/focus")
+def pool_focus(concepts: Optional[str] = Query(None),
+               token: Optional[str] = Query(None), x_watch_key: Optional[str] = Header(None)):
+    """改 hot_sectors(关心的热门赛道); concepts 逗号分隔, 空=清空 focus。"""
+    _check_pool_key(token, x_watch_key)
+    _pool_rate_check()
+    try:
+        pool_admin.set_focus(_split_concepts(concepts))
+    except pool_admin.PoolError as e:
+        return JSONResponse({"ok": False, "action": "set_focus", "error": str(e)})
+    return JSONResponse(_safe({"ok": True, "action": "set_focus",
+                               "detail": pool_admin.list_pool()["focus"]}))
 
 
 if __name__ == "__main__":
