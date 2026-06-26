@@ -9,16 +9,20 @@
   PYTHONPATH=src python3 tests/tracks/test_ai.py      # 无 pytest 时
 """
 
+import ast
 import importlib.util
+import pathlib
 
 import vaxstock.tracks.ai as ai_mod
 from vaxstock.tracks import contract
 from vaxstock.tracks.ai import AITrack, _assemble
 
 DATE = "2026-06-25"
+_REPO = pathlib.Path(__file__).resolve().parents[2]
 
-# 注意: 不在模块顶层 import pandas(否则会让 test_assemble_pure_no_heavy_deps 误判 pandas 泄漏)。
-# 用 find_spec 仅探测可用性、不加载。pandas 缺失(本容器)-> 三条 status 路径测跳过, VPS venv 实跑。
+# 重依赖泄漏守卫改静态 ast(见下方 test_assemble_pure_no_heavy_deps), 故本文件顶层 import pandas
+# 与否不再影响该测试。_HAS_PANDAS 仅用 find_spec 探测可用性、不加载: pandas 缺失(本容器)-> 三条
+# status 路径测跳过, VPS venv 实跑。
 _HAS_PANDAS = importlib.util.find_spec("pandas") is not None
 
 
@@ -134,10 +138,33 @@ def test_multi_veto_defense():
 
 # import 隔离回归守卫: 导入 ai 并跑 _assemble 全程不得加载 akshare/pandas/numpy/yfinance
 def test_assemble_pure_no_heavy_deps():
-    import sys
-    _assemble(_good_signals(), DATE)
-    leaked = [m for m in ("akshare", "pandas", "numpy", "yfinance") if m in sys.modules]
-    assert leaked == [], f"_assemble 路径泄漏了重依赖: {leaked}"
+    """ai.py 顶层不得 import akshare/pandas/numpy/yfinance(重依赖须函数内懒导入)。
+
+    静态 ast 解析(非运行时 sys.modules 检查): pytest 同进程跑时, 前面 macro/collect 等测试
+    已把 pandas/numpy 载入 sys.modules, 运行时检查全套一起跑必假阳挂 —— 违反 CLAUDE.md §10
+    "依赖守卫绝不用运行时 sys.modules 检查"。与 test_*_no_forbidden_imports 同款手法。
+    保留意图: 证明 _assemble 链路在 import ai.py 时不引入重依赖。
+    """
+    heavy = {"akshare", "pandas", "numpy", "yfinance"}
+    tree = ast.parse((_REPO / "src" / "vaxstock" / "tracks" / "ai.py").read_text(encoding="utf-8"))
+
+    def _roots(node):
+        if isinstance(node, ast.Import):
+            return [a.name.split(".")[0] for a in node.names]
+        if isinstance(node, ast.ImportFrom):
+            return [(node.module or "").split(".")[0]]
+        return []
+
+    # 1. 顶层(模块直接子节点)不得出现重依赖
+    toplevel = [r for node in tree.body for r in _roots(node)]
+    offenders = sorted(heavy.intersection(toplevel))
+    assert offenders == [], f"ai.py 顶层不应 import 重依赖(须懒导入): {offenders}"
+
+    # 2. (加强)文件内对重依赖的 import 全部在缩进处(col_offset>0 = 函数体内懒导入)
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Import, ast.ImportFrom)) and heavy.intersection(_roots(node)):
+            assert node.col_offset > 0, \
+                f"重依赖应函数内懒导入(col_offset>0), 实测顶层: line {node.lineno}"
 
 
 # ── yfinance 交叉验证套墙钟超时(本 PR 核心): 直测 _yf_safe_latest_nvda_rev, 零网络 ──

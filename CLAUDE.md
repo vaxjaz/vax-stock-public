@@ -184,3 +184,5 @@ print('✅ import无副作用 + 纯函数验证通过')
 - **lite=1 必须前置于 `refresh_regime()`**:冷缓存 refresh_regime 扫全市场卡数分钟,lite 盘中查询须在它之前 return。
 - **东财已砍**:VPS 连不上东财(502/000),板块④/热门赛道⑦/opportunity⑧ 诚实返回 available=False,不 import 旧模块、不臆造;将来用 watchlist AI/机器人成分自聚合替代。
 - **margin 等滞后维度**:summary 应带 stale/lag_days 标注(待办),让宏观维滞后对报告透明(凌晨5点跑也救不了 margin 滞后)。邮件 digest 已对 margin stale 标 data_date(PR-Digest)。
+- **api 生产依赖必须主 dependencies, 不放 `[dev]`**:fastapi/uvicorn 是 api 生产运行必需(`services/api.py` 顶层 import fastapi + `__main__` uvicorn.run)。曾误把 fastapi 放 `[dev]`、uvicorn 完全没声明 → 生产 `pip install -e ".[tracks]"`(不带 dev)起 api 即 ModuleNotFoundError(实测 6/26 切线上时 uvicorn 缺,PR#24 修)。`[dev]` 只放测试桩(pytest/httpx)。同 pyarrow(PR#19)——依赖声明缺失被开发环境手动装侥幸掩盖,生产暴露。
+- **依赖缺口的检出**:切线上前必须在干净 venv 验 `python -c "import <生产入口模块>"`(如 `import vaxstock.services.api`),而非只跑 pytest(测试装了 `[dev]` 会掩盖生产缺口)。
