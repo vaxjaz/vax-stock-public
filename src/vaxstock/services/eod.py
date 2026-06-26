@@ -62,6 +62,15 @@ def run_eod() -> Dict[str, str]:
     except Exception as e:
         logger.warning(f"MR-Eval 快照/回填失败(不影响落盘): {str(e)[:120]}")
 
+    # MR-Eval E2: Layer2 离线分析(分环境分桶前瞻收益/超额)。必须在 record_and_backfill 之后
+    # (读已回填到最新的 results)。纯读 E1 两 jsonl, 失败仅 warning 不影响 EOD。
+    # 早期样本少, 报告会大量"样本不足", 正常——数据攒厚自然有结论。
+    try:
+        from vaxstock.research.layer2_eval import run_layer2
+        run_layer2(write=True)
+    except Exception as e:
+        logger.warning(f"Layer2 分析跳过(不影响EOD): {str(e)[:120]}")
+
     return paths
 
 

@@ -9,6 +9,7 @@ import ast
 import pathlib
 
 from vaxstock import config
+from vaxstock.research import layer2_eval as l2_mod
 from vaxstock.services import eod as eod_mod
 
 _REPO = pathlib.Path(__file__).resolve().parents[2]
@@ -34,7 +35,12 @@ def _install_spies(secrets=None):
     """把 eod 内引用的所有 seam 换成记录型替身; 可选覆盖 config.SECRETS。返回 (rec, restore)。"""
     saved = {n: getattr(eod_mod, n) for n in _SEAMS}
     saved_secrets = config.SECRETS
+    # run_layer2 是 run_eod 内的局部 import(from research.layer2_eval import run_layer2),
+    # 在其源模块上打桩才拦得住; 否则真跑会读真 var/eval/ 并落 layer2_report 文件(测试不该有副作用)。
+    saved_l2 = l2_mod.run_layer2
     rec = {"send_calls": []}
+
+    l2_mod.run_layer2 = lambda **k: rec.__setitem__("layer2_called", True) or ""
 
     eod_mod.TushareSource = lambda token: {"_stub": True, "token": token}
 
@@ -81,6 +87,7 @@ def _install_spies(secrets=None):
         for n, v in saved.items():
             setattr(eod_mod, n, v)
         config.SECRETS = saved_secrets
+        l2_mod.run_layer2 = saved_l2
 
     return rec, restore
 
@@ -123,9 +130,11 @@ def test_eod_orchestration_and_passthrough():
         assert paths == _PATHS
         # collect 收到的 source 即 eod.TushareSource(token) 构造出的那个(stub)
         assert rec["collect_source"]["_stub"] is True
-        # MR-Eval: record_and_backfill 收到 payload + 同一 source(快照地基地接入)
+        # MR-Eval: record_and_backfill 收到 payload + 同一 source(快照地基接入)
         assert rec["eval_call"]["payload"] is _PAYLOAD
         assert rec["eval_call"]["source"]["_stub"] is True
+        # Layer2(E2): record_and_backfill 之后被调(顺带分析)
+        assert rec.get("layer2_called") is True
     finally:
         restore()
 
