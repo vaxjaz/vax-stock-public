@@ -60,6 +60,28 @@ def test_enforce_appends_pending_when_missing():
     assert "盘中未定论" in out
 
 
+def test_enforce_t1_qualifier_whitelist():
+    # 带"昨日/T-1/EOD/基准"限定词的评分/资金引用 = 合法(定稿值), 放行不标注
+    assert "[铁律校验]" not in enforce_intraday_rules("昨日EOD评分2.5可介入, 今日放量站稳")
+    assert "[铁律校验]" not in enforce_intraday_rules("T-1基准10日资金净流入明显, 今日跟随")
+    # 无限定词的盘中新评分/资金断言 = 越界, 仍拦
+    assert "[铁律校验]" in enforce_intraday_rules("盘中评分2.8, 可介入")
+    assert "[铁律校验]" in enforce_intraday_rules("主力大幅流入, 趋势转强")
+    # 买卖价一律拦(不分限定词)
+    assert "[铁律校验]" in enforce_intraday_rules("昨日基准上, 建议买入价 12.50")
+
+
+def test_parse_codex_json():
+    ok = intra._parse_codex_json('{"verdict":"确认","direction":"看多","confidence":0.7}')
+    assert ok and ok["verdict"] == "确认"
+    # markdown 围栏包裹也能解析
+    fenced = intra._parse_codex_json('```json\n{"verdict":"噪音"}\n```')
+    assert fenced and fenced["verdict"] == "噪音"
+    # 非 JSON / 空 -> None
+    assert intra._parse_codex_json("抱歉无法解析") is None
+    assert intra._parse_codex_json(None) is None
+
+
 # ── check_rule 表驱动 ──
 def test_check_rule_table():
     assert intra.check_rule({"type": "price_above", "level": 69.0}, {"price": 70.0}) is True
@@ -94,52 +116,126 @@ def test_is_trading_time_boundaries():
     assert intra.is_trading_time(force=True, now=at(sat, 3, 0)) is True  # force 无视时段
 
 
-# ── notify 链路: 命中 -> codex verdict 过铁律校验 -> 推送被调 ──
-def test_notify_chain_verdict_through_validator():
-    saved = (intra.fetch_lite, intra.fetch_market_ctx, intra._get_concepts,
-             intra._codex_verdict, intra.push_wechat, intra.push_email)
-    pushed = {}
+# ── notify 链路(C线): codex JSON -> reasoning 过铁律校验 -> 渲染推送 + 冻结 forecast ──
+_NOTIFY_SEAMS = ("fetch_lite", "fetch_market_ctx", "_get_concepts", "_codex_verdict",
+                 "load_t1_baseline", "record_forecast", "push_wechat", "push_email")
+
+
+def _save_notify():
+    return {n: getattr(intra, n) for n in _NOTIFY_SEAMS}
+
+
+def _restore_notify(saved):
+    for n, v in saved.items():
+        setattr(intra, n, v)
+
+
+def test_notify_json_verdict_render_and_freeze():
+    saved = _save_notify()
+    pushed, fc = {}, {}
     try:
-        intra.fetch_lite = lambda code: {"code": code, "price": 70.0}
-        intra.fetch_market_ctx = lambda: {"regime": "momentum", "overview": {}}  # 零网络
-        intra._get_concepts = lambda code: []
-        # codex 故意返回越界文本(含评分), 验证 notify 用 enforce 包裹
-        intra._codex_verdict = lambda snap, note, **kw: "评分: 2.8 建议买入"
+        intra.fetch_lite = lambda code: {"code": code, "price": 70.0, "as_of": "14:30:00"}
+        intra.fetch_market_ctx = lambda: {"regime": "momentum", "overview": {}}
+        intra._get_concepts = lambda code: ["消费电子"]   # 在概念池 -> 写 forecast
+        intra.load_t1_baseline = lambda code: {"score": 2.5, "grade": "可考虑介入",
+            "position_20d_pct": 80, "main_inflow_10d": 1e8, "np_yoy": 30, "baseline_date": "2026-06-25"}
+        # codex 出 JSON; reasoning 含无限定词资金断言(越界) -> enforce 标注
+        intra._codex_verdict = lambda snap, note, **kw: (
+            '{"verdict":"确认","direction":"看多","confidence":0.7,"horizon":"3日",'
+            '"thesis_tags":["放量突破"],"falsify_if":"跌破MA20","news_refs":[],'
+            '"reasoning":"主力大幅流入, 趋势转强"}')
+        intra.record_forecast = lambda *a, **k: fc.update(called=True, args=a) or True
         intra.push_wechat = lambda title, body, pushplus_token=None: pushed.update(wx=(title, body)) or True
         intra.push_email = lambda title, body, smtp_conf=None: pushed.update(em=(title, body)) or True
 
         intra.notify({"code": "002475", "name": "立讯精密", "type": "price_above",
                       "level": 69.0, "note": "站上69"},
-                     {"price": 70.0, "change_pct": 2.0, "amount": 1.5e9, "amplitude_pct": 3.0})
+                     {"price": 70.0, "change_pct": 2.0, "amount": 1.5e9, "amplitude_pct": 3.0,
+                      "trade_date": "2026-06-26"})
 
-        assert "wx" in pushed and "em" in pushed  # 两路推送都被调
+        assert "wx" in pushed and "em" in pushed
         body = pushed["wx"][1]
-        assert "codex盘中研判" in body
-        assert "[铁律校验]" in body  # verdict 越界被校验器标注(证明经 enforce)
-        assert "站上69" in body  # 原始告警 note 在
+        assert "盘中研判" in body
+        assert "状态: 确认" in body and "方向: 看多" in body and "置信: 70%" in body
+        assert "[铁律校验]" in body          # reasoning 无限定词资金断言被标注
+        assert "站上69" in body              # 原始告警 note 在
+        # forecast 被冻结: trade_date 锚 quote.trade_date(非 now), inputs_ref 冻结 t1+快照+regime
+        assert fc.get("called") is True
+        code_a, td_a, note_a, inputs_ref, structured, reasoning, falsify = fc["args"]
+        assert code_a == "002475" and td_a == "2026-06-26"
+        assert inputs_ref["t1_baseline"]["baseline_date"] == "2026-06-25"
+        assert inputs_ref["lite_snapshot"]["code"] == "002475"
+        assert inputs_ref["regime"] == "momentum"
+        assert structured["verdict"] == "确认" and falsify == "跌破MA20"
     finally:
-        (intra.fetch_lite, intra.fetch_market_ctx, intra._get_concepts,
-         intra._codex_verdict, intra.push_wechat, intra.push_email) = saved
+        _restore_notify(saved)
 
 
-def test_notify_no_codex_when_verdict_none():
-    saved = (intra.fetch_lite, intra.fetch_market_ctx, intra._get_concepts,
-             intra._codex_verdict, intra.push_wechat, intra.push_email)
-    pushed = {}
+def test_notify_no_research_when_codex_none():
+    saved = _save_notify()
+    pushed, fc = {}, {}
     try:
         intra.fetch_lite = lambda code: {"code": code}
         intra.fetch_market_ctx = lambda: {"regime": None, "overview": {}}
         intra._get_concepts = lambda code: []
-        intra._codex_verdict = lambda snap, note, **kw: None  # codex 不可用
+        intra.load_t1_baseline = lambda code: None
+        intra._codex_verdict = lambda snap, note, **kw: None        # codex 不可用
+        intra.record_forecast = lambda *a, **k: fc.update(called=True) or True
         intra.push_wechat = lambda title, body, pushplus_token=None: pushed.update(wx=body) or True
         intra.push_email = lambda title, body, smtp_conf=None: True
         intra.notify({"code": "x", "name": "X", "type": "price_below", "level": 1.0, "note": "破位"},
-                     {"price": 0.5, "change_pct": -5.0, "amount": 0})
-        assert "codex盘中研判" not in pushed["wx"]  # 无 verdict 不附 codex 段
+                     {"price": 0.5, "change_pct": -5.0, "amount": 0, "trade_date": "2026-06-26"})
+        assert "盘中研判" not in pushed["wx"]      # 无 verdict 不附研判段
         assert "破位" in pushed["wx"]
+        assert fc.get("called") is not True        # 无结构化预测 -> 不写 forecast
     finally:
-        (intra.fetch_lite, intra.fetch_market_ctx, intra._get_concepts,
-         intra._codex_verdict, intra.push_wechat, intra.push_email) = saved
+        _restore_notify(saved)
+
+
+def test_notify_pool_outsider_no_forecast():
+    """池外票(无 T-1 基准 且 不在概念池): 技术面研判照出, 但不写 forecast(防回测污染)。"""
+    saved = _save_notify()
+    pushed, fc = {}, {}
+    try:
+        intra.fetch_lite = lambda code: {"code": code, "price": 9.9}
+        intra.fetch_market_ctx = lambda: {"regime": "value", "overview": {}}
+        intra._get_concepts = lambda code: []        # 不在概念池
+        intra.load_t1_baseline = lambda code: None    # 无 T-1 基准
+        intra._codex_verdict = lambda snap, note, **kw: (
+            '{"verdict":"噪音","direction":"中性","confidence":0.3,"horizon":"日内",'
+            '"thesis_tags":[],"falsify_if":"放量破位","news_refs":[],"reasoning":"小幅波动, 倾向观察"}')
+        intra.record_forecast = lambda *a, **k: fc.update(called=True) or True
+        intra.push_wechat = lambda title, body, pushplus_token=None: pushed.update(wx=body) or True
+        intra.push_email = lambda title, body, smtp_conf=None: True
+        intra.notify({"code": "999999", "name": "临时票", "type": "pct_above", "level": 5.0, "note": "异动"},
+                     {"price": 9.9, "change_pct": 6.0, "amount": 1e8, "trade_date": "2026-06-26"})
+        assert "盘中研判" in pushed["wx"]           # 研判照出
+        assert "状态: 噪音" in pushed["wx"]
+        assert fc.get("called") is not True         # 池外 guard: 不写 forecast
+    finally:
+        _restore_notify(saved)
+
+
+def test_notify_codex_nonjson_degrades():
+    """codex 返回非 JSON -> 降级纯价位告警(无研判段, 不崩, 不写 forecast)。"""
+    saved = _save_notify()
+    pushed, fc = {}, {}
+    try:
+        intra.fetch_lite = lambda code: {"code": code, "price": 70.0}
+        intra.fetch_market_ctx = lambda: {"regime": "momentum", "overview": {}}
+        intra._get_concepts = lambda code: ["消费电子"]
+        intra.load_t1_baseline = lambda code: None
+        intra._codex_verdict = lambda snap, note, **kw: "抱歉我无法解析(自由文本, 非JSON)"
+        intra.record_forecast = lambda *a, **k: fc.update(called=True) or True
+        intra.push_wechat = lambda title, body, pushplus_token=None: pushed.update(wx=body) or True
+        intra.push_email = lambda title, body, smtp_conf=None: True
+        intra.notify({"code": "002475", "name": "立讯", "type": "price_above", "level": 69.0, "note": "站上69"},
+                     {"price": 70.0, "change_pct": 2.0, "amount": 1e9, "trade_date": "2026-06-26"})
+        assert "盘中研判" not in pushed["wx"]   # 解析失败 -> 无研判段
+        assert "站上69" in pushed["wx"]          # 价位告警仍在
+        assert fc.get("called") is not True      # 不写 forecast
+    finally:
+        _restore_notify(saved)
 
 
 # ── 依赖守卫(ast 静态): intraday.py 不 import monolith / 东财 ──
