@@ -19,7 +19,7 @@ import logging
 from typing import Any, Dict
 
 from vaxstock import config
-from vaxstock.report.claude_md import build_claude_markdown, compact_for_claude
+from vaxstock.report.claude_md import build_claude_markdown, build_email_digest, compact_for_claude
 from vaxstock.report.mailer import send_email
 from vaxstock.report.store import store_report
 from vaxstock.services.collect import collect_payload
@@ -44,18 +44,21 @@ def run_eod() -> Dict[str, str]:
     paths = store_report(payload, claude_data, markdown)
 
     logger.info("[5/5] 邮件门控 + 发送...")
+    # 邮件正文 = 精简摘要(大盘/宏观/赛道/持仓详情/观察池高分清单); 完整 markdown(claude.md)
+    # 与全量 payload.json 走附件。原 markdown 仍 store 落盘 + 作附件, 不变(见 CLAUDE.md §9.8)。
+    digest = build_email_digest(claude_data, track_results=tracks)
     attachments = [
         ("claude.md", paths["claude_md"], "octet-stream"),
         ("payload.json", paths["payload"], "octet-stream"),
     ]
-    _maybe_send_email(markdown, attachments)
+    _maybe_send_email(digest, attachments)
 
     return paths
 
 
-def _maybe_send_email(markdown: str, attachments) -> None:
+def _maybe_send_email(body: str, attachments) -> None:
     """邮件门控: SECRETS 凭据齐才发; SECRETS 键 → send_email 的 smtp_conf 键适配(发信固定 QQ)。
-    send_email 失败仅 warning, 不影响已完成的落盘。"""
+    body = 精简摘要(build_email_digest); send_email 失败仅 warning, 不影响已完成的落盘。"""
     S = config.SECRETS
     if S.get("email_enabled") and S.get("email_user") and S.get("email_authcode") and S.get("email_to"):
         smtp_conf: Dict[str, Any] = {
@@ -68,7 +71,7 @@ def _maybe_send_email(markdown: str, attachments) -> None:
             "bcc_email": None,                  # 本次不启用 BCC
         }
         try:
-            send_email(markdown, attachments, smtp_conf, is_html=False)  # v2 无 HTML, 纯文本发 markdown
+            send_email(body, attachments, smtp_conf, is_html=False)  # v2 无 HTML, 纯文本发摘要
         except Exception as e:
             logger.warning(f"邮件发送失败(不影响落盘): {str(e)[:120]}")
     else:

@@ -407,3 +407,124 @@ def build_claude_markdown(claude_data: Dict[str, Any],
     lines.append("   - 高位高估值+主力流出的标的(警惕)")
     lines.append("   - 跌破关键均线+空头排列的标的(趋势恶化)")
     return "\n".join(lines)
+
+
+def build_email_digest(claude_data: Dict[str, Any],
+                       track_results: Optional[List[TrackResult]] = None) -> str:
+    """邮件正文精简摘要(复用已 compact 的 claude_data, 不重新取数)。
+
+    结构: 大盘 / 宏观6维一行 / AI赛道档位 / 持仓详情(保留) / 观察池高分清单(score>=2.0) / 明日重点(有才出)。
+    完整40票详情(claude.md)与全量数据(payload.json)走附件, 不在正文。
+    所有字段取自 claude_data 已有键; 缺失诚实标"待验证", 不臆造(P0)。
+    持仓详情保留、观察池只清单 —— 与用户偏好一致(个股详情不堆, 持仓可放)。
+    """
+    lines: List[str] = []
+
+    # —— 标题: 交易日(锚 market_overview.trade_date, 缺则用 generated_at 的日期部分) ——
+    mo = claude_data.get("market_overview") or {}
+    td = mo.get("trade_date")
+    if td and len(str(td)) == 8:
+        td = str(td)
+        trade_date = f"{td[:4]}-{td[4:6]}-{td[6:]}"
+    else:
+        trade_date = str(claude_data.get("generated_at", "")).split(" ")[0] or "待验证"
+    lines.append(f"# 📊 EOD 摘要 {trade_date}")
+    lines.append("")
+
+    # —— 大盘: regime | 涨跌家数 | 北向 ——
+    regime = claude_data.get("market_regime", "momentum")
+    regime_label = {"momentum": "📈 动量市", "value": "💰 价值市",
+                    "panic": "🚨 恐慌市"}.get(regime, regime)
+    nf = claude_data.get("north_flow") or {}
+    if nf.get("total_inflow") is not None:
+        freshness = "今日" if nf.get("is_today") else f"延迟{nf.get('trade_date', '')}"
+        north = f"北向{nf['total_inflow']:+.2f}亿({freshness})"
+    else:
+        north = "北向待验证"
+    lines.append(f"## 大盘: {regime_label} | "
+                 f"涨{mo.get('up_count', '?')}/跌{mo.get('down_count', '?')}/"
+                 f"涨停{mo.get('limit_up_count', '?')}/跌停{mo.get('limit_down_count', '?')} | {north}")
+    lines.append("")
+
+    # —— 宏观: macro_regime | 6维 signal 一行(available=False/缺 -> 待验证, 不臆造) ——
+    macro = claude_data.get("macro") or {}
+    if macro.get("available") is False or not macro.get("macro_regime"):
+        lines.append("## 宏观: 待验证")
+    else:
+        ind = macro.get("indicators") or {}
+
+        def _sig(key, sub="signal"):
+            return (ind.get(key) or {}).get(sub) or "—"
+
+        breadth_d = ind.get("breadth") or {}
+        breadth_sig = "待" if breadth_d.get("available") is False else (breadth_d.get("signal") or "—")
+        dims = (f"ETF{_sig('etf_net_sub', 'signal_5d')}/融资{_sig('margin_ratio')}/"
+                f"换手{_sig('turnover')}/ERP{_sig('hs300_erp')}/M1{_sig('m1_yoy')}/breadth{breadth_sig}")
+        lines.append(f"## 宏观: {macro.get('macro_regime')} | 6维: {dims}")
+        # margin 等滞后维度透明化(§9.2 注 / §10): 标 data_date 与报告日的差
+        mr = ind.get("margin_ratio") or {}
+        if mr.get("stale") and mr.get("latest_date"):
+            lines.append(f"  > ⚠️ 融资维滞后, 采用 {mr['latest_date']}(Tushare T+1 早晨仍未发布当日, 属数据源时效)")
+    lines.append("")
+
+    # —— AI 赛道: 档位 + summary 1-2 行 ——
+    if track_results:
+        for tr in track_results:
+            lines.append(f"## {tr.get('track_name', '赛道')}: {tr.get('position_ceiling', '')}")
+            for ln in (tr.get("summary_lines") or [])[:2]:
+                lines.append(f"- {ln}")
+            vetoes = tr.get("vetoes") or []
+            if vetoes:
+                names = "; ".join((v[0] if len(v) > 0 else "") for v in vetoes)
+                lines.append(f"- 🚫 否决 {len(vetoes)} 项: {names}")
+    else:
+        lines.append("## AI赛道: 待验证")
+    lines.append("")
+
+    # —— 持仓评估(详情保留): 逐 holding 票 ——
+    stocks = claude_data.get("stocks") or []
+    holdings = [s for s in stocks if s.get("group") == "holding"]
+    lines.append("## 持仓评估(详情保留)")
+    if holdings:
+        for s in holdings:
+            score = s.get("right_side_score")
+            score_str = f"{score:.1f}" if score is not None else "-"
+            grade = s.get("right_side_grade") or "-"
+            pnl_str = ""
+            if s.get("pnl_pct") is not None:
+                pnl_str = f" 盈亏{fmt_pct(s.get('pnl_pct'))}"
+                if s.get("pnl_amount") is not None:
+                    pnl_str += f"({s['pnl_amount']:+.0f}元)"
+            lines.append(f"### {s.get('name')}({s.get('code')}) 评分{score_str}[{grade}]{pnl_str}")
+            for a in [a for a in (s.get("alerts") or []) if a][:2]:
+                lines.append(f"- {a}")
+    else:
+        lines.append("(无持仓)")
+    lines.append("")
+
+    # —— 观察池: 仅高分清单(score>=2.0), 其余只给一句计数(详情见附件) ——
+    watch = [s for s in stocks if s.get("group") == "watchlist"]
+    high = [s for s in watch if (s.get("right_side_score") or -1) >= 2.0]
+    lines.append("## 观察池(仅高分清单 ≥2.0, 详情见附件)")
+    if high:
+        for s in sorted(high, key=lambda x: -(x.get("right_side_score") or 0)):
+            lines.append(f"- {s.get('code')} {s.get('name')} 评分{s['right_side_score']:.1f}")
+    else:
+        lines.append("- (无 ≥2.0 标的)")
+    rest = len(watch) - len(high)
+    if rest > 0:
+        lines.append(f"- 其余 {rest} 只观察池详情见附件 claude.md")
+    lines.append("")
+
+    # —— 明日重点: 有 strategy/重点字段才出, 无则省略不编(P0) ——
+    focus = (claude_data.get("strategy") or claude_data.get("tomorrow_focus")
+             or claude_data.get("明日重点"))
+    if focus:
+        lines.append("## 明日重点")
+        if isinstance(focus, (list, tuple)):
+            lines.extend(f"- {f}" for f in focus)
+        else:
+            lines.append(str(focus))
+        lines.append("")
+
+    return "\n".join(lines).rstrip() + "\n"

@@ -148,12 +148,13 @@ print('✅ import无副作用 + 纯函数验证通过')
 ## 9. 关键架构决策(为什么这么定,后续窗口必读)
 
 1. **交易日锚定铁律**:所有"交易日基准"(报告目录名/北向is_today/regime落盘/MR-Eval快照)必须取数据里的 trade_date(`market_overview["trade_date"]` / daily 返回值),**绝不用 `now()`/`date.today()`**。后者只允许用于"生成时刻戳"(`generated_at`)和"缓存key后缀"。原因:EOD 改为次日凌晨05:00(美股收盘后)跑,`now()` 是 T+1,用 now 当交易日必错一天。
-2. **EOD 调度时点 = 次日凌晨 05:00**(美股收盘后跑 T 日 EOD)。红利:① daily/breadth 的 T 日已收盘定稿 → 增量缓存幂等天然成立(不必两段式);② us_market(NVDA/SOX/VIX)拿到美股 T 日完整收盘,AI赛道择时更准。
+2. **EOD 调度时点 = 次日凌晨 05:00**(美股收盘后跑 T 日 EOD)。红利:① daily/breadth 的 T 日已收盘定稿 → 增量缓存幂等天然成立(不必两段式);② us_market(NVDA/SOX/VIX)拿到美股 T 日完整收盘,AI赛道择时更准。注:margin/融资数据 Tushare(本账户2000积分)T+1 早晨仍未发布(实测 6/26 08:30 仍取不到 6/25),凌晨5点亦拿不到当日 margin,该维天然滞后 1-2 日,属数据源时效非 bug;报告应标注该维 data_date 与报告日的差。
 3. **幂等是代码内在属性,不靠使用约束**(不靠"别在盘中跑")。写持久状态只接受"已定稿数据";会变的"当天"不进持久状态(或靠凌晨5点跑时当天已定稿)。regime 状态(`regime_history.json`):纯重放 + 按 trade_date 去重,同日跑N次结果恒定(PR#12)。macro 增量缓存(parquet, `append_unique keep=last`):同一定稿交易日写N次结果恒定。
 4. **单一真相 / 消全局**:`_CURRENT_MARKET_REGIME` 已消除,regime 显式传 `build_stock_item`;intraday 是 api 纯消费者,大盘 regime 只走 `GET /market`(api REGIME_TTL 缓存),不自取 Tushare。
 5. **盘中六铁律 = 输出层硬校验,不靠 codex 自觉**:codex 研判过 `enforce_intraday_rules`(正则拦评分/买卖价/资金臆测)。引入 T-1 基准后(C2c):"昨日/T-1"限定词的评分引用合法,盘中新生成评分非法——用限定词白名单区分。
 6. **数据时效分层**:实时(新浪指数regime/lite个股)可信;Tushare daily 聚合(涨跌家数)T日收盘滞后,喂 codex 必标"T日收盘聚合, 盘中滞后"口径;T-1 EOD(评分/资金/位置)是"昨日定稿基准"可引用,非盘中新结论。
 7. **MR-Eval 反哺原则**:主样本 = 全 watchlist 无条件每日快照(防幸存者偏差,非只记触发的);append-only(预测先于结果冻结);每条快照带市场状态(regime/宏观/宽度,用于按"世界状态"分桶 / 剔除特殊期如15股灾/AI暴涨);结果用 Tushare 真收盘机械算 + 指数基准算超额;反哺人工拍板,不自动调参(样本不足时自动=追噪音)。盘中触发(A)是该样本的带情境子集,分开存不混。
+8. **邮件输出设计**:邮件正文 = 精简摘要(大盘/宏观/赛道/持仓详情/观察池高分清单/明日重点);完整40票详情(claude.md)与全量数据(payload.json)走附件。正文不放观察池个股详情(持仓保留)。
 
 ---
 
@@ -168,3 +169,4 @@ print('✅ import无副作用 + 纯函数验证通过')
 - **触网墙钟超时统一 daemon线程+join,不用 ThreadPoolExecutor**(其 `shutdown(wait=True)` defeat 超时)。akshare(`_ak_safe`)/yfinance(`_yf_safe`)/Tushare(`source._safe_call`)均此模式。
 - **lite=1 必须前置于 `refresh_regime()`**:冷缓存 refresh_regime 扫全市场卡数分钟,lite 盘中查询须在它之前 return。
 - **东财已砍**:VPS 连不上东财(502/000),板块④/热门赛道⑦/opportunity⑧ 诚实返回 available=False,不 import 旧模块、不臆造;将来用 watchlist AI/机器人成分自聚合替代。
+- **margin 等滞后维度**:summary 应带 stale/lag_days 标注(待办),让宏观维滞后对报告透明(凌晨5点跑也救不了 margin 滞后)。邮件 digest 已对 margin stale 标 data_date(PR-Digest)。
