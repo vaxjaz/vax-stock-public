@@ -20,12 +20,13 @@ _TRACKS = [{"track_name": "AI算力", "date": "2026-06-25", "available": False,
             "position_ceiling": "待验证(数据缺失, 不出仓位结论)", "pending": ["stub"]}]
 _CLAUDE = {"generated_at": "2026-06-25 16:00", "_compact": True}
 _MD = "MARKDOWN_BODY"
+_DIGEST = "DIGEST_BODY"
 _PATHS = {"payload": "/r/2026-06-25/payload.json",
           "claude_json": "/r/2026-06-25/claude.json",
           "claude_md": "/r/2026-06-25/claude.md"}
 
 _SEAMS = ["TushareSource", "collect_payload", "compact_for_claude",
-          "build_claude_markdown", "store_report", "send_email"]
+          "build_claude_markdown", "build_email_digest", "store_report", "send_email"]
 
 
 def _install_spies(secrets=None):
@@ -50,6 +51,11 @@ def _install_spies(secrets=None):
         rec["build_in"] = {"claude_data": claude_data, "track_results": track_results}
         return _MD
     eod_mod.build_claude_markdown = _build
+
+    def _digest(claude_data, track_results=None):
+        rec["digest_in"] = {"claude_data": claude_data, "track_results": track_results}
+        return _DIGEST
+    eod_mod.build_email_digest = _digest
 
     def _store(payload, claude_data, markdown, report_dir=None):
         rec["store_in"] = {"payload": payload, "claude_data": claude_data, "markdown": markdown}
@@ -98,10 +104,13 @@ def test_eod_orchestration_and_passthrough():
         assert rec["build_in"]["track_results"] is _TRACKS
         # compact 收到 collect 的 payload
         assert rec["compact_in"] is _PAYLOAD
-        # store 收到 (payload, claude_data, markdown)
+        # store 收到 (payload, claude_data, markdown) —— 落盘仍是完整 markdown(claude.md 附件不变)
         assert rec["store_in"]["payload"] is _PAYLOAD
         assert rec["store_in"]["claude_data"] is _CLAUDE
         assert rec["store_in"]["markdown"] == _MD
+        # digest 收到 compact 的 claude_data + collect 的 tracks(邮件正文走 digest, 非完整 markdown)
+        assert rec["digest_in"]["claude_data"] is _CLAUDE
+        assert rec["digest_in"]["track_results"] is _TRACKS
         # build 收到的 claude_data 是 compact 的输出
         assert rec["build_in"]["claude_data"] is _CLAUDE
         # run_eod 返回 store_report 的 paths
@@ -148,7 +157,7 @@ def test_email_gate_enabled_smtp_conf_mapping():
         assert conf["smtp_port"] == 465
         assert conf["bcc_email"] is None              # 本次不启用 BCC
         assert rec["send_calls"][0]["is_html"] is False  # v2 纯文本
-        assert rec["send_calls"][0]["body"] == _MD       # 发的是 markdown
+        assert rec["send_calls"][0]["body"] == _DIGEST   # 邮件正文 = 精简摘要 digest(非完整 markdown)
     finally:
         restore()
 
