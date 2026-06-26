@@ -226,9 +226,11 @@ def test_summary_breadth_placeholder_and_dim_isolation():
         mi = macro.MacroIndicator(_FakeSource({"cn_m": cn_m, "fund_share": boom}), cache_dir=d)
         res = mi.summary()
 
-        # 维度5 占位(留 B3)
+        # 维度5(B3)已迁: 无 index_daily/daily 数据 -> breadth available=False(不再是占位), 且进 errors
         assert res["indicators"]["breadth"]["available"] is False
-        assert "B3" in res["indicators"]["breadth"]["pending"]
+        assert "pending" not in res["indicators"]["breadth"]   # 占位已删
+        assert any(e.startswith("market_breadth_ma") for e in res["errors"])
+        assert any(e.startswith("ma250_bias") for e in res["errors"])
         # 已迁维度6 有产出与信号
         assert "m1_yoy" in res["indicators"]
         assert len(res["signals"]) >= 1
@@ -309,6 +311,206 @@ def test_macro_no_toplevel_akshare_no_forbidden():
                  "hot_sector_scanner"]
     offenders = [t for t in alltokens if any(fb in t for fb in forbidden)]
     assert offenders == [], f"macro.py 不应 import 东财/monolith: {offenders}"
+
+
+# ════════ 7. 维度5 全市场宽度(B3): 纯计算 / 增量 / 未结算守卫 / BIAS / 过滤 / summary 切真值 ════════
+
+def _dates(n, start=(2026, 1, 5)):
+    import datetime as _dt
+    base = _dt.date(*start)
+    return [(base + _dt.timedelta(days=i)).strftime("%Y%m%d") for i in range(n)]
+
+
+def test_compute_breadth_from_klines_math():
+    macro = _macro()
+    import shutil
+    import tempfile
+
+    import pandas as pd
+    d = tempfile.mkdtemp(prefix="vaxmacro_")
+    try:
+        dates = _dates(45)   # 45 日: MA60(min_periods40)有效, MA200(min_periods120)不足
+        rows = []
+        for i, td in enumerate(dates):
+            rows.append({"trade_date": td, "ts_code": "000001.SZ", "close": 10 + i * 0.1})   # 上升
+            rows.append({"trade_date": td, "ts_code": "000002.SZ", "close": 20 - i * 0.1})   # 下降
+            rows.append({"trade_date": td, "ts_code": "600000.SH", "close": 30.0})           # 平
+        kc = pd.DataFrame(rows)
+        mi = macro.MacroIndicator(_FakeSource({}), cache_dir=d)
+        out = mi._compute_breadth_from_klines(kc, "market_breadth_ratio_history") \
+                .sort_values("trade_date").reset_index(drop=True)
+        last = out.iloc[-1]
+        assert int(last["valid_count_ma60"]) == 3           # 3 票 MA60 均有效
+        assert abs(last["above_ma60_pct"] - 100.0 / 3) < 1e-6  # 仅上升票在 MA60 之上
+        assert int(last["valid_count_ma200"]) == 0          # 45<120 -> MA200 无效
+        assert pd.isna(last["above_ma200_pct"])             # 无有效票 -> NaN(不臆造)
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+
+
+def _daily_rows(td, n=1005, prefix="6001"):
+    return [{"trade_date": td, "ts_code": f"{prefix}{i:04d}.SH", "close": 10.0 + i} for i in range(n)]
+
+
+def test_breadth_incremental_append_and_dedup():
+    macro = _macro()
+    import shutil
+    import tempfile
+
+    import pandas as pd
+    d = tempfile.mkdtemp(prefix="vaxmacro_")
+    try:
+        def _idx(ts_code=None, **k):
+            return pd.DataFrame({"trade_date": ["20260105", "20260106"]}) if ts_code == "000001.SH" else None
+
+        def _daily(trade_date=None, **k):
+            return pd.DataFrame(_daily_rows("20260106")) if trade_date == "20260106" else None
+
+        mi = macro.MacroIndicator(_FakeSource({"index_daily": _idx, "daily": _daily}), cache_dir=d)
+        # 预置 day1 pivot(5 行)
+        day1 = pd.DataFrame([{"trade_date": "20260105", "ts_code": f"6000{i:02d}.SH", "close": 10.0 + i}
+                             for i in range(5)])
+        mi.cache.save("stocks_daily_pivot", day1)
+
+        mi._fetch_breadth_ma_ratio()
+        pivot = mi.cache.load("stocks_daily_pivot")
+        assert str(pivot["trade_date"].max()) == "20260106"          # kline_last 推进
+        assert len(pivot) == 5 + 1005                                # day1 + day2 全留
+        assert pivot.duplicated(subset=["ts_code", "trade_date"]).sum() == 0   # 无重复
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+
+
+def test_breadth_unsettled_guard_skips():
+    macro = _macro()
+    import logging
+    import shutil
+    import tempfile
+
+    import pandas as pd
+    d = tempfile.mkdtemp(prefix="vaxmacro_")
+    records = []
+
+    class _H(logging.Handler):
+        def emit(self, r):
+            records.append(r.getMessage())
+
+    h = _H()
+    macro.logger.addHandler(h)
+    try:
+        def _idx(ts_code=None, **k):
+            return pd.DataFrame({"trade_date": ["20260105", "20260106"]}) if ts_code == "000001.SH" else None
+
+        def _daily(trade_date=None, **k):
+            # 20260106 仅 50 行(< MIN_DAILY_ROWS) -> 视为未结算, 跳过
+            return pd.DataFrame(_daily_rows("20260106", n=50)) if trade_date == "20260106" else None
+
+        mi = macro.MacroIndicator(_FakeSource({"index_daily": _idx, "daily": _daily}), cache_dir=d)
+        day1 = pd.DataFrame([{"trade_date": "20260105", "ts_code": f"6000{i:02d}.SH", "close": 10.0 + i}
+                             for i in range(5)])
+        mi.cache.save("stocks_daily_pivot", day1)
+
+        mi._fetch_breadth_ma_ratio()
+        pivot = mi.cache.load("stocks_daily_pivot")
+        assert "20260106" not in set(pivot["trade_date"].astype(str))   # 未结算日不进 pivot
+        assert str(pivot["trade_date"].max()) == "20260105"
+        assert any("疑未结算" in m for m in records), records
+    finally:
+        macro.logger.removeHandler(h)
+        shutil.rmtree(d, ignore_errors=True)
+
+
+def test_fetch_ma250_bias_math():
+    macro = _macro()
+    import shutil
+    import tempfile
+
+    import pandas as pd
+    d = tempfile.mkdtemp(prefix="vaxmacro_")
+    try:
+        dates = _dates(210)                       # 210 日: MA250(min_periods200)末行有效, 早期无效
+        closes = [100.0 + i * 0.5 for i in range(210)]
+
+        def _idx(ts_code=None, **k):
+            return pd.DataFrame({"trade_date": dates, "close": closes}) if ts_code == macro.WHOLE_MARKET_PROXY else None
+
+        mi = macro.MacroIndicator(_FakeSource({"index_daily": _idx}), cache_dir=d)
+        out = mi._fetch_ma250_bias().sort_values("trade_date").reset_index(drop=True)
+        last = out.iloc[-1]
+        # 末行 MA250 = 全 210 日均值(窗口 250 但仅 210 可用, min_periods200 满足)
+        exp_ma = sum(closes) / len(closes)
+        exp_bias = (closes[-1] - exp_ma) / exp_ma * 100
+        assert abs(last["bias_pct"] - exp_bias) < 1e-6
+        assert pd.isna(last["percentile_5y"])     # 半窗(625)不足 -> NaN
+        assert pd.isna(out.iloc[0]["bias_pct"])   # 前期 MA250 不足 -> NaN
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+
+
+def test_breadth_filters_bse_and_star():
+    macro = _macro()
+    import shutil
+    import tempfile
+
+    import pandas as pd
+    d = tempfile.mkdtemp(prefix="vaxmacro_")
+    try:
+        def _idx(ts_code=None, **k):
+            return pd.DataFrame({"trade_date": ["20260106"]}) if ts_code == "000001.SH" else None
+
+        def _daily(trade_date=None, **k):
+            rows = _daily_rows("20260106", n=1000)              # 主板/创业板代理
+            rows += [{"trade_date": "20260106", "ts_code": "830001.BJ", "close": 5.0},   # 北交所 8 字头
+                     {"trade_date": "20260106", "ts_code": "688001.SH", "close": 50.0}]  # 科创 688
+            return pd.DataFrame(rows)
+
+        mi = macro.MacroIndicator(_FakeSource({"index_daily": _idx, "daily": _daily}), cache_dir=d)
+        mi._fetch_breadth_ma_ratio()
+        codes = set(mi.cache.load("stocks_daily_pivot")["ts_code"].astype(str))
+        assert "830001.BJ" not in codes and "688001.SH" not in codes   # 8/688 被滤除
+        assert len(codes) == 1000
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+
+
+def test_summary_dim5_live_and_isolation():
+    macro = _macro()
+    import shutil
+    import tempfile
+
+    import pandas as pd
+    d = tempfile.mkdtemp(prefix="vaxmacro_")
+    try:
+        breadth_df = pd.DataFrame({
+            "trade_date": ["20260105", "20260106"],
+            "above_ma60_pct": [80.0, 78.0], "above_ma200_pct": [70.0, 68.0],
+            "above_ma60_percentile_5y": [90.0, 88.0], "above_ma200_percentile_5y": [85.0, 83.0],
+            "valid_count_ma60": [4000, 4010], "valid_count_ma200": [3900, 3950]})
+        bias_df = pd.DataFrame({"trade_date": ["20260105", "20260106"],
+                                "bias_pct": [5.0, 6.0], "percentile_5y": [80.0, 82.0]})
+        mi = macro.MacroIndicator(_FakeSource({}), cache_dir=d)
+        mi.fetch_market_breadth = lambda: {"breadth": breadth_df, "bias": bias_df}
+        res = mi.summary()
+        b = res["indicators"]["breadth"]
+        assert b["available"] is True
+        assert b["above_ma60_pct"] == 78.0 and b["above_ma200_pct"] == 68.0 and b["ma250_bias_pct"] == 6.0
+        # lower_better: above_ma60 78≥75 -> ❌; above_ma200 68≥65 -> ❌; bias 6≥3 -> ❌
+        assert b["above_ma60_signal"] == "❌" and b["above_ma200_signal"] == "❌" and b["ma250_bias_signal"] == "❌"
+        assert res["signals"].count("❌") >= 3              # 三宽度信号进 signals
+        assert isinstance(res["macro_regime"], str)        # combine 自然纳入维度5
+
+        # 异常隔离: fetch_market_breadth 抛 -> 进 errors, breadth available False, summary 不崩
+        mi2 = macro.MacroIndicator(_FakeSource({}), cache_dir=d)
+
+        def _boom():
+            raise RuntimeError("注入故障")
+
+        mi2.fetch_market_breadth = _boom
+        res2 = mi2.summary()
+        assert res2["indicators"]["breadth"]["available"] is False
+        assert any(e.startswith("market_breadth:") for e in res2["errors"])
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
 
 
 if __name__ == "__main__":
