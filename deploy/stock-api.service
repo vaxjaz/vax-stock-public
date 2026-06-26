@@ -1,0 +1,17 @@
+[Unit]
+Description=vaxstock v2 API (FastAPI/Uvicorn)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=root
+Group=root
+WorkingDirectory=/opt/stock-reportv2/vax-stock-public
+EnvironmentFile=/etc/vaxstock/vaxstock.env
+Environment="PATH=/opt/stock-reportv2/venv/bin:/usr/local/bin:/usr/bin:/bin"
+ExecStart=/opt/stock-reportv2/venv/bin/python -m vaxstock.services.api
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

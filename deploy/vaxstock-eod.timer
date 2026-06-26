@@ -1,0 +1,12 @@
+[Unit]
+Description=vaxstock v2 EOD 定时(每交易日次日凌晨05:00, 美股收盘后)
+
+[Timer]
+OnCalendar=Tue-Sat 05:00 Asia/Shanghai
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+
+# 注: OnCalendar 用 Tue-Sat(跑周一~周五的T日EOD, 次日凌晨); Persistent=true 错过(宕机)开机补跑, 防漏样本(§9.7 B线时间不可逆)。
+# systemd timer 不判交易日历, 周一凌晨(跑周日)无新数据 -> EOD 内 trade_date 锚数据, 无新交易日则各维标待验证, 不污染。故 Tue-Sat 已避开大部分空跑。

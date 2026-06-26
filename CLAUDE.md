@@ -102,7 +102,8 @@ tracks/__init__.py 严禁 import ai 或任何会触网/加载重依赖(akshare/p
     - [x] B1+2 macro 迁包(骨架+5维: ETF/M1/融资/换手/ERP)
     - [ ] B3 macro 维度5(全市场 breadth MA60/200 + MA250乖离)
     - [ ] B4 macro 第7维 社融脉冲(sf_month 权限已确认✅)
-    - [ ] C3 deploy/ 纳入仓库(systemd unit + timer)+ 切线上
+    - [x] C3a deploy/ 纳入仓库(v2 三服务 systemd unit + EOD timer + README 切换手册)
+    - [ ] C3b VPS 切线上(运维: v2 一刀切顶替 v1, 仅 backtest cron 保留; 切换非代码 PR)
 - [ ] **MR-Eval 线(预测追踪反哺,独立线)**:
     - [ ] E1 全 watchlist 因子快照 append + T+k(1/3/5/10/20/30)回填(尽早,数据时间不可逆)
     - [ ] E2 research 分桶/前瞻IC/超额评估报告(攒够样本后)
@@ -154,7 +155,20 @@ print('✅ import无副作用 + 纯函数验证通过')
 5. **盘中六铁律 = 输出层硬校验,不靠 codex 自觉**:codex 研判过 `enforce_intraday_rules`(正则拦评分/买卖价/资金臆测)。引入 T-1 基准后(C2c):"昨日/T-1"限定词的评分引用合法,盘中新生成评分非法——用限定词白名单区分。
 6. **数据时效分层**:实时(新浪指数regime/lite个股)可信;Tushare daily 聚合(涨跌家数)T日收盘滞后,喂 codex 必标"T日收盘聚合, 盘中滞后"口径;T-1 EOD(评分/资金/位置)是"昨日定稿基准"可引用,非盘中新结论。
 7. **MR-Eval 反哺原则**:主样本 = 全 watchlist 无条件每日快照(防幸存者偏差,非只记触发的);append-only(预测先于结果冻结);每条快照带市场状态(regime/宏观/宽度,用于按"世界状态"分桶 / 剔除特殊期如15股灾/AI暴涨);结果用 Tushare 真收盘机械算 + 指数基准算超额;反哺人工拍板,不自动调参(样本不足时自动=追噪音)。盘中触发(A)是该样本的带情境子集,分开存不混。
+
+   **A/B 两条样本线区分(不可混)**:
+
+   | | B 主样本(无偏全截面) | A 盯盘样本(触发子集) |
+   |---|---|---|
+   | 写入时点 | EOD 每天5点各票一条 | 盘中触发那一刻即时一条 |
+   | 写入者 | eval_recorder(EOD调) | intraday notify(盯盘调) |
+   | 数据 | T日定稿因子 | 触发时实时快照+当时regime+T-1基准 |
+   | 文件 | factor_snapshots.jsonl + factor_results.jsonl | 独立盘中触发jsonl(另文件) |
+   | 落点 | E1(已做 PR#22) | 并入 C2c(依赖盘中T-1基准) |
+
+   铁律:A ⊂ B 但**分开存 / 分开记 / 分开写入时点**;A 绝不冒充 B 全样本(否则幸存者偏差污染反哺);分析按 (trade_date, code) join。E1 只立 B 线;A 线归 C2c,现未动。
 8. **邮件输出设计**:邮件正文 = 精简摘要(大盘/宏观/赛道/持仓详情/观察池高分清单/明日重点);完整40票详情(claude.md)与全量数据(payload.json)走附件。正文不放观察池个股详情(持仓保留)。
+9. **部署 = 基础设施即代码**:v2 三服务(api/intraday/eod-timer)unit 模板在 `deploy/`,`EnvironmentFile=/etc/vaxstock/vaxstock.env` 统一收口;EOD 走 systemd timer(凌晨05:00 + `Persistent=true` 补跑防漏样本),非 cron。v1(`/opt/stock-report`)除 backtest cron 外全退役。
 
 ---
 
