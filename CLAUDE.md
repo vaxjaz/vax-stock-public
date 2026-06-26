@@ -97,8 +97,8 @@ tracks/__init__.py 严禁 import ai 或任何会触网/加载重依赖(akshare/p
     - [x] C1 api.py 去副作用(lite=1 前置 refresh_regime,消全局,惰性单例)
     - [x] C2a intraday 迁包 + codex/notify 抽离 + 盘中铁律硬校验器
     - [x] C2b codex 注入大盘背景/概念/触发次数
-    - [ ] C2c T-1 EOD 基准引入 + 校验器升级(昨日限定词白名单)
-    - [ ] C2d 盘中演变记忆 + 主动盘面体检 + /intraday/ask 咨询端点
+    - [x] C2c T-1基准注入 + 校验器白名单 + A样本线(forecast冻结)  # PR-A(PR#30)
+    - [ ] C2d 盘中演变记忆 + 主动盘面体检 + /intraday/ask 咨询端点(C2c 未尽的演变记忆归此)
     - [x] B1+2 macro 迁包(骨架+5维: ETF/M1/融资/换手/ERP)
     - [x] B3 macro 维度5(全市场 breadth MA60/200 + MA250乖离)  # PR#27
     - [x] B4 macro 第7维 社融脉冲(sf_month 权限已确认✅)  # PR#28, 维度7迁入, macro 7维齐
@@ -108,6 +108,7 @@ tracks/__init__.py 严禁 import ai 或任何会触网/加载重依赖(akshare/p
     - [ ] E1 全 watchlist 因子快照 append + T+k(1/3/5/10/20/30)回填(尽早,数据时间不可逆)
     - [ ] E2 research 分桶/前瞻IC/超额评估报告(攒够样本后)
     - [ ] E3 人工据报告反哺因子权重(不自动调参)
+    - [x] C线 forecast 第三条数据线已立(EOD∪Layer2 之上的预测线; T-1基准注入 + JSON结构化预测冻结 var/forecast/forecasts.jsonl); 结果 T+k 回填留后续 PR  # PR-A(PR#30)
 - [ ] **MR7 文档/README 全面同步**
 
 ---
@@ -186,3 +187,8 @@ print('✅ import无副作用 + 纯函数验证通过')
 - **margin 等滞后维度**:summary 应带 stale/lag_days 标注(待办),让宏观维滞后对报告透明(凌晨5点跑也救不了 margin 滞后)。邮件 digest 已对 margin stale 标 data_date(PR-Digest)。
 - **api 生产依赖必须主 dependencies, 不放 `[dev]`**:fastapi/uvicorn 是 api 生产运行必需(`services/api.py` 顶层 import fastapi + `__main__` uvicorn.run)。曾误把 fastapi 放 `[dev]`、uvicorn 完全没声明 → 生产 `pip install -e ".[tracks]"`(不带 dev)起 api 即 ModuleNotFoundError(实测 6/26 切线上时 uvicorn 缺,PR#24 修)。`[dev]` 只放测试桩(pytest/httpx)。同 pyarrow(PR#19)——依赖声明缺失被开发环境手动装侥幸掩盖,生产暴露。
 - **依赖缺口的检出**:切线上前必须在干净 venv 验 `python -c "import <生产入口模块>"`(如 `import vaxstock.services.api`),而非只跑 pytest(测试装了 `[dev]` 会掩盖生产缺口)。
+- **codex 盘中链路依赖三项齐全**:`CODEX_URL`(CLIProxyAPI 端点,如 `http://127.0.0.1:8317/v1/chat/completions`)+ `CODEX_TOKEN`(CLIProxyAPI 的 api-key,**不是** Codex OAuth token)+ `codex_model`(须在 CLIProxyAPI `/v1/models` 列表内,如 `gpt-5.5`)。
+  - 故障对照:缺 URL → `Invalid URL None`;key 错 → 返回 `{"error":"Invalid API key"}`;model 不认 → 返回 JSON 但无 choices(报 `KeyError 'choices'`)。
+  - 配置位置:可放 `secrets.json` 或 `/etc/vaxstock/vaxstock.env`,环境变量优先(`_ENV_OVERRIDES` 映射 `codex_url/codex_token/codex_model → CODEX_URL/CODEX_TOKEN/CODEX_MODEL`)。生产由 systemd `EnvironmentFile` 注入;手动跑须先 `set -a; . /etc/vaxstock/vaxstock.env; set +a` 导入,否则读不到。
+  - 验证:`curl` 直打端点带 `Bearer` key,返回含 `choices` 即通。
+  - 历史教训:C2a/C2b 期间该链路因 url/key 未配通,盘中一直静默走"无研判"分支;2026-06-26 PR-A 验证时首次点亮。
