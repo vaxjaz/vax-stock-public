@@ -26,7 +26,8 @@ _PATHS = {"payload": "/r/2026-06-25/payload.json",
           "claude_md": "/r/2026-06-25/claude.md"}
 
 _SEAMS = ["TushareSource", "collect_payload", "compact_for_claude",
-          "build_claude_markdown", "build_email_digest", "store_report", "send_email"]
+          "build_claude_markdown", "build_email_digest", "store_report", "send_email",
+          "record_and_backfill"]
 
 
 def _install_spies(secrets=None):
@@ -67,6 +68,11 @@ def _install_spies(secrets=None):
                                   "smtp_conf": smtp_conf, "is_html": is_html})
         return True
     eod_mod.send_email = _send
+
+    def _eval(payload, source):
+        rec["eval_call"] = {"payload": payload, "source": source}
+        return {"snapshots": 0, "backfilled": 0}
+    eod_mod.record_and_backfill = _eval
 
     if secrets is not None:
         config.SECRETS = secrets
@@ -117,6 +123,9 @@ def test_eod_orchestration_and_passthrough():
         assert paths == _PATHS
         # collect 收到的 source 即 eod.TushareSource(token) 构造出的那个(stub)
         assert rec["collect_source"]["_stub"] is True
+        # MR-Eval: record_and_backfill 收到 payload + 同一 source(快照地基地接入)
+        assert rec["eval_call"]["payload"] is _PAYLOAD
+        assert rec["eval_call"]["source"]["_stub"] is True
     finally:
         restore()
 

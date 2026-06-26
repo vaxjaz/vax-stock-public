@@ -23,6 +23,7 @@ from vaxstock.report.claude_md import build_claude_markdown, build_email_digest,
 from vaxstock.report.mailer import send_email
 from vaxstock.report.store import store_report
 from vaxstock.services.collect import collect_payload
+from vaxstock.services.eval_recorder import record_and_backfill
 from vaxstock.sources.tushare_src import TushareSource
 
 logger = logging.getLogger(__name__)
@@ -52,6 +53,14 @@ def run_eod() -> Dict[str, str]:
         ("payload.json", paths["payload"], "octet-stream"),
     ]
     _maybe_send_email(digest, attachments)
+
+    # MR-Eval E1: 全 watchlist 因子快照 append + 历史快照 T+k 回填(预测追踪数据地基)。
+    # 失败仅 warning, 不影响已完成的落盘/邮件(记录是反哺地基, 非主流程)。
+    try:
+        stats = record_and_backfill(payload, source)
+        logger.info(f"MR-Eval: 快照 {stats['snapshots']} 条 / 回填 {stats['backfilled']} 条")
+    except Exception as e:
+        logger.warning(f"MR-Eval 快照/回填失败(不影响落盘): {str(e)[:120]}")
 
     return paths
 
