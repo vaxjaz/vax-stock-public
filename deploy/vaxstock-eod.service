@@ -1,0 +1,13 @@
+[Unit]
+Description=vaxstock v2 EOD (盘后/次日凌晨全流程)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+WorkingDirectory=/opt/stock-reportv2/vax-stock-public
+EnvironmentFile=/etc/vaxstock/vaxstock.env
+Environment="PATH=/opt/stock-reportv2/venv/bin:/usr/local/bin:/usr/bin:/bin"
+ExecStart=/opt/stock-reportv2/venv/bin/python -m vaxstock.services.eod
