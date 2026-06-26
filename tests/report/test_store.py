@@ -157,6 +157,61 @@ def test_cleanup_removes_old_keeps_recent():
         shutil.rmtree(base, ignore_errors=True)
 
 
+# ── 交易日锚定(PR-TZ): 报告目录名取 payload market_overview.trade_date, 非自然日 ──
+def test_store_report_dir_anchors_to_trade_date():
+    """模拟凌晨 T+1 跑(today=2026-06-26), 但 payload 交易日 T=2026-06-25 -> 目录落 T 不落 T+1。"""
+    import types
+
+    import vaxstock.report.store as store
+    base = tempfile.mkdtemp(prefix="vaxstore_td_")
+    saved_dt = store.dt
+    try:
+        store.dt = types.SimpleNamespace(
+            date=type("D", (), {"today": staticmethod(lambda: dt.date(2026, 6, 26))}),
+            datetime=dt.datetime, timedelta=dt.timedelta)
+        payload = {"generated_at": "2026-06-26 05:00",
+                   "market_overview": {"trade_date": "20260625"}}
+        paths = store_report(payload, {}, "md", report_dir=base)
+        day = os.path.basename(os.path.dirname(paths["payload"]))
+        assert day == "2026-06-25", f"应锚交易日 T(2026-06-25), 实际 {day}"
+    finally:
+        store.dt = saved_dt
+        shutil.rmtree(base, ignore_errors=True)
+
+
+def test_store_report_dir_fallback_to_today_with_warning():
+    """无 trade_date / 格式非8位 -> 回退自然日, 且发 warning(不静默)。"""
+    import logging
+    import types
+
+    import vaxstock.report.store as store
+    base = tempfile.mkdtemp(prefix="vaxstore_fb_")
+    saved_dt = store.dt
+    records = []
+
+    class _H(logging.Handler):
+        def emit(self, r):
+            records.append(r.getMessage())
+
+    h = _H()
+    store.logger.addHandler(h)
+    try:
+        store.dt = types.SimpleNamespace(
+            date=type("D", (), {"today": staticmethod(lambda: dt.date(2026, 6, 26))}),
+            datetime=dt.datetime, timedelta=dt.timedelta)
+        # 无 market_overview -> 回退今天
+        paths = store_report({"generated_at": "x"}, {}, "md", report_dir=base)
+        assert os.path.basename(os.path.dirname(paths["payload"])) == "2026-06-26"
+        # trade_date 非8位 -> 同样回退
+        paths2 = store_report({"market_overview": {"trade_date": "2026"}}, {}, "md", report_dir=base)
+        assert os.path.basename(os.path.dirname(paths2["payload"])) == "2026-06-26"
+        assert any("回退自然日" in m for m in records), f"应发回退 warning: {records}"
+    finally:
+        store.logger.removeHandler(h)
+        store.dt = saved_dt
+        shutil.rmtree(base, ignore_errors=True)
+
+
 def test_cleanup_dry_run():
     base = tempfile.mkdtemp(prefix="vaxstore_")
     try:

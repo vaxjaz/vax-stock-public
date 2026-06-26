@@ -266,6 +266,9 @@ def calc_percentile(series: pd.Series, current_value: float) -> Optional[float]:
 
 
 def _today_ymd() -> str:
+    """自然日 YYYYMMDD。仅作增量拉取区间上界(margin/turnover/erp 的 end_date), 非交易日基准;
+    多查空区间无害(Tushare 对非交易日返回空, append_unique 不写脏数据)。交易日基准一律取数据里的
+    trade_date(见 CLAUDE.md §9 交易日锚定铁律)。"""
     return datetime.now().strftime("%Y%m%d")
 
 

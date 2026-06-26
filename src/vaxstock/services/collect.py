@@ -39,9 +39,13 @@ from vaxstock.util import to_float
 logger = logging.getLogger(__name__)
 
 
-def _collect_north_flow(source) -> Tuple[Optional[Dict[str, Any]], Optional[List[Dict[str, Any]]]]:
+def _collect_north_flow(source, market_trade_date=None) -> Tuple[Optional[Dict[str, Any]], Optional[List[Dict[str, Any]]]]:
     """北向资金(仅 Tushare 2000+); 返回 (north_flow, hsgt_flow_history)。
-    单位/日期有效性校验逻辑自 monolith 原样迁入(_to_float -> util.to_float)。"""
+    单位/日期有效性校验逻辑自 monolith 原样迁入(_to_float -> util.to_float)。
+
+    market_trade_date(YYYYMMDD): 市场交易日基准, 用于判定 is_today。EOD 改为次日凌晨05:00跑时,
+    datetime.now() 是 T+1, 用它当"当日"会把 T 日北向误判为非今日。改对照真实交易日
+    (market_overview.trade_date); 取不到才退 now() 兜底(见 CLAUDE.md §9 交易日锚定铁律)。"""
     if source is None or getattr(source, "points_level", 0) < 2000:
         return {
             "total_inflow": None, "hgt_inflow": None, "sgt_inflow": None,
@@ -60,7 +64,9 @@ def _collect_north_flow(source) -> Tuple[Optional[Dict[str, Any]], Optional[List
         f = to_float(v)
         return round(f / 10000, 2) if f is not None else None
 
-    today_str = datetime.now().strftime("%Y%m%d")
+    # "当日"对照市场交易日(非自然日): 凌晨5点跑(now=T+1)时 T 日北向仍正确标 is_today。
+    # 缺交易日基准才退 now() 兜底(P0: 不臆造一个错的基准)。
+    today_str = str(market_trade_date) if market_trade_date else datetime.now().strftime("%Y%m%d")
     latest = None
     for row in reversed(hsgt):
         total_v = to_yi(row.get("north_money"))
@@ -157,7 +163,9 @@ def collect_payload(source) -> Tuple[Dict[str, Any], List[TrackResult]]:
     logger.info(f"  📊 当前市场环境: {regime_label}")
 
     logger.info("[3/5] 获取北向资金(Tushare)...")
-    payload["north_flow"], payload["hsgt_flow_history"] = _collect_north_flow(source)
+    # market_overview 已在上一步取得, 把其 trade_date 作"当日"基准传入(锚交易日, 不用 now())
+    payload["north_flow"], payload["hsgt_flow_history"] = _collect_north_flow(
+        source, market_trade_date=(payload["market_overview"] or {}).get("trade_date"))
 
     # 东财已砍除且无 Tushare 替代: 诚实降级, 不 import 未迁模块、不臆造
     payload["sector_analysis"] = {"available": False, "pending": "东财砍除无Tushare替代,待验证"}

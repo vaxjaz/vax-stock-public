@@ -145,6 +145,27 @@ def test_collect_payload_no_crash_minimal():
     assert payload["stocks"] == []  # 空池下无个股
 
 
+# ── 交易日锚定(PR-TZ): 北向 is_today 对照市场交易日, 凌晨 T+1 跑 T 日北向仍标 is_today ──
+def test_north_flow_is_today_anchors_to_trade_date():
+    """now=凌晨 T+1(2026-06-26), 市场交易日与 hsgt 行均为 T(20260625) -> is_today 仍 True。
+    (旧 now() 口径会判 False; 本测试守住锚交易日修复。)"""
+    saved_datetime = collect_mod.datetime
+    try:
+        class _FixedNow:
+            @staticmethod
+            def now():
+                return dt.datetime(2026, 6, 26, 5, 0, 0)  # 凌晨 T+1
+
+        collect_mod.datetime = _FixedNow
+        payload, _ = _run_collect_with_stubs()
+        nf = payload["north_flow"]
+        assert nf["trade_date"] == "20260625"          # stub 市场交易日 T
+        assert nf["is_today"] is True, nf               # 锚交易日 -> T 日北向仍算今日
+        assert nf["note"] is None                       # is_today True -> 无滞后标注
+    finally:
+        collect_mod.datetime = saved_datetime
+
+
 if __name__ == "__main__":
     import sys
     fns = sorted((n, f) for n, f in globals().items()

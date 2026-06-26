@@ -55,7 +55,16 @@ def store_report(payload: Dict[str, Any],
     返回三件套的绝对路径 dict: {"payload", "claude_json", "claude_md"}。
     """
     base = _resolve_report_dir(report_dir)
-    date = str(dt.date.today())  # YYYY-MM-DD
+    # 报告目录名锚定"交易日"而非自然日: EOD 改为次日凌晨05:00跑, dt.date.today() 届时是 T+1,
+    # 用它当目录名会把 T 日报告落到 T+1。改取 payload 里的真实交易日(market_overview.trade_date)。
+    # 见 CLAUDE.md §9 交易日锚定铁律。缺 trade_date 才回退自然日(并 warning, 不静默)。
+    td = (payload.get("market_overview") or {}).get("trade_date")  # YYYYMMDD
+    if td and len(str(td)) == 8:
+        td = str(td)
+        date = f"{td[:4]}-{td[4:6]}-{td[6:]}"  # YYYY-MM-DD
+    else:
+        logger.warning("payload 无 trade_date, 报告目录回退自然日(凌晨跑可能错一天)")
+        date = str(dt.date.today())
     day_dir = base / date
     day_dir.mkdir(parents=True, exist_ok=True)
 
