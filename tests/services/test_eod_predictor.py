@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""services.eod_predictor 测试(EOD Prediction E4-1, 零网络,jsonl 落 tmp)。"""
+"""services.eod_predictor 测试(EOD Prediction E4-1/E4-2, 零网络,jsonl 落 tmp)。"""
 
 import json
 import pathlib
@@ -157,6 +157,83 @@ def test_prediction_from_snapshot_skips_missing_required_fields_and_validates_mo
     else:
         raise AssertionError("bad generation_mode should raise")
 
+
+
+def test_replay_predictions_from_snapshots_targets_next_observed_trade_date():
+    s1 = _snapshot(score=2.3)
+    s1["trade_date"] = "20260701"
+    s1["code"] = "002475"
+    s2 = _snapshot(score=0.2)
+    s2["trade_date"] = "20260701"
+    s2["code"] = "601318"
+    s3 = _snapshot(score=3.6)
+    s3["trade_date"] = "20260703"  # 0702 可为周末/节假日/缺样本, 不用自然日臆造
+    s3["code"] = "600519"
+
+    preds = ep.replay_predictions_from_snapshots(
+        [s1, s2, s3, {"code": "bad"}],
+        generated_at="2026-07-04T05:10:00",
+    )
+
+    assert len(preds) == 2  # 最后一个 trade_date 没有已证实下一交易日 -> 跳过
+    by = {p["code"]: p for p in preds}
+    assert by["002475"]["baseline_trade_date"] == "20260701"
+    assert by["002475"]["target_trade_date"] == "20260703"
+    assert by["002475"]["generation_mode"] == "replay"
+    assert by["002475"]["prediction_id"] == "20260701_20260703_002475_zz800_seed_v1_replay"
+    assert by["601318"]["target_trade_date"] == "20260703"
+    assert "600519" not in by
+
+
+def test_bootstrap_replay_predictions_idempotent_writes_tmp():
+    d = tempfile.mkdtemp(prefix="vaxpred_boot_")
+    try:
+        snapshots_path = pathlib.Path(d) / "factor_snapshots.jsonl"
+        output_path = pathlib.Path(d) / "prediction" / "eod_predictions.jsonl"
+        rows = []
+        s1 = _snapshot(score=2.3)
+        s1["trade_date"] = "20260701"
+        s1["code"] = "002475"
+        s2 = _snapshot(score=0.2)
+        s2["trade_date"] = "20260701"
+        s2["code"] = "601318"
+        s3 = _snapshot(score=3.6)
+        s3["trade_date"] = "20260703"
+        s3["code"] = "600519"
+        rows.extend([s1, s2, s3])
+        snapshots_path.write_text(
+            "\n".join(json.dumps(r, ensure_ascii=False) for r in rows) + "\n",
+            encoding="utf-8",
+        )
+
+        stats = ep.bootstrap_replay_predictions(
+            snapshots_path=snapshots_path,
+            output_path=output_path,
+            generated_at="2026-07-04T05:10:00",
+        )
+        assert stats == {
+            "written": 2,
+            "skipped": 0,
+            "source_snapshots": 3,
+            "source_trade_dates": 2,
+            "generated": 2,
+            "last_trade_date_skipped": "20260703",
+        }
+        written_rows = [json.loads(line) for line in output_path.read_text(encoding="utf-8").splitlines()]
+        assert len(written_rows) == 2
+        assert {r["generation_mode"] for r in written_rows} == {"replay"}
+
+        # 重跑同一批 -> prediction_id 已存在,只 skipped,文件不追加
+        stats2 = ep.bootstrap_replay_predictions(
+            snapshots_path=snapshots_path,
+            output_path=output_path,
+            generated_at="2026-07-04T05:10:00",
+        )
+        assert stats2["written"] == 0
+        assert stats2["skipped"] == 2
+        assert len([line for line in output_path.read_text(encoding="utf-8").splitlines() if line.strip()]) == 2
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
 
 if __name__ == "__main__":
     import sys

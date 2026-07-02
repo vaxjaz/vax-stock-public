@@ -1,6 +1,6 @@
-# CLAUDE.md — vax-stock 项目工作约定
+# AGENTS.md — vax-stock 项目工作约定
 
-> 本文件由 Claude Code 在每次会话自动读取。它定义项目背景、架构目标、
+> 本文件由 Codex 在每次会话自动读取。它定义项目背景、架构目标、
 > 重构路线与**不可违反的铁律**。任何代码改动都必须遵守本文件。
 
 ---
@@ -105,19 +105,17 @@ tracks/__init__.py 严禁 import ai 或任何会触网/加载重依赖(akshare/p
     - [x] C3a deploy/ 纳入仓库(v2 三服务 systemd unit + EOD timer + README 切换手册)
     - [ ] C3b VPS 切线上(运维: v2 一刀切顶替 v1, 仅 backtest cron 保留; 切换非代码 PR)
 - [~] **MR-Eval 线(预测追踪反哺,独立线)**:
-    - [x] E0 文档/任务锚定:把 EOD Prediction 线的目标、任务拆解、文件落点/命名/作用写入本文件(本项先行,防后续 PR 走偏)
+    - [x] E0 文档/任务锚定:EOD Prediction 线目标、任务拆解、文件落点/命名/作用已写入 `CLAUDE.md §9.10`
     - [x] E1 全 watchlist 因子快照 append + T+k(1/3/5/10/20/30)回填(尽早,数据时间不可逆)
     - [x] E2 research 分桶/前瞻IC/超额评估报告(攒够样本后)
     - [ ] E3 人工据报告反哺因子权重(不自动调参)
     - [x] C线 forecast 第三条数据线已立(EOD∪Layer2 之上的预测线; T-1基准注入 + JSON结构化预测冻结 var/forecast/forecasts.jsonl); 结果 T+k 回填留后续 PR  # PR-A(PR#30)
-    - [~] E4 EOD Prediction 线:基于 T-1 EOD 真数据生成 T 日 9:30 后走势/动作预测,次日 EOD 核验,长期 day-by-day 修复用户 universe 择股框架(详见 §9.10)
+    - [~] E4 EOD Prediction 线:基于 T-1 EOD 真数据生成 T 日 9:30 后走势/动作预测,次日 EOD 核验,长期 day-by-day 修复用户 universe 择股框架
         - [x] E4-1 Schema + writer: `services/eod_predictor.py` + `tests/services/test_eod_predictor.py`
         - [x] E4-2 Replay bootstrap: 从既有 `factor_snapshots.jsonl` 重放生成 `generation_mode=replay`
         - [ ] E4-3 Evaluator(下一步): 复用 `factor_results.jsonl`/Tushare 真收盘核验 predictions
         - [ ] E4-4 接入 EOD: 先核验 pending,再生成下一交易日 live predictions
-        - [ ] E4-5 Prediction Layer2: action/direction/confidence 分桶评估
-        - [ ] E4-6 EOD 摘要接入: 报告显示预测核验概览
-        - [ ] E4-7 Rule suggestions: 只给规则升级建议,不自动改参数
+        - [ ] E4-5 Prediction Layer2 / E4-6 EOD摘要 / E4-7 Rule suggestions
 - [ ] **MR7 文档/README 全面同步**
 
 ---
@@ -142,8 +140,8 @@ print('✅ import无副作用 + 纯函数验证通过')
 
 ## 7. 协作分工
 
-- **施工(Claude Code, 本环境)**:改代码、重构、建分支、发 PR。
-- **参谋(claude.ai Project Chat)**:每日盯盘、市场研判、信号分析、PR 内容审核。
+- **施工(Codex, 本环境)**:改代码、重构、建分支、发 PR。
+- **参谋(Codex.ai Project Chat)**:每日盯盘、市场研判、信号分析、PR 内容审核。
 - 投资判断、券商截图解读、数据交叉验证 → 在 Project Chat 做,**不在 Code 做**。
 
 ---
@@ -177,59 +175,9 @@ print('✅ import无副作用 + 纯函数验证通过')
    | 落点 | E1(已做 PR#22) | 并入 C2c(依赖盘中T-1基准) |
 
    铁律:A ⊂ B 但**分开存 / 分开记 / 分开写入时点**;A 绝不冒充 B 全样本(否则幸存者偏差污染反哺);分析按 (trade_date, code) join。E1 只立 B 线;A 线归 C2c,现未动。
-8. **邮件输出设计**:邮件正文 = 精简摘要(大盘/宏观/赛道/持仓详情/观察池高分清单/明日重点);完整40票详情(claude.md)与全量数据(payload.json)走附件。正文不放观察池个股详情(持仓保留)。
+8. **邮件输出设计**:邮件正文 = 精简摘要(大盘/宏观/赛道/持仓详情/观察池高分清单/明日重点);完整40票详情(AGENTS.md)与全量数据(payload.json)走附件。正文不放观察池个股详情(持仓保留)。
 9. **部署 = 基础设施即代码**:v2 三服务(api/intraday/eod-timer)unit 模板在 `deploy/`,`EnvironmentFile=/etc/vaxstock/vaxstock.env` 统一收口;EOD 走 systemd timer(凌晨05:00 + `Persistent=true` 补跑防漏样本),非 cron。v1(`/opt/stock-report`)除 backtest cron 外全退役。
-10. **EOD Prediction 线(实施中,MR-Eval E4) = zz800 seed → 用户 universe 自我迭代**:
-
-   **目标**:以 zz800 回测得到的当前 `right_side_score` 因子/阈值为 seed model,在用户持仓+观察池 universe 上形成"预测 → 核实 → 预测 → 核实"闭环。每天 05:00 跑 EOD 时,拿到的是上一交易日(T-1)已定稿真数据;EOD 落盘后立即基于 T-1 因子预测下一交易日 T 的 09:30 后走势/动作;再到 T+1 05:00 EOD 拿到 T 日真收盘后核验预测收益/超额/偏离。长期 day-by-day 积累,用于人工升级择股框架,**不自动调参**。
-
-   **时间线例子(绝对日期)**:
-   - `2026-07-02 05:00` 跑 EOD,报告基准日为 `2026-07-01`(T-1 真数据)。
-   - 同次 EOD 后先核验历史预测中 `target_trade_date=20260701` 的预测结果。
-   - 随后基于 `baseline_trade_date=20260701` 生成 `target_trade_date=20260702` 的 EOD predictions。
-   - `2026-07-03 05:00` 跑出 `2026-07-02` 真数据后,核验 `target_trade_date=20260702` 的预测。
-
-   **Step 0(本文件先行任务)**:
-   - 明确目标:Prediction 线验证的是"当时策略动作是否正确",不只是 score 档未来收益。
-   - 明确文件落点/命名/作用(见下表),后续 PR 不再新造隐式路径。
-   - 明确 replay/live 区分:已有地基数据可重放生成预测,但必须标 `generation_mode=replay`;未来真实每日生成的预测标 `generation_mode=live`,报告中分开统计。
-
-   **文件落点、名字与作用(单一真相)**:
-
-   | 文件/目录 | 写入者 | 类型 | 作用 | 幂等/不可变规则 |
-   |---|---|---|---|---|
-   | `reports/<YYYY-MM-DD>/payload.json` | `report.store.store_report` | EOD 原始 SSOT | T 日 EOD 全量 payload,可重渲染/追溯 | 同交易日重跑可覆盖(报告产物) |
-   | `reports/<YYYY-MM-DD>/claude.json` | `report.store.store_report` | EOD compact | 给 Claude/盘中 T-1 基准使用的压缩结构 | 同交易日重跑可覆盖 |
-   | `reports/<YYYY-MM-DD>/claude.md` | `report.store.store_report` | EOD 人读报告 | 邮件附件/人工复盘 | 同交易日重跑可覆盖 |
-   | `var/eval/factor_snapshots.jsonl` | `services.eval_recorder.record_snapshots` | B线输入快照 | 全 holdings+watchlist 每日无条件因子快照;防幸存者偏差 | append-only;同 `(trade_date,code)` 幂等跳过 |
-   | `var/eval/factor_results.jsonl` | `services.eval_recorder.backfill` | B线结果 | 对 `factor_snapshots` 的 T+1/3/5/10/20/30 真收益、基准收益、超额回填 | append-only;仅新增 horizon 时追加 |
-   | `var/eval/layer2_report_<trade_date>.md` | `research.layer2_eval.run_layer2` | B线分析报告 | score 档 × `regime|macro_regime` 分桶的前瞻收益/超额/胜率 | 可重生成覆盖 |
-   | `var/forecast/forecasts.jsonl` | `services.forecast_recorder.record_forecast` | A线盘中触发预测 | 盘中触发时冻结 codex 结构化预测+T-1基准+lite快照+regime | append-only;触发样本,不可冒充全样本 |
-   | `var/prediction/eod_predictions.jsonl` | `services.eod_predictor` | EOD Prediction 输入/动作 | 基于 `baseline_trade_date=T-1` EOD 真数据,预测 `target_trade_date=T` 的动作/方向/置信度 | append-only;同 `(baseline_trade_date,target_trade_date,code,rule_version,generation_mode)` 幂等 |
-   | `var/prediction/eod_prediction_results.jsonl` | **待建** `services.prediction_evaluator` | EOD Prediction 核验结果 | T+1 EOD 后核验 target 日真实收益、benchmark、excess、方向命中、动作命中、偏离 | append-only;同 `prediction_id+horizon` 幂等 |
-   | `var/prediction/prediction_layer2_report_<trade_date>.md` | **待建** `research.prediction_eval` | EOD Prediction 分析报告 | action/direction/confidence × 环境/概念分桶,评估预测动作而非单纯 score | 可重生成覆盖 |
-   | `var/prediction/rule_suggestions_<trade_date>.md` | **待建** `research.rule_suggester` | 研究建议 | 基于足量样本提出规则升级建议;只建议,不自动改生产规则 | 可重生成覆盖;人工审核后另开 PR 升级 rule_version |
-
-   **任务拆解(后续 PR 顺序)**:
-   - **E4-1 Schema + writer(已完成)**:`services/eod_predictor.py` 定义 prediction record,生成 `prediction_id`,append-only 写 `eod_predictions.jsonl`,并加单测。
-   - **E4-2 Replay bootstrap(已完成)**:读取已有 `factor_snapshots.jsonl`,按当前 `zz800_seed_v1` 规则重放生成 `generation_mode=replay` 的历史 predictions;最大化利用已上传地基数据。
-   - **E4-3 Evaluator(下一步)**:`services/prediction_evaluator.py` 优先复用 `factor_results.jsonl` 核验 replay predictions;live 场景可从 Tushare daily 机械算收益/超额;缺数据不写假结果。
-   - **E4-4 接入 EOD**:`services/eod.py` 在报告落盘后先核验 pending predictions,再生成下一交易日 predictions;prediction 失败只 warning,不影响 EOD 三件套落盘。
-   - **E4-5 Prediction Layer2**:`research/prediction_eval.py` join predictions/results,按 `action`/`direction`/`confidence_bucket`/`regime|macro_regime`/`concept` 分桶;`generation_mode=live/replay` 分开展示;样本不足不下结论。
-   - **E4-6 EOD 摘要接入**:`report/claude_md.py` 增加"昨日预测核验"小节(预测数、已核验、action 命中、正超额率、pending),无数据时显示"待积累"。
-   - **E4-7 Rule suggestions**:`research/rule_suggester.py` 只输出规则升级建议和证据,不自动改参数;升级必须人工确认并 bump `rule_version`。
-
-   **记录字段最低要求**:
-   - prediction: `prediction_id/generated_at/generation_mode/baseline_trade_date/target_trade_date/code/name/group/concepts/features_ref/prediction/rule_version/model_version`。
-   - `features_ref` 至少含 `price_at_baseline/right_side_score/right_side_grade/main_inflow_10d/np_yoy/holder_change_pct/position_20d_pct/market_regime/macro_regime/ai_position_ceiling`。
-   - result: `prediction_id/evaluated_at/baseline_trade_date/target_trade_date/code/horizon/actual/evaluation`。
-   - `evaluation` 至少含 `direction_hit/positive_excess/action_hit/deviation/error_type`。
-
-   **硬边界**:
-   - Prediction 线验证"动作是否正确";现有 `factor_snapshots/results` 验证"score 档未来收益",两者互补但不可混。
-   - replay 是历史输入重放,只用于快速 bootstrap 当前规则,报告必须与 live 分开。
-   - 所有预测先于结果冻结;任何结果回填不得修改 prediction 原文。
-   - 规则修复只能以新 `rule_version` 前滚,禁止回写历史预测或静默改变旧版本含义。
+10. **EOD Prediction 线 = 可审计自我修复闭环**:预测线验证的是"当时策略动作是否正确",不是单纯 score 档未来收益。文件落点与任务拆解以 `CLAUDE.md §9.10` 为详细锚: `var/prediction/eod_predictions.jsonl` 由 `services.eod_predictor` 写入预测原文;后续 `eod_prediction_results.jsonl` / `prediction_layer2_report_<trade_date>.md` / `rule_suggestions_<trade_date>.md` 分别归核验、分桶评估、规则建议。历史预测 append-only,结果回填不得修改 prediction 原文;规则只能 bump `rule_version` 前滚,不自动调参。
 
 ---
 

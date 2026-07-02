@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
-"""EOD Prediction 线(E4-1): 基于 EOD 因子快照生成下一交易日预测。
+"""EOD Prediction 线(E4-1/E4-2): 基于 EOD 因子快照生成下一交易日预测。
 
-本模块只做 **schema + deterministic rule writer**:
+本模块只做 **schema + deterministic rule writer + replay bootstrap**:
   - 输入: E1 的 factor_snapshots 行,或 EOD payload 中的 stocks 行;
   - 输出: append-only `var/prediction/eod_predictions.jsonl`;
+  - E4-2 从既有 factor_snapshots 重放生成 generation_mode=replay 的历史 predictions;
   - 不触网、不取数、不做结果回填(结果回填归 prediction_evaluator 后续 PR);
   - replay/live 必须显式标记 generation_mode,不可混写为同一种样本。
 
@@ -346,3 +347,81 @@ def generate_predictions_from_snapshots(snapshots: Iterable[Dict[str, Any]], tar
         if pred:
             preds.append(pred)
     return preds
+
+
+def _sorted_trade_dates(snapshots: Iterable[Dict[str, Any]]) -> List[str]:
+    """从 snapshot rows 提取已证实 trade_date 序列(升序去重)。
+
+    P0: 缺 trade_date 的行不可参与 replay; 不用 now/date.today 臆造目标交易日。
+    """
+    dates = set()
+    for snap in snapshots:
+        if not isinstance(snap, dict):
+            continue
+        td = str(snap.get("trade_date") or "").strip()
+        if td:
+            dates.add(td)
+    return sorted(dates)
+
+
+def replay_predictions_from_snapshots(snapshots: Iterable[Dict[str, Any]], *,
+                                      rule_version: str = DEFAULT_RULE_VERSION,
+                                      model_version: str = DEFAULT_MODEL_VERSION,
+                                      generated_at: Optional[str] = None) -> List[dict]:
+    """从已有 E1 snapshots 重放生成历史 EOD predictions(E4-2 纯函数)。
+
+    target_trade_date 只取样本里 baseline 后的下一条已存在 trade_date。最后一个交易日没有
+    已证实的下一交易日, 必须跳过; 不用自然日/now 推断, 避免周末节假日污染。
+    """
+    rows = [s for s in snapshots if isinstance(s, dict)]
+    dates = _sorted_trade_dates(rows)
+    next_by_date = {dates[i]: dates[i + 1] for i in range(len(dates) - 1)}
+
+    preds: List[dict] = []
+    for snap in rows:
+        baseline = str(snap.get("trade_date") or "").strip()
+        target = next_by_date.get(baseline)
+        if not target:
+            continue
+        pred = prediction_from_snapshot(
+            snap,
+            target,
+            generation_mode="replay",
+            rule_version=rule_version,
+            model_version=model_version,
+            generated_at=generated_at,
+        )
+        if pred:
+            preds.append(pred)
+    return preds
+
+
+def bootstrap_replay_predictions(*, snapshots_path=None, output_path=None,
+                                 rule_version: str = DEFAULT_RULE_VERSION,
+                                 model_version: str = DEFAULT_MODEL_VERSION,
+                                 generated_at: Optional[str] = None) -> Dict[str, Any]:
+    """读取 E1 factor_snapshots 并幂等写入 replay predictions。
+
+    返回统计信息。写入仍通过 record_predictions, 同 prediction_id 重放会 skipped, 保持
+    append-only 与 replay/live 样本隔离。
+    """
+    if snapshots_path is None:
+        from vaxstock.services.eval_recorder import SNAPSHOTS_FILE
+        snapshots_path = SNAPSHOTS_FILE
+
+    snapshots = _read_jsonl(snapshots_path)
+    dates = _sorted_trade_dates(snapshots)
+    preds = replay_predictions_from_snapshots(
+        snapshots,
+        rule_version=rule_version,
+        model_version=model_version,
+        generated_at=generated_at,
+    )
+    stats = record_predictions(preds, path=output_path)
+    stats.update({
+        "source_snapshots": len(snapshots),
+        "source_trade_dates": len(dates),
+        "generated": len(preds),
+        "last_trade_date_skipped": dates[-1] if dates else None,
+    })
+    return stats
