@@ -1,0 +1,26 @@
+{
+  "current_regime": "value",
+  "raw_history": [
+    {
+      "trade_date": "20260625",
+      "raw": "momentum"
+    },
+    {
+      "trade_date": "20260626",
+      "raw": "momentum"
+    },
+    {
+      "trade_date": "20260629",
+      "raw": "panic"
+    },
+    {
+      "trade_date": "20260630",
+      "raw": "value"
+    },
+    {
+      "trade_date": "20260701",
+      "raw": "value"
+    }
+  ],
+  "last_updated": "2026-07-02T05:00:05.446080"
+}
