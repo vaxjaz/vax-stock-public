@@ -2,9 +2,9 @@
 script/config/secrets.json
 
 # 运行期状态 / 缓存 / 报告产物
-var/
+#var/
 .cache_*
-reports/
+#reports/
 *.egg-info/
 
 # Python
