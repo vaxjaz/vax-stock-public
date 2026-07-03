@@ -48,12 +48,10 @@ def load_joined() -> List[Dict[str, Any]]:
     """读 snapshots + results, 按 (trade_date, code) join。
 
     每条 = {"snapshot": <因子+market+price>, "result": <ret/excess/complete> 或 None(未回填)}。
-    results 同 key 多行取最新(文件后写覆盖, 与 backfill 一致)。
+    results 同 key 多行按 horizon 合并读取, 与 eval_recorder.merge_result_rows 一致。
     """
     snaps = er._read_jsonl(er.SNAPSHOTS_FILE)
-    results_by_key: Dict[tuple, dict] = {}
-    for r in er._read_jsonl(er.RESULTS_FILE):
-        results_by_key[(str(r.get("trade_date")), r.get("code"))] = r  # 后写覆盖=最新
+    results_by_key = er.merge_result_rows(er._read_jsonl(er.RESULTS_FILE))
     joined = []
     for s in snaps:
         key = (str(s.get("trade_date")), s.get("code"))

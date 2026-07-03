@@ -51,11 +51,7 @@ def load_joined(*, snapshots_path=None, results_path=None) -> List[Dict[str, Any
     """Join frozen factor snapshots with latest result rows by (trade_date, code)."""
     snapshots_path = snapshots_path or er.SNAPSHOTS_FILE
     results_path = results_path or er.RESULTS_FILE
-    results_by_key: Dict[tuple, dict] = {}
-    for row in _read_jsonl(results_path):
-        key = (str(row.get("trade_date") or ""), str(row.get("code") or ""))
-        if key[0] and key[1]:
-            results_by_key[key] = row
+    results_by_key = er.merge_result_rows(_read_jsonl(results_path))
 
     joined = []
     for snap in _read_jsonl(snapshots_path):

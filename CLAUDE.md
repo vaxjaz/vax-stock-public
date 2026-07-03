@@ -203,7 +203,7 @@ print('✅ import无副作用 + 纯函数验证通过')
    | `reports/<YYYY-MM-DD>/claude.json` | `report.store.store_report` | EOD compact | 给 Claude/盘中 T-1 基准使用的压缩结构;E4-6 起包含 `prediction_summary` | 同交易日重跑可覆盖 |
    | `reports/<YYYY-MM-DD>/claude.md` | `report.store.store_report` | EOD 人读报告 | 邮件附件/人工复盘;E4-6 起显示“昨日预测核验”小节 | 同交易日重跑可覆盖 |
    | `var/eval/factor_snapshots.jsonl` | `services.eval_recorder.record_snapshots` | B线输入快照 | 全 holdings+watchlist 每日无条件因子快照;防幸存者偏差 | append-only;同 `(trade_date,code)` 幂等跳过 |
-   | `var/eval/factor_results.jsonl` | `services.eval_recorder.backfill` | B线结果 | 对 `factor_snapshots` 的 T+1/3/5/10/20/30 真收益、基准收益、超额回填 | append-only;仅新增 horizon 时追加 |
+   | `var/eval/factor_results.jsonl` | `services.eval_recorder.backfill` | B线结果 | 对 `factor_snapshots` 的 T+1/3/5/10/20/30 真收益、基准收益、超额回填 | append-only;ret/mkt_ret/excess 任一新增 horizon 时追加,读取时按同 key 合并 |
    | `var/eval/layer2_report_<trade_date>.md` | `research.layer2_eval.run_layer2` | B线分析报告 | score 档 × `regime|macro_regime` 分桶的前瞻收益/超额/胜率;不按样本数屏蔽,N 直接展示 | 可重生成覆盖 |
    | `var/eval/factor_weight_review_<trade_date>.md` | `research.factor_weight_review.run_factor_weight_review` | E3人工调权复盘 | 按冻结因子 low/high 桶比较未来超额,输出 evidence_strength/review_action;只给证据不自动改权重 | 可重生成覆盖;采纳须另开 PR |
    | `var/forecast/forecasts.jsonl` | `services.forecast_recorder.record_forecast` | A线盘中触发预测 | 盘中触发时冻结 codex 结构化预测+T-1基准+lite快照+regime | append-only;触发样本,不可冒充全样本 |
@@ -246,6 +246,7 @@ print('✅ import无副作用 + 纯函数验证通过')
 - **触网墙钟超时统一 daemon线程+join,不用 ThreadPoolExecutor**(其 `shutdown(wait=True)` defeat 超时)。akshare(`_ak_safe`)/yfinance(`_yf_safe`)/Tushare(`source._safe_call`)均此模式。
 - **lite=1 必须前置于 `refresh_regime()`**:冷缓存 refresh_regime 扫全市场卡数分钟,lite 盘中查询须在它之前 return。
 - **东财已砍**:VPS 连不上东财(502/000),板块④/热门赛道⑦/opportunity⑧ 诚实返回 available=False,不 import 旧模块、不臆造;将来用 watchlist AI/机器人成分自聚合替代。
+- **factor_results 增量行读取铁律**:`factor_results.jsonl` 是 append-only,同 `(trade_date,code)` 后续行可能只补新增 horizon 或补回此前缺失的 `mkt_ret/excess`;所有研究/核验读取必须按 horizon merge,不能最后一行覆盖。`complete=True` 仅表示 `ret/mkt_ret/excess` 对目标 horizons 都齐。
 - **margin 等滞后维度**:summary 应带 stale/lag_days 标注(待办),让宏观维滞后对报告透明(凌晨5点跑也救不了 margin 滞后)。邮件 digest 已对 margin stale 标 data_date(PR-Digest)。
 - **api 生产依赖必须主 dependencies, 不放 `[dev]`**:fastapi/uvicorn 是 api 生产运行必需(`services/api.py` 顶层 import fastapi + `__main__` uvicorn.run)。曾误把 fastapi 放 `[dev]`、uvicorn 完全没声明 → 生产 `pip install -e ".[tracks]"`(不带 dev)起 api 即 ModuleNotFoundError(实测 6/26 切线上时 uvicorn 缺,PR#24 修)。`[dev]` 只放测试桩(pytest/httpx)。同 pyarrow(PR#19)——依赖声明缺失被开发环境手动装侥幸掩盖,生产暴露。
 - **依赖缺口的检出**:切线上前必须在干净 venv 验 `python -c "import <生产入口模块>"`(如 `import vaxstock.services.api`),而非只跑 pytest(测试装了 `[dev]` 会掩盖生产缺口)。

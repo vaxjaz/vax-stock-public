@@ -64,10 +64,12 @@ def test_load_joined_takes_latest_result():
         er._append_jsonl(er.SNAPSHOTS_FILE, _snap("000001", 2.5))
         # 同 key 两行 results(部分→完整), 取最新(后写)
         er._append_jsonl(er.RESULTS_FILE, _res("000001", {"5": 0.05}, {"5": 0.02}, complete=False))
-        er._append_jsonl(er.RESULTS_FILE, _res("000001", {"5": 0.05, "10": 0.09}, {"5": 0.02, "10": 0.03}))
+        er._append_jsonl(er.RESULTS_FILE, _res("000001", {"10": 0.09}, {"10": 0.03}))
         joined = l2.load_joined()
         assert joined[0]["result"]["complete"] is True
+        assert "5" in joined[0]["result"]["ret"]
         assert "10" in joined[0]["result"]["ret"]
+        assert joined[0]["result"]["excess"]["5"] == 0.02
     finally:
         _restore(saved)
         shutil.rmtree(d, ignore_errors=True)

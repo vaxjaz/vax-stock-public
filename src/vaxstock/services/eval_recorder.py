@@ -14,7 +14,7 @@
 【append-only 纯净拆分(关键决策)】
   预测 = factor_snapshots.jsonl(冻结不动); 结果 = factor_results.jsonl(单独 append)。
   回填绝不改 snapshots(否则"回填时改预测"嫌疑); 分析时两文件按 (trade_date, code) join。
-  results 行带 complete 标记(全 horizon 是否填满); 仅当新增 horizon 才 append(防每日重复 spam),
+  results 行带 complete 标记(ret/mkt_ret/excess 全 horizon 是否填满); 仅当 ret/mkt_ret/excess 任一新增 horizon 才 append(防每日重复 spam),
   已 complete 的 key 不再回填。
 """
 
@@ -66,6 +66,58 @@ def _append_jsonl(path, row) -> None:
     p.parent.mkdir(parents=True, exist_ok=True)
     with open(p, "a", encoding="utf-8") as f:
         f.write(json.dumps(row, ensure_ascii=False, default=str) + "\n")
+
+
+def _horizon_set(row, field) -> set:
+    vals = (row or {}).get(field) or {}
+    if not isinstance(vals, dict):
+        return set()
+    out = set()
+    for h in vals.keys():
+        try:
+            out.add(int(h))
+        except (TypeError, ValueError):
+            continue
+    return out
+
+
+def complete_horizons(row) -> set:
+    """Horizons with ret, benchmark return and excess all present."""
+    return _horizon_set(row, "ret") & _horizon_set(row, "mkt_ret") & _horizon_set(row, "excess")
+
+
+def merge_result_rows(rows) -> dict:
+    """Merge append-only factor_results rows by (trade_date, code).
+
+    Later rows update same-name horizon values in memory only. The underlying
+    jsonl remains append-only.
+    """
+    merged = {}
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        td = str(row.get("trade_date") or "").strip()
+        code = row.get("code")
+        if not (td and code):
+            continue
+        key = (td, code)
+        box = merged.setdefault(key, {
+            "trade_date": td,
+            "code": code,
+            "ret": {},
+            "mkt_ret": {},
+            "excess": {},
+            "complete": False,
+            "filled_ts": None,
+        })
+        for field in ("ret", "mkt_ret", "excess"):
+            vals = row.get(field) or {}
+            if isinstance(vals, dict):
+                box[field].update(vals)
+        box["complete"] = bool(box.get("complete")) or bool(row.get("complete"))
+        if row.get("filled_ts"):
+            box["filled_ts"] = row.get("filled_ts")
+    return merged
 
 
 # ==================== 市场状态提取(快照里的"当时的世界") ====================
@@ -216,16 +268,13 @@ def backfill(source, horizons=DEFAULT_HORIZONS) -> int:
     if not snaps:
         return 0
 
-    # 已有 results: 每 (td,code) 取最新行的已填 horizon 集合 + complete 标记
-    done = {}            # (td,code) -> set(已填 horizon)
-    complete_keys = set()
-    for r in _read_jsonl(RESULTS_FILE):
-        key = (str(r.get("trade_date")), r.get("code"))
-        done[key] = {int(h) for h in (r.get("ret") or {}).keys()}
-        if r.get("complete"):
-            complete_keys.add(key)
-
+    # 已有 results: 合并 append-only 行后判断已填 horizon, 避免 ret 已齐但 benchmark/excess 缺失时误 complete。
     target = set(horizons)
+    results_by_key = merge_result_rows(_read_jsonl(RESULTS_FILE))
+    complete_keys = {
+        key for key, row in results_by_key.items()
+        if target.issubset(complete_horizons(row))
+    }
     bench = None  # 懒取一次(覆盖所有快照日期)
     new_rows = []
     for s in snaps:
@@ -264,13 +313,20 @@ def backfill(source, horizons=DEFAULT_HORIZONS) -> int:
                 mkt[str(k)] = mkt_k
                 excess[str(k)] = ret_k - mkt_k
 
-        filled_hs = {int(h) for h in ret.keys()}
-        if not filled_hs or filled_hs == done.get(key, set()):
+        if not ret:
+            continue
+        current = results_by_key.get(key, {})
+        has_new_info = (
+            _horizon_set({"ret": ret}, "ret") - _horizon_set(current, "ret")
+            or _horizon_set({"mkt_ret": mkt}, "mkt_ret") - _horizon_set(current, "mkt_ret")
+            or _horizon_set({"excess": excess}, "excess") - _horizon_set(current, "excess")
+        )
+        if not has_new_info:
             continue  # 无新增 horizon -> 不重复 append
         new_rows.append({
             "trade_date": td, "code": code,
             "ret": ret, "mkt_ret": mkt, "excess": excess,
-            "complete": target.issubset(filled_hs),
+            "complete": target.issubset(complete_horizons({"ret": ret, "mkt_ret": mkt, "excess": excess})),
             "filled_ts": _now_iso(),
         })
 

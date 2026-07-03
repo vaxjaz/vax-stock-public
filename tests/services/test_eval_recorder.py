@@ -192,13 +192,13 @@ def test_backfill_partial_when_insufficient_days():
 
 
 def test_backfill_skips_when_index_missing():
-    """指数取不到 -> ret 仍填, mkt_ret/excess 跳过(不臆造超额)。"""
+    """指数缺失不造 excess; 基准恢复后应能补回,不能被 ret-only complete 卡住。"""
     d = tempfile.mkdtemp(prefix="vaxeval_")
     saved = _set_tmp(d)
     saved_bench = er._benchmark_closes
     try:
         er.record_snapshots(_payload())
-        kline, _, _ = _make_kline_stub(40)
+        kline, bench, _ = _make_kline_stub(40)
         source = types.SimpleNamespace(get_daily_kline=kline)
         er._benchmark_closes = lambda src: {}      # 指数序列取不到
 
@@ -206,11 +206,22 @@ def test_backfill_skips_when_index_missing():
         r0 = next(x for x in er._read_jsonl(er.RESULTS_FILE) if x["code"] == "002475")
         assert set(r0["ret"].keys()) == {"1", "3", "5", "10", "20", "30"}
         assert r0["mkt_ret"] == {} and r0["excess"] == {}   # 指数缺 -> 不算超额
+        assert r0["complete"] is False                       # ret-only 不能标 complete
+        assert er.backfill(source) == 0                       # 指数仍缺时不重复 spam
+
+        er._benchmark_closes = lambda src: bench              # 基准恢复
+        n2 = er.backfill(source)
+        assert n2 == 5
+        rows = er._read_jsonl(er.RESULTS_FILE)
+        assert len(rows) == 10
+        merged = er.merge_result_rows(rows)
+        fixed = merged[("20260625", "002475")]
+        assert set(fixed["excess"].keys()) == {"1", "3", "5", "10", "20", "30"}
+        assert fixed["complete"] is True
     finally:
         er._benchmark_closes = saved_bench
         _restore(saved)
         shutil.rmtree(d, ignore_errors=True)
-
 
 # ── 4. record_and_backfill: 先回填后记录 ──
 def test_record_and_backfill_order():
