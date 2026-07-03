@@ -16,6 +16,7 @@
 | `factor_snapshots.jsonl` | 每日全 universe 因子快照。每个交易日每只股票一行,用于防止只记录触发票导致幸存者偏差。 | `services.eval_recorder.record_snapshots` |
 | `factor_results.jsonl` | 对 `factor_snapshots` 的未来收益回填结果。 | `services.eval_recorder.backfill`/`record_and_backfill` |
 | `layer2_report_<trade_date>.md` | B 线 Layer2 分析报告,按策略档和 `regime|macro_regime` 分桶展示前瞻收益/超额/胜率。 | `research.layer2_eval.run_layer2` |
+| `factor_weight_review_<trade_date>.md` | E3 人工调权复盘报告,按冻结因子值 low/high 桶比较未来超额,只给人工 review_action。 | `research.factor_weight_review.run_factor_weight_review` |
 | `regime_audit.jsonl` | market_regime 原始输入审计表,每个交易日一行,记录 raw/final、指数涨跌、跌停数和数据源。 | `services.regime_auditor.record_regime_audit` |
 | `regime_audit_<trade_date>.md` | 单日 regime 判定说明,用于人工确认当时 regime 是否真实可信。 | `services.regime_auditor.record_regime_audit` |
 
@@ -65,6 +66,20 @@
 | `平均excess` | 桶内超额收益均值。 |
 | `胜率(excess>0)` | 超额收益为正的样本占比。 |
 
+### `factor_weight_review_<trade_date>.md`
+
+| 字段/栏目 | 含义 |
+|---|---|
+| `horizon` | 当前复盘的未来窗口,默认 `T+1`。 |
+| `total_snapshots` | 读取到的冻结快照总数。 |
+| `evaluated_rows` | 已有对应 horizon 超额结果、可进入统计的样本数。 |
+| `pending_or_unfilled` | 尚未回填或缺少该 horizon 的样本数;只计数,不进入收益统计。 |
+| `factor` | 被复盘的冻结因子字段,来自 `factor_snapshots.metrics`。 |
+| `low_range` / `high_range` | 按因子值排序后的底部/顶部三分位取值区间。 |
+| `low_avg_excess` / `high_avg_excess` | 低值桶/高值桶的平均超额收益。 |
+| `high-low` | 高值桶平均超额减低值桶平均超额,用于人工判断因子方向。 |
+| `evidence_strength` | `thin`/`medium`/`strong`,只提示样本厚薄,不隐藏任何桶。 |
+| `review_action` | 人工动作建议,如继续观察、复核是否提高权重、复核是否反向惩罚。 |
 ### `regime_audit.jsonl` / `regime_audit_<trade_date>.md`
 
 | 字段/栏目 | 含义 |
@@ -85,5 +100,6 @@
 - B 线是无偏全截面样本,不是盘中触发样本。
 - `factor_snapshots/results` 是 append-only 样本地基,不要手工改旧行。
 - `layer2_report_*.md` 是可重生成报告,用于看分桶统计,不作为原始事实源。
+- `factor_weight_review_*.md` 只给人工调权复盘证据,不自动修改 `scoring.py`。
 - `regime_audit.jsonl` 同交易日幂等跳过; `regime_audit_<trade_date>.md` 可重生成覆盖。
 - 当前 Layer2 不按样本数屏蔽统计值,N 直接展示;样本厚薄由读者自己判断。

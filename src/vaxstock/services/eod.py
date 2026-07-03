@@ -81,13 +81,20 @@ def run_eod() -> Dict[str, str]:
 
     # MR-Eval E2: Layer2 离线分析(分环境分桶前瞻收益/超额)。纯读 E1 两 jsonl,
     # 失败仅 warning 不影响 EOD。Layer2 不按样本数屏蔽统计值; N 直接展示。
-    logger.info("[7/7] Layer2 / Prediction Layer2 / Rule suggestions 离线分析...")
+    logger.info("[7/7] Layer2 / Factor review / Prediction Layer2 / Rule suggestions 离线分析...")
     try:
         from vaxstock.research.layer2_eval import run_layer2
         run_layer2(write=True)
     except Exception as e:
         logger.warning(f"Layer2 分析跳过(不影响EOD): {str(e)[:120]}")
 
+    # MR-Eval E3: Factor weight review 离线人工调权复盘。只读 factor_snapshots/factor_results,
+    # 只输出证据和人工 review_action,不改 scoring.py、不自动调参; 失败 warning-only。
+    try:
+        from vaxstock.research.factor_weight_review import run_factor_weight_review
+        run_factor_weight_review(write=True)
+    except Exception as e:
+        logger.warning(f"Factor weight review 分析跳过(不影响EOD): {str(e)[:120]}")
     # MR-Eval E4-5: Prediction Layer2 离线分桶评估。只读 eod_predictions/eod_prediction_results,
     # pending 样本只透明计数,不进入命中率/收益统计; 失败 warning-only。
     try:

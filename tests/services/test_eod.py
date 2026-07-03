@@ -18,6 +18,7 @@ except ModuleNotFoundError:
 from vaxstock import config
 from vaxstock.research import layer2_eval as l2_mod
 from vaxstock.research import prediction_eval as pred_l2_mod
+from vaxstock.research import factor_weight_review as factor_review_mod
 from vaxstock.research import rule_suggester as rule_mod
 from vaxstock.services import regime_auditor as regime_audit_mod
 from vaxstock.services import eod as eod_mod
@@ -55,6 +56,7 @@ def _install_spies(secrets=None, payload=None, next_trade_date="20260626"):
     # 在其源模块上打桩才拦得住; 否则真跑会读真 var/eval/ 并落 layer2_report 文件(测试不该有副作用)。
     saved_l2 = l2_mod.run_layer2
     saved_pred_l2 = pred_l2_mod.run_prediction_layer2
+    saved_factor_review = factor_review_mod.run_factor_weight_review
     saved_pred_summary = pred_l2_mod.summarize_prediction_check
     saved_rule = rule_mod.run_rule_suggestions
     saved_regime_audit = regime_audit_mod.record_regime_audit
@@ -72,6 +74,12 @@ def _install_spies(secrets=None, payload=None, next_trade_date="20260626"):
         rec["prediction_layer2_called"] = True
         return ""
     pred_l2_mod.run_prediction_layer2 = _prediction_layer2
+
+    def _factor_review(**k):
+        rec["order"].append("factor_weight_review")
+        rec["factor_weight_review_called"] = True
+        return ""
+    factor_review_mod.run_factor_weight_review = _factor_review
 
     def _regime_audit(payload, **k):
         rec["order"].append("regime_audit")
@@ -172,6 +180,7 @@ def _install_spies(secrets=None, payload=None, next_trade_date="20260626"):
         config.SECRETS = saved_secrets
         l2_mod.run_layer2 = saved_l2
         pred_l2_mod.run_prediction_layer2 = saved_pred_l2
+        factor_review_mod.run_factor_weight_review = saved_factor_review
         pred_l2_mod.summarize_prediction_check = saved_pred_summary
         rule_mod.run_rule_suggestions = saved_rule
         regime_audit_mod.record_regime_audit = saved_regime_audit
@@ -229,9 +238,10 @@ def test_eod_orchestration_and_passthrough():
         assert rec["preds_call"] == {"payload": _PAYLOAD, "target_trade_date": "20260626",
                                       "generation_mode": "live"}
         assert rec["record_predictions_call"] == [{"prediction_id": "p1"}]
-        assert rec["order"] == ["regime_audit", "e1", "pred_eval", "next_trade", "pred_live", "pred_record", "pred_summary", "store", "layer2", "prediction_layer2", "rule_suggestions"]
+        assert rec["order"] == ["regime_audit", "e1", "pred_eval", "next_trade", "pred_live", "pred_record", "pred_summary", "store", "layer2", "factor_weight_review", "prediction_layer2", "rule_suggestions"]
         # Layer2(E2): E4 后被调(顺带分析)
         assert rec.get("layer2_called") is True
+        assert rec.get("factor_weight_review_called") is True
         assert rec.get("prediction_layer2_called") is True
         assert rec.get("rule_suggestions_called") is True
     finally:
