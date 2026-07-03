@@ -194,6 +194,85 @@ def render_track_section(result: TrackResult) -> str:
     return "\n".join(lines)
 
 
+
+def _fmt_ratio_pct(value: Optional[float], *, signed: bool = False, digits: int = 2) -> str:
+    """Format a ratio value such as 0.023 as 2.30%."""
+    if value is None:
+        return "-"
+    sign = "+" if signed and value >= 0 else ""
+    return f"{sign}{value * 100:.{digits}f}%"
+
+
+def _fmt_trade_date_yyyymmdd(value: Any) -> str:
+    td = str(value or "").strip()
+    if len(td) == 8 and td.isdigit():
+        return f"{td[:4]}-{td[4:6]}-{td[6:]}"
+    return td or "待验证"
+
+
+def render_prediction_summary(summary: Optional[Dict[str, Any]]) -> str:
+    """Render EOD Prediction verification summary injected by services.eod.
+
+    Report layer only renders the passed dict; it does not import research/services
+    or read prediction files, preserving report-layer dependency direction.
+    """
+    lines: List[str] = ["## 二、昨日预测核验(EOD Prediction)"]
+    if not summary or not summary.get("available"):
+        target = _fmt_trade_date_yyyymmdd((summary or {}).get("target_trade_date"))
+        msg = (summary or {}).get("message") or "暂无可核验 prediction 样本,待积累"
+        lines.append(f"- target: {target} | {msg}")
+        return "\n".join(lines)
+
+    target = _fmt_trade_date_yyyymmdd(summary.get("target_trade_date"))
+    lines.append(
+        f"- target: {target} | 预测 {summary.get('predictions', 0)} 条 / "
+        f"已核验 {summary.get('evaluated', 0)} 条 / pending {summary.get('pending', 0)} 条"
+    )
+    lines.append(
+        f"- 平均超额 {_fmt_ratio_pct(summary.get('avg_excess'), signed=True)} | "
+        f"正超额率 {_fmt_ratio_pct(summary.get('positive_excess_rate'), digits=0)} | "
+        f"action命中 {_fmt_ratio_pct(summary.get('action_hit_rate'), digits=0)} | "
+        f"direction命中 {_fmt_ratio_pct(summary.get('direction_hit_rate'), digits=0)}"
+    )
+
+    modes = summary.get("generation_modes") or {}
+    if modes:
+        mode_bits = []
+        for mode in sorted(modes):
+            cell = modes[mode] or {}
+            mode_bits.append(
+                f"{mode}:预测{cell.get('predictions', 0)}/核验{cell.get('evaluated', 0)}/pending{cell.get('pending', 0)}"
+            )
+        lines.append(f"- generation_mode: {'; '.join(mode_bits)}")
+
+    actions = summary.get("actions") or []
+    if actions:
+        lines.append("")
+        lines.append("| action | N | 核验 | pending | 平均超额 | 正超额率 | action命中 |")
+        lines.append("|---|---:|---:|---:|---:|---:|---:|")
+        for row in actions:
+            lines.append(
+                f"| {row.get('action')} | {row.get('predictions', 0)} | {row.get('evaluated', 0)} | "
+                f"{row.get('pending', 0)} | {_fmt_ratio_pct(row.get('avg_excess'), signed=True)} | "
+                f"{_fmt_ratio_pct(row.get('positive_excess_rate'), digits=0)} | "
+                f"{_fmt_ratio_pct(row.get('action_hit_rate'), digits=0)} |"
+            )
+    return "\n".join(lines)
+
+
+def render_prediction_digest_line(summary: Optional[Dict[str, Any]]) -> str:
+    """One-line email digest for EOD Prediction verification."""
+    if not summary or not summary.get("available"):
+        target = _fmt_trade_date_yyyymmdd((summary or {}).get("target_trade_date"))
+        return f"target {target}: 待积累"
+    target = _fmt_trade_date_yyyymmdd(summary.get("target_trade_date"))
+    return (
+        f"target {target} | 预测{summary.get('predictions', 0)}/核验{summary.get('evaluated', 0)}/"
+        f"pending{summary.get('pending', 0)} | 平均超额{_fmt_ratio_pct(summary.get('avg_excess'), signed=True)} | "
+        f"正超额{_fmt_ratio_pct(summary.get('positive_excess_rate'), digits=0)} | "
+        f"action命中{_fmt_ratio_pct(summary.get('action_hit_rate'), digits=0)}"
+    )
+
 def build_claude_markdown(claude_data: Dict[str, Any],
                           track_results: Optional[List[TrackResult]] = None) -> str:
     lines = []
@@ -231,6 +310,9 @@ def build_claude_markdown(claude_data: Dict[str, Any],
             lines.append(f"- 北向资金({freshness}): {nf['total_inflow']:+.2f}亿 (沪{nf.get('hgt_inflow') or 0:.1f} / 深{nf.get('sgt_inflow') or 0:.1f})")
         elif nf.get("note"):
             lines.append(f"- 北向资金: ℹ️ {nf['note']}")
+    lines.append("")
+
+    lines.append(render_prediction_summary(claude_data.get("prediction_summary")))
     lines.append("")
 
     # 个股
@@ -465,6 +547,10 @@ def build_email_digest(claude_data: Dict[str, Any],
         mr = ind.get("margin_ratio") or {}
         if mr.get("stale") and mr.get("latest_date"):
             lines.append(f"  > ⚠️ 融资维滞后, 采用 {mr['latest_date']}(Tushare T+1 早晨仍未发布当日, 属数据源时效)")
+    lines.append("")
+
+    # —— EOD Prediction: 昨日预测核验 ——
+    lines.append(f"## 昨日预测核验: {render_prediction_digest_line(claude_data.get('prediction_summary'))}")
     lines.append("")
 
     # —— AI 赛道: 档位 + summary 1-2 行 ——

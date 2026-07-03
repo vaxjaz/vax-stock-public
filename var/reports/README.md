@@ -16,8 +16,8 @@ var/reports/<YYYY-MM-DD>/
 | 文件 | 作用 | 来源/写入者 |
 |---|---|---|
 | `payload.json` | EOD 原始全量 payload,是报告三件套里的 SSOT。后续 replay、排查字段、重渲染都优先看它。 | `vaxstock.report.store.store_report`,输入来自 `services.collect.collect_payload` |
-| `claude.json` | 压缩后的结构化数据,给报告渲染、盘中 T-1 基准注入使用。字段比 `payload.json` 少,但更适合人读/模型读。 | `report.claude_md.compact_for_claude` 后由 `store_report` 写入 |
-| `claude.md` | 人读 Markdown 报告,也是邮件附件里的完整报告。 | `report.claude_md.build_claude_markdown` 后由 `store_report` 写入 |
+| `claude.json` | 压缩后的结构化数据,给报告渲染、盘中 T-1 基准注入使用。E4-6 起会带 `prediction_summary`。字段比 `payload.json` 少,但更适合人读/模型读。 | `report.claude_md.compact_for_claude` 后由 `services.eod` 注入摘要,再由 `store_report` 写入 |
+| `claude.md` | 人读 Markdown 报告,也是邮件附件里的完整报告。E4-6 起包含“昨日预测核验”小节。 | `report.claude_md.build_claude_markdown` 后由 `store_report` 写入 |
 
 ## 核心字段
 
@@ -55,6 +55,7 @@ var/reports/<YYYY-MM-DD>/
 | `market_overview` | 压缩后的市场概览。 |
 | `market_regime` | 当前市场 regime。 |
 | `stocks` | 压缩后的个股列表,盘中 T-1 基准读取主要使用这里。 |
+| `prediction_summary` | target 交易日 EOD Prediction 核验摘要:预测数、已核验、pending、平均超额、正超额率、action/direction 命中。 |
 | `stocks[].right_side_score` | 右侧评分,用于 EOD 分析和盘中基准引用。 |
 | `stocks[].price` / `change_pct` | 个股价格与涨跌幅快照。 |
 

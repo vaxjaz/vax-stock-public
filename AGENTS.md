@@ -116,7 +116,8 @@ tracks/__init__.py 严禁 import ai 或任何会触网/加载重依赖(akshare/p
         - [x] E4-3 Evaluator: 复用 `factor_results.jsonl`/Tushare 真收盘核验 predictions
         - [x] E4-4 接入 EOD: 先核验 pending,再用 Tushare trade_cal 确认下一交易日并生成 `generation_mode=live`
         - [x] E4-5 Prediction Layer2: action/direction/confidence/环境/概念分桶评估; live/replay 分开展示,pending 不进指标
-        - [ ] E4-6 EOD摘要(下一步) / E4-7 Rule suggestions
+        - [x] E4-6 EOD摘要: 报告/邮件显示 target 日预测核验概览
+        - [ ] E4-7 Rule suggestions(下一步)
 - [ ] **MR7 文档/README 全面同步**
 
 ---

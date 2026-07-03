@@ -33,21 +33,37 @@ logger = logging.getLogger(__name__)
 
 
 def run_eod() -> Dict[str, str]:
-    """EOD 全流程: 采集 → compact → markdown → 落盘 → (门控)邮件。返回落盘三件套路径。"""
-    logger.info("[1/5] 初始化 Tushare 数据源...")
+    """EOD 全流程: 采集 → 评估回填 → compact → markdown → 落盘 → (门控)邮件。"""
+    logger.info("[1/7] 初始化 Tushare 数据源...")
     source = TushareSource(config.SECRETS.get("tushare_token"))
 
-    logger.info("[2/5] 采集 payload + 赛道...")
+    logger.info("[2/7] 采集 payload + 赛道...")
     payload, tracks = collect_payload(source)
 
-    logger.info("[3/5] 压缩为 claude_data + 渲染 markdown...")
+    # MR-Eval E1: 全 watchlist 因子快照 append + 历史快照 T+k 回填(预测追踪数据地基)。
+    # E4-6 要把最新 prediction 核验写进当日报告,所以 E1/E4 必须先于 markdown 渲染执行。
+    logger.info("[3/7] MR-Eval 回填 + EOD Prediction 核验...")
+    try:
+        stats = record_and_backfill(payload, source)
+        logger.info(f"MR-Eval: 快照 {stats['snapshots']} 条 / 回填 {stats['backfilled']} 条")
+    except Exception as e:
+        logger.warning(f"MR-Eval 快照/回填失败(不影响落盘): {str(e)[:120]}")
+
+    # MR-Eval E4: 先核验已有 predictions,再基于本次 EOD 定稿 payload 生成下一交易日 live predictions。
+    # 失败仅 warning,不影响报告三件套落盘/邮件/E1。
+    _run_eod_prediction(payload, source)
+    prediction_summary = _build_prediction_summary(payload)
+
+    logger.info("[4/7] 压缩为 claude_data + 注入 prediction_summary + 渲染 markdown...")
     claude_data = compact_for_claude(payload)
+    if prediction_summary:
+        claude_data["prediction_summary"] = prediction_summary
     markdown = build_claude_markdown(claude_data, track_results=tracks)
 
-    logger.info("[4/5] 报告落盘(var/reports/{date}/)...")
+    logger.info("[5/7] 报告落盘(var/reports/{date}/)...")
     paths = store_report(payload, claude_data, markdown)
 
-    logger.info("[5/5] 邮件门控 + 发送...")
+    logger.info("[6/7] 邮件门控 + 发送...")
     # 邮件正文 = 精简摘要(大盘/宏观/赛道/持仓详情/观察池高分清单); 完整 markdown(claude.md)
     # 与全量 payload.json 走附件。原 markdown 仍 store 落盘 + 作附件, 不变(见 CLAUDE.md §9.8)。
     digest = build_email_digest(claude_data, track_results=tracks)
@@ -57,21 +73,9 @@ def run_eod() -> Dict[str, str]:
     ]
     _maybe_send_email(digest, attachments)
 
-    # MR-Eval E1: 全 watchlist 因子快照 append + 历史快照 T+k 回填(预测追踪数据地基)。
-    # 失败仅 warning, 不影响已完成的落盘/邮件(记录是反哺地基, 非主流程)。
-    try:
-        stats = record_and_backfill(payload, source)
-        logger.info(f"MR-Eval: 快照 {stats['snapshots']} 条 / 回填 {stats['backfilled']} 条")
-    except Exception as e:
-        logger.warning(f"MR-Eval 快照/回填失败(不影响落盘): {str(e)[:120]}")
-
-    # MR-Eval E4: EOD Prediction 闭环。必须在 E1 回填后执行: 先核验已有 predictions,
-    # 再基于本次 EOD 定稿 payload 生成下一交易日 live predictions。失败仅 warning,
-    # 不影响报告三件套落盘/邮件/E1。
-    _run_eod_prediction(payload, source)
-    # MR-Eval E2: Layer2 离线分析(分环境分桶前瞻收益/超额)。必须在 record_and_backfill 之后
-    # (读已回填到最新的 results)。纯读 E1 两 jsonl, 失败仅 warning 不影响 EOD。
-    # Layer2 不按样本数屏蔽统计值; N 直接展示, 未回填样本不计入。
+    # MR-Eval E2: Layer2 离线分析(分环境分桶前瞻收益/超额)。纯读 E1 两 jsonl,
+    # 失败仅 warning 不影响 EOD。Layer2 不按样本数屏蔽统计值; N 直接展示。
+    logger.info("[7/7] Layer2 / Prediction Layer2 离线分析...")
     try:
         from vaxstock.research.layer2_eval import run_layer2
         run_layer2(write=True)
@@ -88,6 +92,32 @@ def run_eod() -> Dict[str, str]:
 
     return paths
 
+
+def _build_prediction_summary(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Build E4-6 report summary for the just-finished EOD trade date."""
+    target = (payload.get("market_overview") or {}).get("trade_date")
+    try:
+        from vaxstock.research.prediction_eval import summarize_prediction_check
+        summary = summarize_prediction_check(target_trade_date=target)
+        if summary.get("available"):
+            logger.info(
+                "EOD Prediction 摘要: target=%s 预测 %s 条 / 核验 %s 条 / pending %s 条",
+                summary.get("target_trade_date"),
+                summary.get("predictions"),
+                summary.get("evaluated"),
+                summary.get("pending"),
+            )
+        else:
+            logger.info(f"EOD Prediction 摘要: target={target or '待验证'} 待积累")
+        return summary
+    except Exception as e:
+        logger.warning(f"EOD Prediction 摘要生成失败(不影响EOD): {str(e)[:120]}")
+        return {
+            "available": False,
+            "target_trade_date": target,
+            "reason": "summary_error",
+            "message": "prediction 核验摘要生成失败,待验证",
+        }
 
 def _next_trade_date(source, baseline_trade_date, lookahead_days: int = 15) -> Optional[str]:
     """用 Tushare trade_cal 查 baseline 后的下一开市日(YYYYMMDD)。

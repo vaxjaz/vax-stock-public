@@ -116,8 +116,8 @@ tracks/__init__.py 严禁 import ai 或任何会触网/加载重依赖(akshare/p
         - [x] E4-3 Evaluator: 复用 `factor_results.jsonl`/Tushare 真收盘核验 predictions
         - [x] E4-4 接入 EOD: 先核验 pending,再用 Tushare trade_cal 确认下一交易日并生成 `generation_mode=live`
         - [x] E4-5 Prediction Layer2: action/direction/confidence/环境/概念分桶评估; live/replay 分开展示,pending 不进指标
-        - [ ] E4-6 EOD 摘要接入(下一步): 报告显示预测核验概览
-        - [ ] E4-7 Rule suggestions: 只给规则升级建议,不自动改参数
+        - [x] E4-6 EOD 摘要接入: 报告/邮件显示 target 日预测核验概览,无数据时显示待积累
+        - [ ] E4-7 Rule suggestions(下一步): 只给规则升级建议,不自动改参数
 - [ ] **MR7 文档/README 全面同步**
 
 ---
@@ -199,8 +199,8 @@ print('✅ import无副作用 + 纯函数验证通过')
    | 文件/目录 | 写入者 | 类型 | 作用 | 幂等/不可变规则 |
    |---|---|---|---|---|
    | `reports/<YYYY-MM-DD>/payload.json` | `report.store.store_report` | EOD 原始 SSOT | T 日 EOD 全量 payload,可重渲染/追溯 | 同交易日重跑可覆盖(报告产物) |
-   | `reports/<YYYY-MM-DD>/claude.json` | `report.store.store_report` | EOD compact | 给 Claude/盘中 T-1 基准使用的压缩结构 | 同交易日重跑可覆盖 |
-   | `reports/<YYYY-MM-DD>/claude.md` | `report.store.store_report` | EOD 人读报告 | 邮件附件/人工复盘 | 同交易日重跑可覆盖 |
+   | `reports/<YYYY-MM-DD>/claude.json` | `report.store.store_report` | EOD compact | 给 Claude/盘中 T-1 基准使用的压缩结构;E4-6 起包含 `prediction_summary` | 同交易日重跑可覆盖 |
+   | `reports/<YYYY-MM-DD>/claude.md` | `report.store.store_report` | EOD 人读报告 | 邮件附件/人工复盘;E4-6 起显示“昨日预测核验”小节 | 同交易日重跑可覆盖 |
    | `var/eval/factor_snapshots.jsonl` | `services.eval_recorder.record_snapshots` | B线输入快照 | 全 holdings+watchlist 每日无条件因子快照;防幸存者偏差 | append-only;同 `(trade_date,code)` 幂等跳过 |
    | `var/eval/factor_results.jsonl` | `services.eval_recorder.backfill` | B线结果 | 对 `factor_snapshots` 的 T+1/3/5/10/20/30 真收益、基准收益、超额回填 | append-only;仅新增 horizon 时追加 |
    | `var/eval/layer2_report_<trade_date>.md` | `research.layer2_eval.run_layer2` | B线分析报告 | score 档 × `regime|macro_regime` 分桶的前瞻收益/超额/胜率;不按样本数屏蔽,N 直接展示 | 可重生成覆盖 |
@@ -216,8 +216,8 @@ print('✅ import无副作用 + 纯函数验证通过')
    - **E4-3 Evaluator(已完成)**:`services/prediction_evaluator.py` 优先复用 `factor_results.jsonl` 核验 replay predictions;live 场景可从 Tushare daily 机械算收益/超额;缺数据不写假结果。
    - **E4-4 接入 EOD(已完成)**:`services/eod.py` 在 E1 回填后先核验 pending predictions,再用 Tushare `trade_cal` 确认下一交易日并生成 `generation_mode=live` predictions;查不到交易日/字段缺失则跳过,绝不按自然日臆造;prediction 失败只 warning,不影响 EOD 三件套落盘。
    - **E4-5 Prediction Layer2(已完成)**:`research/prediction_eval.py` join predictions/results,按 `action`/`direction`/`confidence_bucket`/`regime|macro_regime`/`concept` 分桶;`generation_mode=live/replay` 分开展示;不按样本数屏蔽,N 直接展示;pending 只计数不进收益/超额/命中率;concept 采用一票多桶。
-   - **E4-6 EOD 摘要接入**:`report/claude_md.py` 增加"昨日预测核验"小节(预测数、已核验、action 命中、正超额率、pending),无数据时显示"待积累"。
-   - **E4-7 Rule suggestions**:`research/rule_suggester.py` 只输出规则升级建议和证据,不自动改参数;升级必须人工确认并 bump `rule_version`。
+   - **E4-6 EOD 摘要接入(已完成)**:`services/eod.py` 先做 E1/E4 核验,再由 `research.prediction_eval.summarize_prediction_check` 生成 `prediction_summary` 注入 `claude_data`;`report/claude_md.py` 在完整报告和邮件摘要显示 target 日预测数、已核验、pending、平均超额、正超额率、action/direction 命中,无数据时显示"待积累"。
+   - **E4-7 Rule suggestions(下一步)**:`research/rule_suggester.py` 只输出规则升级建议和证据,不自动改参数;升级必须人工确认并 bump `rule_version`。
 
    **记录字段最低要求**:
    - prediction: `prediction_id/generated_at/generation_mode/baseline_trade_date/target_trade_date/code/name/group/concepts/features_ref/prediction/rule_version/model_version`。

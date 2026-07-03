@@ -207,6 +207,76 @@ def analyze(joined: Iterable[Dict[str, Any]], dimensions=DEFAULT_DIMENSIONS) -> 
     }
 
 
+def summarize_prediction_check(*, target_trade_date: Optional[str] = None,
+                               joined: Optional[Iterable[Dict[str, Any]]] = None,
+                               predictions_path=None,
+                               results_path=None,
+                               max_actions: int = 6) -> Dict[str, Any]:
+    """Build a compact EOD report summary for one target trade date.
+
+    This is a read-only helper for E4-6. It summarizes the predictions whose
+    `target_trade_date` equals the just-finished EOD report trade date. Pending
+    rows are counted but excluded from return/excess/hit-rate metrics.
+    """
+    rows = list(joined) if joined is not None else load_joined(
+        predictions_path=predictions_path,
+        results_path=results_path,
+    )
+    target = str(target_trade_date or "").strip()
+    if target:
+        rows = [
+            row for row in rows
+            if str((row.get("prediction") or {}).get("target_trade_date") or "").strip() == target
+        ]
+    else:
+        target = _latest_trade_date(rows) or ""
+
+    if not rows:
+        return {
+            "available": False,
+            "target_trade_date": target or None,
+            "reason": "no_predictions",
+            "message": "暂无可核验 prediction 样本,待积累",
+        }
+
+    evaluated = [row for row in rows if row.get("result") is not None]
+    pending = len(rows) - len(evaluated)
+    summary = _metric_cell(len(rows), pending, evaluated)
+    modes = analyze(rows, dimensions=("action",)).get("modes") or {}
+
+    by_action: Dict[str, Dict[str, List[Dict[str, Any]]]] = defaultdict(
+        lambda: {"all": [], "evaluated": [], "pending": []}
+    )
+    for row in rows:
+        action = _bucket_values(row, "action")[0]
+        box = by_action[action]
+        box["all"].append(row)
+        if row.get("result") is None:
+            box["pending"].append(row)
+        else:
+            box["evaluated"].append(row)
+
+    action_rows = []
+    for action, parts in by_action.items():
+        cell = _metric_cell(len(parts["all"]), len(parts["pending"]), parts["evaluated"])
+        cell["action"] = action
+        action_rows.append(cell)
+    action_rows.sort(key=lambda x: (-x["predictions"], -x["evaluated"], x["action"]))
+
+    return {
+        "available": True,
+        "target_trade_date": target or None,
+        "predictions": summary["predictions"],
+        "evaluated": summary["evaluated"],
+        "pending": summary["pending"],
+        "avg_ret": summary["avg_ret"],
+        "avg_excess": summary["avg_excess"],
+        "positive_excess_rate": summary["positive_excess_rate"],
+        "action_hit_rate": summary["action_hit_rate"],
+        "direction_hit_rate": summary["direction_hit_rate"],
+        "generation_modes": modes,
+        "actions": action_rows[:max_actions],
+    }
 def _fmt_pct(value: Optional[float], *, signed: bool = False) -> str:
     if value is None:
         return "-"

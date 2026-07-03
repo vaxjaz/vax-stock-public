@@ -130,6 +130,44 @@ def test_analyze_buckets_and_pending_without_sample_gate():
     assert "概念 concept 分桶采用一票多桶" in report
 
 
+
+def test_summarize_prediction_check_filters_target_trade_date():
+    joined = [
+        {"prediction": _pred("P000001", target="20260626", action="watch"),
+         "result": _result("P000001", excess=0.03, action_hit=True, direction_hit=True),
+         "horizon": "1"},
+        {"prediction": _pred("P000002", target="20260626", action="avoid"),
+         "result": _result("P000002", ret=-0.01, excess=-0.02,
+                           action_hit=True, direction_hit=False),
+         "horizon": "1"},
+        {"prediction": _pred("P000003", target="20260626", mode="live", action="watch"),
+         "result": None, "horizon": "1"},
+        {"prediction": _pred("P000004", target="20260627", action="watch"),
+         "result": _result("P000004", excess=0.20), "horizon": "1"},
+    ]
+
+    summary = peval.summarize_prediction_check(target_trade_date="20260626", joined=joined)
+    assert summary["available"] is True
+    assert summary["target_trade_date"] == "20260626"
+    assert summary["predictions"] == 3
+    assert summary["evaluated"] == 2
+    assert summary["pending"] == 1
+    assert abs(summary["avg_excess"] - 0.005) < 1e-12
+    assert summary["positive_excess_rate"] == 0.5
+    assert summary["action_hit_rate"] == 1.0
+    assert summary["direction_hit_rate"] == 0.5
+    by_action = {row["action"]: row for row in summary["actions"]}
+    assert by_action["watch"]["predictions"] == 2
+    assert by_action["watch"]["pending"] == 1
+    assert by_action["avoid"]["evaluated"] == 1
+
+
+def test_summarize_prediction_check_no_predictions():
+    summary = peval.summarize_prediction_check(target_trade_date="20260699", joined=[])
+    assert summary["available"] is False
+    assert summary["target_trade_date"] == "20260699"
+    assert "待积累" in summary["message"]
+
 def test_run_prediction_layer2_writes_latest_target_report():
     d = pathlib.Path(tempfile.mkdtemp(prefix="vaxpredl2_"))
     try:

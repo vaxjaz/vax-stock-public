@@ -191,6 +191,61 @@ def test_email_digest_honest_missing_no_fabrication():
     assert "关注AI算力链" in digest2
 
 
+
+def _prediction_summary():
+    return {
+        "available": True,
+        "target_trade_date": "20260625",
+        "predictions": 3,
+        "evaluated": 2,
+        "pending": 1,
+        "avg_ret": 0.01,
+        "avg_excess": 0.02,
+        "positive_excess_rate": 0.5,
+        "action_hit_rate": 1.0,
+        "direction_hit_rate": 0.5,
+        "generation_modes": {
+            "live": {"predictions": 3, "evaluated": 2, "pending": 1},
+        },
+        "actions": [
+            {"action": "watch", "predictions": 2, "evaluated": 1, "pending": 1,
+             "avg_excess": 0.03, "positive_excess_rate": 1.0, "action_hit_rate": 1.0},
+            {"action": "avoid", "predictions": 1, "evaluated": 1, "pending": 0,
+             "avg_excess": -0.01, "positive_excess_rate": 0.0, "action_hit_rate": 1.0},
+        ],
+    }
+
+
+def test_markdown_prediction_summary_section():
+    cd = _mock_claude_data()
+    cd["prediction_summary"] = _prediction_summary()
+    md = build_claude_markdown(cd, track_results=None)
+    assert "## 二、昨日预测核验(EOD Prediction)" in md
+    assert "target: 2026-06-25 | 预测 3 条 / 已核验 2 条 / pending 1 条" in md
+    assert "平均超额 +2.00%" in md
+    assert "正超额率 50%" in md
+    assert "action命中 100%" in md
+    assert "| watch | 2 | 1 | 1 | +3.00% | 100% | 100% |" in md
+
+
+def test_prediction_summary_missing_is_honest():
+    cd = _mock_claude_data()
+    cd["prediction_summary"] = {"available": False, "target_trade_date": "20260625",
+                                "message": "暂无可核验 prediction 样本,待积累"}
+    md = build_claude_markdown(cd, track_results=None)
+    assert "## 二、昨日预测核验(EOD Prediction)" in md
+    assert "target: 2026-06-25 | 暂无可核验 prediction 样本,待积累" in md
+
+
+def test_email_digest_prediction_summary_line():
+    cd = _digest_claude_data()
+    cd["prediction_summary"] = _prediction_summary()
+    digest = build_email_digest(cd, track_results=None)
+    assert "## 昨日预测核验: target 2026-06-25" in digest
+    assert "预测3/核验2/pending1" in digest
+    assert "平均超额+2.00%" in digest
+    assert "action命中100%" in digest
+
 # report 层不得 import sources / analysis(分层守卫)
 # 用 ast 静态解析 report/ 各模块的 import 目标, 确定性、不受其它测试文件 import 顺序影响
 # (旧版查运行时 sys.modules, 会被同进程先 import 的 test_ai(它经 ai.py 加载了 vaxstock.sources)污染而误判)

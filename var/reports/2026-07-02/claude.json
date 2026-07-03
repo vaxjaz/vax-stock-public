@@ -6309,5 +6309,66 @@
         "主力净流出4.00亿"
       ]
     }
-  ]
+  ],
+  "prediction_summary": {
+    "available": true,
+    "target_trade_date": "20260702",
+    "predictions": 42,
+    "evaluated": 42,
+    "pending": 0,
+    "avg_ret": -0.04572044048778575,
+    "avg_excess": -0.0254061277357109,
+    "positive_excess_rate": 0.3333333333333333,
+    "action_hit_rate": 0.3333333333333333,
+    "direction_hit_rate": 0.0625,
+    "generation_modes": {
+      "replay": {
+        "predictions": 42,
+        "evaluated": 42,
+        "pending": 0,
+        "avg_ret": -0.04572044048778575,
+        "avg_excess": -0.0254061277357109,
+        "positive_excess_rate": 0.3333333333333333,
+        "action_hit_rate": 0.3333333333333333,
+        "direction_hit_rate": 0.0625,
+        "deviations": {
+          "missed_positive_excess": 13,
+          "expected_positive_but_non_positive": 15,
+          "as_expected": 14
+        }
+      }
+    },
+    "actions": [
+      {
+        "predictions": 26,
+        "evaluated": 26,
+        "pending": 0,
+        "avg_ret": -0.028994400623333257,
+        "avg_excess": -0.00868008787125841,
+        "positive_excess_rate": 0.5,
+        "action_hit_rate": 0.5,
+        "direction_hit_rate": null,
+        "deviations": {
+          "missed_positive_excess": 13,
+          "as_expected": 13
+        },
+        "action": "avoid"
+      },
+      {
+        "predictions": 16,
+        "evaluated": 16,
+        "pending": 0,
+        "avg_ret": -0.07290025526752104,
+        "avg_excess": -0.052585942515446196,
+        "positive_excess_rate": 0.0625,
+        "action_hit_rate": 0.0625,
+        "direction_hit_rate": 0.0625,
+        "deviations": {
+          "expected_positive_but_non_positive": 15,
+          "as_expected": 1
+        },
+        "action": "watch"
+      }
+    ]
+  }
 }

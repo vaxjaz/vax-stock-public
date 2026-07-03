@@ -53,6 +53,7 @@ def _install_spies(secrets=None, payload=None, next_trade_date="20260626"):
     # 在其源模块上打桩才拦得住; 否则真跑会读真 var/eval/ 并落 layer2_report 文件(测试不该有副作用)。
     saved_l2 = l2_mod.run_layer2
     saved_pred_l2 = pred_l2_mod.run_prediction_layer2
+    saved_pred_summary = pred_l2_mod.summarize_prediction_check
     rec = {"send_calls": [], "order": []}
     run_payload = payload if payload is not None else _PAYLOAD
 
@@ -68,6 +69,17 @@ def _install_spies(secrets=None, payload=None, next_trade_date="20260626"):
         return ""
     pred_l2_mod.run_prediction_layer2 = _prediction_layer2
 
+    def _prediction_summary(target_trade_date=None, **k):
+        rec["order"].append("pred_summary")
+        rec["summary_call"] = {"target_trade_date": target_trade_date}
+        return {"available": True, "target_trade_date": target_trade_date,
+                "predictions": 2, "evaluated": 1, "pending": 1,
+                "avg_excess": 0.02, "positive_excess_rate": 1.0,
+                "action_hit_rate": 1.0, "direction_hit_rate": 1.0,
+                "generation_modes": {"live": {"predictions": 2, "evaluated": 1, "pending": 1}},
+                "actions": []}
+    pred_l2_mod.summarize_prediction_check = _prediction_summary
+
     eod_mod.TushareSource = lambda token: {"_stub": True, "token": token}
 
     def _collect(source):
@@ -77,6 +89,7 @@ def _install_spies(secrets=None, payload=None, next_trade_date="20260626"):
 
     def _compact(payload):
         rec["compact_in"] = payload
+        _CLAUDE.pop("prediction_summary", None)
         return _CLAUDE
     eod_mod.compact_for_claude = _compact
 
@@ -143,6 +156,7 @@ def _install_spies(secrets=None, payload=None, next_trade_date="20260626"):
         config.SECRETS = saved_secrets
         l2_mod.run_layer2 = saved_l2
         pred_l2_mod.run_prediction_layer2 = saved_pred_l2
+        pred_l2_mod.summarize_prediction_check = saved_pred_summary
 
     return rec, restore
 
@@ -176,9 +190,12 @@ def test_eod_orchestration_and_passthrough():
         assert rec["store_in"]["payload"] is _PAYLOAD
         assert rec["store_in"]["claude_data"] is _CLAUDE
         assert rec["store_in"]["markdown"] == _MD
+        assert rec["summary_call"] == {"target_trade_date": "20260625"}
+        assert rec["store_in"]["claude_data"]["prediction_summary"]["predictions"] == 2
         # digest 收到 compact 的 claude_data + collect 的 tracks(邮件正文走 digest, 非完整 markdown)
         assert rec["digest_in"]["claude_data"] is _CLAUDE
         assert rec["digest_in"]["track_results"] is _TRACKS
+        assert rec["digest_in"]["claude_data"]["prediction_summary"]["pending"] == 1
         # build 收到的 claude_data 是 compact 的输出
         assert rec["build_in"]["claude_data"] is _CLAUDE
         # run_eod 返回 store_report 的 paths
@@ -193,7 +210,7 @@ def test_eod_orchestration_and_passthrough():
         assert rec["preds_call"] == {"payload": _PAYLOAD, "target_trade_date": "20260626",
                                       "generation_mode": "live"}
         assert rec["record_predictions_call"] == [{"prediction_id": "p1"}]
-        assert rec["order"] == ["store", "e1", "pred_eval", "next_trade", "pred_live", "pred_record", "layer2", "prediction_layer2"]
+        assert rec["order"] == ["e1", "pred_eval", "next_trade", "pred_live", "pred_record", "pred_summary", "store", "layer2", "prediction_layer2"]
         # Layer2(E2): E4 后被调(顺带分析)
         assert rec.get("layer2_called") is True
         assert rec.get("prediction_layer2_called") is True
