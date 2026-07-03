@@ -127,6 +127,8 @@ def test_analyze_buckets_and_pending_without_sample_gate():
     report = peval.render_report(stats)
     assert "样本不足" not in report
     assert "pending" in report
+    assert "## 术语说明" in report
+    assert "`confidence`: 规则先验置信度" in report
     assert "概念 concept 分桶采用一票多桶" in report
 
 

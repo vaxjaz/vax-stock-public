@@ -95,6 +95,23 @@
 | `inputs.growth_avg_change_pct` | `(创业板指 + 科创50) / 2`。 |
 | `sources` | 指数和全市场统计的数据源标记;缺失时必须显示待验证,不能臆造。 |
 
+## 术语说明
+
+| 术语 | 含义 |
+|---|---|
+| `N` | 已回填并参与统计的样本数; 当前不按样本数隐藏统计值。 |
+| `ret` | 个股未来收益。 |
+| `mkt_ret` | 基准指数未来收益。 |
+| `excess` / `正超额` | `excess = ret - mkt_ret`; 正超额表示个股跑赢基准指数。 |
+| `low bucket` / `high bucket` | 按冻结因子值排序后的底部/顶部三分位样本。 |
+| `low_avg_excess` / `high_avg_excess` | 低值桶/高值桶在目标 horizon 的平均超额收益。 |
+| `high-low` | 高值桶平均超额减低值桶平均超额; 正数表示高值桶阶段性更占优,负数表示高值桶更弱。 |
+| `evidence_strength` | `thin`/`medium`/`strong` 只提示样本证据厚薄,不隐藏任何桶,也不自动形成结论。 |
+| `review_action` | 人工复核动作建议,只给证据和方向,不会自动修改权重。 |
+| `consider_up_weight_for_high_value` | 高值桶相对低值桶超额更强,可人工复核是否提高该因子的正向权重。 |
+| `consider_penalty_for_high_value_or_inverse_weight` | 高值桶弱于低值桶,可人工复核是否降权或改成反向惩罚。 |
+| `watch_no_change` | 暂无足够方向性证据,继续观察。 |
+| `collect_more` | 缺少可比较样本或字段缺失,继续积累,不做调权动作。 |
 ## 使用原则
 
 - B 线是无偏全截面样本,不是盘中触发样本。

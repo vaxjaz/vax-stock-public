@@ -97,6 +97,8 @@ def test_build_rule_suggestions_detects_good_and_bad_buckets():
     assert "panic 修复" in text
     assert "market:panic\\|bear" in text
     assert "收紧 watch" in text
+    assert "## 术语说明" in text
+    assert "`watch`: 高优先观察" in text
     assert "| action |" not in text  # report uses evidence sections, not old prediction table
 
 

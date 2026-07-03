@@ -70,6 +70,8 @@ def test_analyze_factor_high_low_spread_for_manual_review():
     assert "# Factor Weight Review 20260625" in text
     assert "alpha" in text
     assert "consider_up_weight_for_high_value" in text
+    assert "## 术语说明" in text
+    assert "`high-low`: 高值桶平均超额减低值桶平均超额" in text
 
 
 def test_run_factor_weight_review_writes_latest_trade_date_report():

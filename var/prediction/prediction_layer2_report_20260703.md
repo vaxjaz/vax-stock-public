@@ -4,6 +4,18 @@
 > prediction/result 两条 jsonl 均只读; pending 样本只计数,不进入收益、超额、命中率统计。
 > 概念 concept 分桶采用一票多桶: 同一预测带多个概念时会分别计入各概念桶,因此概念桶 N 之和可能大于预测总数。
 
+## 术语说明
+- `action`: 当时冻结的动作标签,例如 `avoid`、`watch`、`panic_rebound_watch`; 它验证的是动作是否合理,不是买卖指令。
+- `direction`: 当时冻结的方向判断,例如 `up`、`down`、`neutral`。
+- `confidence`: 规则先验置信度,用于分桶观察,不是统计概率,也不是胜率承诺。
+- `pending`: 还没有真实结果的预测; 只计数,不进入收益、超额、命中率统计。
+- `avg_ret`: 桶内已核验样本的个股平均收益。
+- `avg_excess`: 桶内已核验样本的平均超额收益,即个股收益减基准指数收益。
+- `excess>0`: 正超额率,表示跑赢基准的样本占比。
+- `action_hit`: 动作预测是否与真实超额方向匹配; 例如预期正超额且最终 `excess > 0`。
+- `direction_hit`: 方向预测是否与真实个股涨跌方向匹配。
+- `concept 一票多桶`: 同一只股票有多个概念时会分别计入多个概念桶,所以概念桶 N 之和可能大于预测总数。
+
 ## 总览
 | bucket | predictions | evaluated | pending | avg_ret | avg_excess | excess>0 | action_hit | direction_hit |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|

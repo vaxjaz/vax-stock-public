@@ -9,6 +9,18 @@
 - pending: 42
 - min_evaluated_reference: 20
 
+## 术语说明
+- `panic`: 市场恐慌状态。当前规则里主要由全市场跌停数量触发,代表先防守。
+- `panic 修复`: panic 后的情绪修复交易观察,不等同于右侧追涨,也不等同于立即买入。
+- `panic_rebound_watch/probe`: panic 修复分支下的动作标签; `watch` 偏观察,`probe` 偏轻仓试探候选,均需人工确认。
+- `left_repair` / `panic_repair`: 候选的新规则名,表示左侧修复逻辑; 若采纳必须另开 PR 并 bump `rule_version`。
+- `watch`: 高优先观察,不是买入指令; 后续仍需要盘中行为、资金和基本面交叉确认。
+- `watch_only`: 只观察,明确不进入买入候选。
+- `avoid`: 回避或低优先级,不等于永久剔除该股票。
+- `action_hit`: 动作预测是否和真实超额方向匹配; 例如预期正超额且最终 `excess > 0`。
+- `正超额`: 个股收益跑赢基准指数,即 `actual.excess = actual.ret - actual.mkt_ret > 0`。
+- `thin/medium/strong`: 只描述样本证据厚薄,不是自动交易结论。
+
 ## 建议清单
 | priority | scope | evidence_strength | suggestion | evidence | next_step |
 |---|---|---|---|---|---|
