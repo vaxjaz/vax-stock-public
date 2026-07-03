@@ -4,7 +4,7 @@
 本模块只做 **schema + deterministic rule writer + replay bootstrap**:
   - 输入: E1 的 factor_snapshots 行,或 EOD payload 中的 stocks 行;
   - 输出: append-only `var/prediction/eod_predictions.jsonl`;
-  - E4-2 从既有 factor_snapshots 重放生成 generation_mode=replay 的历史 predictions;
+  - E4-2 可从既有 factor_snapshots 或历史 reports payload 重放生成 generation_mode=replay 的历史 predictions;
   - 不触网、不取数、不做结果回填(结果回填归 prediction_evaluator 后续 PR);
   - replay/live 必须显式标记 generation_mode,不可混写为同一种样本。
 
@@ -420,6 +420,94 @@ def bootstrap_replay_predictions(*, snapshots_path=None, output_path=None,
     stats = record_predictions(preds, path=output_path)
     stats.update({
         "source_snapshots": len(snapshots),
+        "source_trade_dates": len(dates),
+        "generated": len(preds),
+        "last_trade_date_skipped": dates[-1] if dates else None,
+    })
+    return stats
+
+
+def _payload_trade_date(payload: Dict[str, Any]) -> str:
+    """从 EOD payload 读取真实 trade_date; 缺失时返回空字符串, 由上层跳过。"""
+    return str(((payload or {}).get("market_overview") or {}).get("trade_date") or "").strip()
+
+
+def _read_payloads_from_reports(reports_dir=None) -> List[dict]:
+    """读取 var/reports/*/payload.json 中已落盘的历史 EOD payload。"""
+    base = Path(reports_dir or config.REPORTS_DIR)
+    if not base.exists():
+        return []
+    rows = []
+    for path in sorted(base.glob("*/payload.json")):
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except Exception as e:
+            logger.warning(f"EOD payload 读取失败, 跳过 {path}: {str(e)[:80]}")
+            continue
+        td = _payload_trade_date(payload)
+        if not td:
+            logger.warning(f"EOD payload 无 trade_date, 跳过 {path}")
+            continue
+        rows.append({"trade_date": td, "payload": payload, "path": str(path)})
+    return rows
+
+
+def replay_predictions_from_payloads(payloads: Iterable[Dict[str, Any]], *,
+                                     rule_version: str = DEFAULT_RULE_VERSION,
+                                     model_version: str = DEFAULT_MODEL_VERSION,
+                                     generated_at: Optional[str] = None) -> List[dict]:
+    """从历史 EOD payload 重放生成 replay predictions。
+
+    target_trade_date 只取下一份已存在 EOD payload 的真实 trade_date。最后一个 EOD payload
+    没有已证实下一交易日, 必须跳过; 不用自然日/now 推断。
+    """
+    by_date: Dict[str, Dict[str, Any]] = {}
+    for payload in payloads:
+        if not isinstance(payload, dict):
+            continue
+        td = _payload_trade_date(payload)
+        if td:
+            by_date[td] = payload
+    dates = sorted(by_date)
+    next_by_date = {dates[i]: dates[i + 1] for i in range(len(dates) - 1)}
+
+    preds: List[dict] = []
+    for baseline in dates:
+        target = next_by_date.get(baseline)
+        if not target:
+            continue
+        preds.extend(predictions_from_payload(
+            by_date[baseline],
+            target,
+            generation_mode="replay",
+            rule_version=rule_version,
+            model_version=model_version,
+            generated_at=generated_at,
+        ))
+    return preds
+
+
+def bootstrap_replay_predictions_from_reports(*, reports_dir=None, output_path=None,
+                                              rule_version: str = DEFAULT_RULE_VERSION,
+                                              model_version: str = DEFAULT_MODEL_VERSION,
+                                              generated_at: Optional[str] = None) -> Dict[str, Any]:
+    """读取历史 EOD payload 并幂等写入 replay predictions。
+
+    用于验证 E4-4 的 payload 路径与补齐历史 EOD 样本。目标日只来自下一份已落盘
+    payload 的真实 trade_date, 最后一个历史交易日不推断。
+    """
+    rows = _read_payloads_from_reports(reports_dir)
+    payloads = [r["payload"] for r in rows]
+    dates = sorted({_payload_trade_date(p) for p in payloads if _payload_trade_date(p)})
+    preds = replay_predictions_from_payloads(
+        payloads,
+        rule_version=rule_version,
+        model_version=model_version,
+        generated_at=generated_at,
+    )
+    stats = record_predictions(preds, path=output_path)
+    stats.update({
+        "source_payloads": len(payloads),
         "source_trade_dates": len(dates),
         "generated": len(preds),
         "last_trade_date_skipped": dates[-1] if dates else None,

@@ -12,7 +12,7 @@
     阈值镜像 indicators/scoring.py 的评分分档(≥3.5/≥2.0/≥0.5/<0.5)。
   - **分环境分桶是硬性**(防混合平均掩盖状态依赖): 每条样本带 market 环境, 按桶分别统计,
     绝不全样本平均。
-  - 样本 < min_samples 的组合标"样本不足"不下结论(诚实, 不拿小样本说事)。
+  - 不按样本数屏蔽统计值; N 直接展示,由使用者自行判断厚薄。
   - result 未回填的样本不计入统计(不拿空收益凑数)。
   - 政策维度第一版不做(走将来 policy_context 接口), 分桶先用 regime + macro_regime。
 
@@ -30,7 +30,7 @@ from vaxstock.services import eval_recorder as er
 logger = logging.getLogger(__name__)
 
 DEFAULT_HORIZONS = (1, 3, 5, 10, 20, 30)
-MIN_SAMPLES = 20
+MIN_SAMPLES = 0  # 兼容旧调用; Layer2 现不按样本数屏蔽统计值
 
 # 决策档(镜像 indicators/scoring.py 的评分分档, 不新算; 见 scoring 的 grade 块)
 DECISION_STRONG = "强买入信号"   # >= 3.5
@@ -99,7 +99,8 @@ def analyze(joined: List[Dict[str, Any]], horizons=DEFAULT_HORIZONS,
             min_samples: int = MIN_SAMPLES) -> Dict[str, Any]:
     """对每个 (决策档, 环境桶, horizon) 统计已回填样本: N / 平均ret / 平均excess / 胜率(excess>0占比)。
 
-    样本 < min_samples 标 insufficient; 未回填(result=None)不计入(只累计未回填计数供透明)。
+    不按样本数屏蔽统计值; min_samples 仅为兼容旧调用保留, 不参与屏蔽。
+    未回填(result=None)不计入(只累计未回填计数供透明)。
     返回 {"buckets": {dec: {bkt: {"filled","unfilled","horizons": {k: cell}}}}, "min_samples", "horizons"}。
     """
     pairs: Dict[tuple, List[tuple]] = defaultdict(list)        # (dec,bkt,k) -> [(ret_k, excess_k)]
@@ -129,13 +130,11 @@ def analyze(joined: List[Dict[str, Any]], horizons=DEFAULT_HORIZONS,
     for (dec, bkt, k), plist in pairs.items():
         n = len(plist)
         hcell = buckets[dec][bkt]["horizons"]
-        if n < min_samples:
-            hcell[k] = {"n": n, "insufficient": True}
-            continue
         rets = [p[0] for p in plist]
         excs = [p[1] for p in plist if p[1] is not None]
         hcell[k] = {
-            "n": n, "insufficient": False,
+            "n": n,
+            "insufficient": False,
             "avg_ret": sum(rets) / len(rets),
             "avg_excess": (sum(excs) / len(excs)) if excs else None,
             "winrate": (sum(1 for e in excs if e > 0) / len(excs)) if excs else None,
@@ -151,15 +150,14 @@ def _pct(v: Optional[float]) -> str:
 
 
 def render_report(stats: Dict[str, Any]) -> str:
-    """markdown 表格(决策档 × 环境桶 × horizon → N/ret/excess/胜率)。未回填/样本不足诚实标注。"""
+    """markdown 表格(决策档 × 环境桶 × horizon → N/ret/excess/胜率)。未回填诚实标注。"""
     horizons = stats.get("horizons", list(DEFAULT_HORIZONS))
-    min_samples = stats.get("min_samples", MIN_SAMPLES)
     buckets = stats.get("buckets", {})
 
     lines = ["# Layer2 评估报告(样本外 · 用户 universe · 分环境)", ""]
     lines.append(f"> 决策档按 EOD T日收盘 right_side_score 模拟(≥3.5强买入/≥2.0可考虑介入/≥0.5观察/<0.5回避);")
     lines.append(f"> **分环境分桶(regime|macro_regime)统计前瞻 excess, 绝不全样本平均**; "
-                 f"样本<{min_samples} 标样本不足, 未回填不计入。")
+                 "不按样本数屏蔽统计值, N 直接展示; 未回填不计入。")
     lines.append("")
     if not buckets:
         lines.append("(暂无已回填样本, 数据攒厚后自然有结论)")
@@ -179,12 +177,11 @@ def render_report(stats: Dict[str, Any]) -> str:
                 cell = meta["horizons"].get(k)
                 if cell is None:
                     continue
-                if cell.get("insufficient"):
-                    lines.append(f"| T+{k} | {cell['n']} | 样本不足 | 样本不足 | 样本不足 |")
-                else:
-                    wr = f"{cell['winrate'] * 100:.0f}%" if cell["winrate"] is not None else "-"
-                    lines.append(f"| T+{k} | {cell['n']} | {_pct(cell['avg_ret'])} | "
-                                 f"{_pct(cell['avg_excess'])} | {wr} |")
+                wr = f"{cell['winrate'] * 100:.0f}%" if cell["winrate"] is not None else "-"
+                avg_ret = _pct(cell["avg_ret"])
+                avg_excess = _pct(cell["avg_excess"])
+
+                lines.append(f"| T+{k} | {cell['n']} | {avg_ret} | {avg_excess} | {wr} |")
             lines.append("")
     lines.append("> zz800 对照位: 该档评分在 zz800 的预期超额 vs 实测 —— 接入待办(第一版不臆造)。")
     return "\n".join(lines)

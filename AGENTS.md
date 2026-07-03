@@ -107,12 +107,12 @@ tracks/__init__.py 严禁 import ai 或任何会触网/加载重依赖(akshare/p
 - [~] **MR-Eval 线(预测追踪反哺,独立线)**:
     - [x] E0 文档/任务锚定:EOD Prediction 线目标、任务拆解、文件落点/命名/作用已写入 `CLAUDE.md §9.10`
     - [x] E1 全 watchlist 因子快照 append + T+k(1/3/5/10/20/30)回填(尽早,数据时间不可逆)
-    - [x] E2 research 分桶/前瞻IC/超额评估报告(攒够样本后)
+    - [x] E2 research 分桶/前瞻IC/超额评估报告(不按样本数屏蔽,N 直接展示)
     - [ ] E3 人工据报告反哺因子权重(不自动调参)
     - [x] C线 forecast 第三条数据线已立(EOD∪Layer2 之上的预测线; T-1基准注入 + JSON结构化预测冻结 var/forecast/forecasts.jsonl); 结果 T+k 回填留后续 PR  # PR-A(PR#30)
     - [~] E4 EOD Prediction 线:基于 T-1 EOD 真数据生成 T 日 9:30 后走势/动作预测,次日 EOD 核验,长期 day-by-day 修复用户 universe 择股框架
         - [x] E4-1 Schema + writer: `services/eod_predictor.py` + `tests/services/test_eod_predictor.py`
-        - [x] E4-2 Replay bootstrap: 从既有 `factor_snapshots.jsonl` 重放生成 `generation_mode=replay`
+        - [x] E4-2 Replay bootstrap: 从既有 `factor_snapshots.jsonl` / `var/reports/*/payload.json` 重放生成 `generation_mode=replay`
         - [x] E4-3 Evaluator: 复用 `factor_results.jsonl`/Tushare 真收盘核验 predictions
         - [x] E4-4 接入 EOD: 先核验 pending,再用 Tushare trade_cal 确认下一交易日并生成 `generation_mode=live`
         - [ ] E4-5 Prediction Layer2(下一步) / E4-6 EOD摘要 / E4-7 Rule suggestions
@@ -162,7 +162,7 @@ print('✅ import无副作用 + 纯函数验证通过')
 4. **单一真相 / 消全局**:`_CURRENT_MARKET_REGIME` 已消除,regime 显式传 `build_stock_item`;intraday 是 api 纯消费者,大盘 regime 只走 `GET /market`(api REGIME_TTL 缓存),不自取 Tushare。
 5. **盘中六铁律 = 输出层硬校验,不靠 codex 自觉**:codex 研判过 `enforce_intraday_rules`(正则拦评分/买卖价/资金臆测)。引入 T-1 基准后(C2c):"昨日/T-1"限定词的评分引用合法,盘中新生成评分非法——用限定词白名单区分。
 6. **数据时效分层**:实时(新浪指数regime/lite个股)可信;Tushare daily 聚合(涨跌家数)T日收盘滞后,喂 codex 必标"T日收盘聚合, 盘中滞后"口径;T-1 EOD(评分/资金/位置)是"昨日定稿基准"可引用,非盘中新结论。
-7. **MR-Eval 反哺原则**:主样本 = 全 watchlist 无条件每日快照(防幸存者偏差,非只记触发的);append-only(预测先于结果冻结);每条快照带市场状态(regime/宏观/宽度,用于按"世界状态"分桶 / 剔除特殊期如15股灾/AI暴涨);结果用 Tushare 真收盘机械算 + 指数基准算超额;反哺人工拍板,不自动调参(样本不足时自动=追噪音)。盘中触发(A)是该样本的带情境子集,分开存不混。
+7. **MR-Eval 反哺原则**:主样本 = 全 watchlist 无条件每日快照(防幸存者偏差,非只记触发的);append-only(预测先于结果冻结);每条快照带市场状态(regime/宏观/宽度,用于按"世界状态"分桶 / 剔除特殊期如15股灾/AI暴涨);结果用 Tushare 真收盘机械算 + 指数基准算超额;反哺人工拍板,不自动调参;样本量只作为 N 透明展示,不作为报告屏蔽条件。盘中触发(A)是该样本的带情境子集,分开存不混。
 
    **A/B 两条样本线区分(不可混)**:
 

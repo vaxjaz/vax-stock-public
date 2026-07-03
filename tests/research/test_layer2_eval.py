@@ -92,7 +92,7 @@ def test_bucket_key():
     assert l2.bucket_key({}) == "regime待验证|宏观待验证"
 
 
-# ── 4. analyze 分桶(核心): 按桶分别统计不混合; 胜率/excess 正确; <min 标不足; 未回填不计入 ──
+# ── 4. analyze 分桶(核心): 按桶分别统计不混合; 胜率/excess 正确; 未回填不计入 ──
 def test_analyze_buckets_not_mixed():
     joined = [
         # 桶A momentum|🟢 看多, 决策 可考虑介入(score 2.5), 3 个已回填 + 1 个未回填
@@ -100,7 +100,7 @@ def test_analyze_buckets_not_mixed():
         {"snapshot": _snap("A2", 2.5, "momentum", "🟢 看多"), "result": _res("A2", {"5": 0.03}, {"5": 0.01})},
         {"snapshot": _snap("A3", 2.5, "momentum", "🟢 看多"), "result": _res("A3", {"5": -0.02}, {"5": -0.01})},
         {"snapshot": _snap("A4", 2.5, "momentum", "🟢 看多"), "result": None},   # 未回填
-        # 桶B panic|🔴 强看空, 决策 可考虑介入, 仅 1 个 -> 样本不足
+        # 桶B panic|🔴 强看空, 决策 可考虑介入, 仅 1 个也直接展示统计值
         {"snapshot": _snap("B1", 2.5, "panic", "🔴 强看空"), "result": _res("B1", {"5": 0.10}, {"5": 0.08})},
     ]
     stats = l2.analyze(joined, horizons=[5], min_samples=2)
@@ -114,10 +114,13 @@ def test_analyze_buckets_not_mixed():
     assert abs(ca["avg_excess"] - (0.02 + 0.01 - 0.01) / 3) < 1e-9
     assert abs(ca["winrate"] - 2 / 3) < 1e-9
     assert abs(ca["avg_ret"] - (0.05 + 0.03 - 0.02) / 3) < 1e-9
-    # 桶B: n=1 < min_samples=2 -> 样本不足, 不下结论
+    # 桶B: n=1 也直接展示统计值, 不按样本数屏蔽
     cb = b[B]["horizons"][5]
-    assert cb["n"] == 1 and cb["insufficient"] is True
-    assert "avg_excess" not in cb                         # 不足不算均值
+    assert cb["n"] == 1 and cb["insufficient"] is False
+    assert abs(cb["avg_excess"] - 0.08) < 1e-9
+    report = l2.render_report(stats)
+    assert "观察值" not in report
+    assert "样本不足" not in report
 
 
 def test_analyze_unfilled_only_bucket():

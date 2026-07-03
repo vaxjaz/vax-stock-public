@@ -235,6 +235,66 @@ def test_bootstrap_replay_predictions_idempotent_writes_tmp():
     finally:
         shutil.rmtree(d, ignore_errors=True)
 
+
+def test_replay_predictions_from_payloads_targets_next_observed_eod_payload():
+    p1 = _payload()
+    p1["market_overview"]["trade_date"] = "20260701"
+    p2 = _payload()
+    p2["market_overview"]["trade_date"] = "20260703"  # 0702 可为周末/节假日/缺样本, 不用自然日臆造
+
+    preds = ep.replay_predictions_from_payloads(
+        [p1, p2, {"stocks": []}],
+        generated_at="2026-07-04T05:10:00",
+    )
+
+    assert len(preds) == 2
+    assert {p["baseline_trade_date"] for p in preds} == {"20260701"}
+    assert {p["target_trade_date"] for p in preds} == {"20260703"}
+    assert {p["generation_mode"] for p in preds} == {"replay"}
+    assert {p["prediction_id"] for p in preds} == {
+        "20260701_20260703_002475_zz800_seed_v1_replay",
+        "20260701_20260703_601318_zz800_seed_v1_replay",
+    }
+
+
+def test_bootstrap_replay_predictions_from_reports_idempotent_tmp():
+    d = tempfile.mkdtemp(prefix="vaxpred_reports_")
+    try:
+        reports = pathlib.Path(d) / "reports"
+        (reports / "2026-07-01").mkdir(parents=True)
+        (reports / "2026-07-03").mkdir(parents=True)
+        p1 = _payload()
+        p1["market_overview"]["trade_date"] = "20260701"
+        p2 = _payload()
+        p2["market_overview"]["trade_date"] = "20260703"
+        (reports / "2026-07-01" / "payload.json").write_text(json.dumps(p1, ensure_ascii=False), encoding="utf-8")
+        (reports / "2026-07-03" / "payload.json").write_text(json.dumps(p2, ensure_ascii=False), encoding="utf-8")
+        output_path = pathlib.Path(d) / "prediction" / "eod_predictions.jsonl"
+
+        stats = ep.bootstrap_replay_predictions_from_reports(
+            reports_dir=reports,
+            output_path=output_path,
+            generated_at="2026-07-04T05:10:00",
+        )
+        assert stats == {
+            "written": 2,
+            "skipped": 0,
+            "source_payloads": 2,
+            "source_trade_dates": 2,
+            "generated": 2,
+            "last_trade_date_skipped": "20260703",
+        }
+
+        stats2 = ep.bootstrap_replay_predictions_from_reports(
+            reports_dir=reports,
+            output_path=output_path,
+            generated_at="2026-07-04T05:10:00",
+        )
+        assert stats2["written"] == 0
+        assert stats2["skipped"] == 2
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+
 if __name__ == "__main__":
     import sys
     fns = sorted((n, f) for n, f in globals().items() if n.startswith("test_") and callable(f))
