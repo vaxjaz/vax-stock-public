@@ -136,7 +136,7 @@ def test_record_snapshots_idempotent_and_missing_td():
 
 
 # ── 3. backfill: 真收盘机械算 ret/mkt_ret/excess; snapshots 不被改写(append-only) ──
-def test_backfill_full_horizons_appendonly():
+def test_backfill_records_dense_daily_path_appendonly():
     d = tempfile.mkdtemp(prefix="vaxeval_")
     saved = _set_tmp(d)
     saved_bench = er._benchmark_closes
@@ -144,7 +144,7 @@ def test_backfill_full_horizons_appendonly():
         er.record_snapshots(_payload())
         snap_text_before = er.SNAPSHOTS_FILE.read_text(encoding="utf-8")
 
-        kline, bench, _ = _make_kline_stub(40)   # 充足天数(>=30)
+        kline, bench, _ = _make_kline_stub(40)   # baseline 后有 T+1..T+39
         source = types.SimpleNamespace(get_daily_kline=kline)
         er._benchmark_closes = lambda src: bench
 
@@ -152,19 +152,41 @@ def test_backfill_full_horizons_appendonly():
         res = er._read_jsonl(er.RESULTS_FILE)
         assert n == 5 and len(res) == 5
         r0 = next(x for x in res if x["code"] == "002475")
-        assert set(r0["ret"].keys()) == {"1", "3", "5", "10", "20", "30"}
+        assert set(r0["ret"].keys()) == {str(i) for i in range(1, 40)}
+        assert "31" in r0["ret"] and "39" in r0["ret"]   # 基础层不截断在 T+30
+        assert "40" not in r0["ret"]                         # 未来未发生不臆造
         # ret_k = 0.01*k(close 每日 +1%), mkt_k = 0.005*k(指数 +0.5%/日), excess = 差
-        assert abs(r0["ret"]["5"] - 0.05) < 1e-6
-        assert abs(r0["mkt_ret"]["5"] - 0.025) < 1e-6
-        assert abs(r0["excess"]["5"] - 0.025) < 1e-6
-        assert r0["complete"] is True
+        assert abs(r0["ret"]["31"] - 0.31) < 1e-6
+        assert abs(r0["mkt_ret"]["31"] - 0.155) < 1e-6
+        assert abs(r0["excess"]["31"] - 0.155) < 1e-6
+        assert r0["complete"] is False                         # dense 默认无固定完成窗口
         # 关键: snapshots.jsonl 一字未改(append-only, 预测冻结)
         assert er.SNAPSHOTS_FILE.read_text(encoding="utf-8") == snap_text_before
 
-        # 再 backfill: 已 complete -> 不重复 append
+        # 再 backfill: 没有新增交易日 -> 不重复 append
         n2 = er.backfill(source)
         assert n2 == 0
         assert len(er._read_jsonl(er.RESULTS_FILE)) == 5
+    finally:
+        er._benchmark_closes = saved_bench
+        _restore(saved)
+        shutil.rmtree(d, ignore_errors=True)
+
+
+def test_backfill_can_use_strategy_horizons_when_requested():
+    d = tempfile.mkdtemp(prefix="vaxeval_")
+    saved = _set_tmp(d)
+    saved_bench = er._benchmark_closes
+    try:
+        er.record_snapshots(_payload())
+        kline, bench, _ = _make_kline_stub(40)
+        source = types.SimpleNamespace(get_daily_kline=kline)
+        er._benchmark_closes = lambda src: bench
+
+        er.backfill(source, horizons=er.STRATEGY_HORIZONS)
+        r0 = next(x for x in er._read_jsonl(er.RESULTS_FILE) if x["code"] == "002475")
+        assert set(r0["ret"].keys()) == {"1", "3", "5", "10", "20", "30"}
+        assert r0["complete"] is True
     finally:
         er._benchmark_closes = saved_bench
         _restore(saved)
@@ -177,13 +199,13 @@ def test_backfill_partial_when_insufficient_days():
     saved_bench = er._benchmark_closes
     try:
         er.record_snapshots(_payload())
-        kline, bench, _ = _make_kline_stub(6)     # 仅 6 天: 1/3/5 可填, 10/20/30 不足
+        kline, bench, _ = _make_kline_stub(6)     # baseline 后只有 T+1..T+5
         source = types.SimpleNamespace(get_daily_kline=kline)
         er._benchmark_closes = lambda src: bench
 
         er.backfill(source)
         r0 = next(x for x in er._read_jsonl(er.RESULTS_FILE) if x["code"] == "002475")
-        assert set(r0["ret"].keys()) == {"1", "3", "5"}   # 天数不足的 horizon 不填(不臆造)
+        assert set(r0["ret"].keys()) == {"1", "2", "3", "4", "5"}
         assert r0["complete"] is False
     finally:
         er._benchmark_closes = saved_bench
@@ -204,7 +226,7 @@ def test_backfill_skips_when_index_missing():
 
         er.backfill(source)
         r0 = next(x for x in er._read_jsonl(er.RESULTS_FILE) if x["code"] == "002475")
-        assert set(r0["ret"].keys()) == {"1", "3", "5", "10", "20", "30"}
+        assert set(r0["ret"].keys()) == {str(i) for i in range(1, 40)}
         assert r0["mkt_ret"] == {} and r0["excess"] == {}   # 指数缺 -> 不算超额
         assert r0["complete"] is False                       # ret-only 不能标 complete
         assert er.backfill(source) == 0                       # 指数仍缺时不重复 spam
@@ -216,8 +238,9 @@ def test_backfill_skips_when_index_missing():
         assert len(rows) == 10
         merged = er.merge_result_rows(rows)
         fixed = merged[("20260625", "002475")]
-        assert set(fixed["excess"].keys()) == {"1", "3", "5", "10", "20", "30"}
-        assert fixed["complete"] is True
+        assert set(fixed["excess"].keys()) == {str(i) for i in range(1, 40)}
+        assert fixed["complete"] is False
+        assert er.backfill(source) == 0
     finally:
         er._benchmark_closes = saved_bench
         _restore(saved)

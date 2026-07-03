@@ -6,7 +6,7 @@
 
 ```text
 每天所有用户 universe 里的票,当时因子是什么样?
-这些因子在 T+1/T+3/T+5/T+10/T+20/T+30 后对应的真实收益和超额表现如何?
+这些因子在后续每个已发生交易日(T+1/T+2/T+3...)对应的真实收益和超额表现如何?策略报告再从基础日路径里选择性抽取 T+1/T+3/T+5/T+10/T+20/T+30。
 ```
 
 ## 文件作用
@@ -52,7 +52,7 @@
 | `ret` | 个股未来收益,按 horizon 存成 dict,如 `{"1": 0.02}` 表示 T+1 收益 2%。 |
 | `mkt_ret` | 基准指数未来收益,同样按 horizon 存。 |
 | `excess` | 超额收益,即 `ret - mkt_ret`。 |
-| `complete` | 当前回填是否完整; `ret`/`mkt_ret`/`excess` 对目标 horizon 都齐才算完整,ret-only 不算 complete。 |
+| `complete` | 仅在显式 finite horizons 回填时表示目标 horizon 是否完整; 默认连续日路径没有固定完成态,ret-only 不算 complete。 |
 | `filled_ts` | 回填写入时间。 |
 
 ### `layer2_report_<trade_date>.md`
@@ -116,7 +116,7 @@
 
 - B 线是无偏全截面样本,不是盘中触发样本。
 - `factor_snapshots/results` 是 append-only 样本地基,不要手工改旧行。
-- `factor_results.jsonl` 同 key 多行必须按 horizon 合并读取;不要用最后一行覆盖前序 horizon。
+- `factor_results.jsonl` 是基础日路径,默认每天机械补 T+1/T+2/T+3... 已成熟 horizon;同 key 多行必须按 horizon 合并读取,不要用最后一行覆盖前序 horizon。
 - `layer2_report_*.md` 是可重生成报告,用于看分桶统计,不作为原始事实源。
 - `factor_weight_review_*.md` 只给人工调权复盘证据,不自动修改 `scoring.py`。
 - `regime_audit.jsonl` 同交易日幂等跳过; `regime_audit_<trade_date>.md` 可重生成覆盖。

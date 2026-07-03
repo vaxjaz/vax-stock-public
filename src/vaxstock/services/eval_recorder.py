@@ -14,8 +14,8 @@
 【append-only 纯净拆分(关键决策)】
   预测 = factor_snapshots.jsonl(冻结不动); 结果 = factor_results.jsonl(单独 append)。
   回填绝不改 snapshots(否则"回填时改预测"嫌疑); 分析时两文件按 (trade_date, code) join。
-  results 行带 complete 标记(ret/mkt_ret/excess 全 horizon 是否填满); 仅当 ret/mkt_ret/excess 任一新增 horizon 才 append(防每日重复 spam),
-  已 complete 的 key 不再回填。
+  factor_results 默认记录连续日路径(T+1/T+2/T+3...),不按策略窗口截断;
+  仅当 ret/mkt_ret/excess 任一新增 horizon 才 append(防每日重复 spam)。complete 只用于显式 finite horizons。
 """
 
 import datetime as dt
@@ -33,7 +33,10 @@ SNAPSHOTS_FILE = EVAL_DIR / "factor_snapshots.jsonl"
 RESULTS_FILE = EVAL_DIR / "factor_results.jsonl"
 
 BENCHMARK_INDEX = "000001.SH"   # 上证综指(算超额的基准)
-DEFAULT_HORIZONS = (1, 3, 5, 10, 20, 30)
+STRATEGY_HORIZONS = (1, 3, 5, 10, 20, 30)
+# None means dense daily path: record every available future trading day.
+# Strategy/report layers may selectively read STRATEGY_HORIZONS from this base layer.
+DEFAULT_HORIZONS = None
 SCHEMA_VERSION = 1
 
 
@@ -258,10 +261,11 @@ def _benchmark_closes(source) -> dict:
 
 
 def backfill(source, horizons=DEFAULT_HORIZONS) -> int:
-    """给 snapshots 里尚未 complete 的 (trade_date, code) 回填真实 T+k 收益/超额, append 到 results.jsonl。
+    """给 snapshots 回填真实 T+k 收益/超额, append 到 results.jsonl。
 
     机械算: ret_k = close[idx0+k]/price_at_snapshot - 1; mkt_ret_k = 指数同窗收益; excess_k = ret_k - mkt_ret_k。
-    天数不足 / 指数缺 → 该 horizon 跳过(不臆造)。只增不改 snapshots; results 仅在"新增 horizon"时 append(防 spam)。
+    默认 horizons=None: 记录 baseline 后每个已发生交易日(T+1/T+2/T+3...)。
+    显式传 horizons 时才只回填指定窗口(如策略层 1/3/5/10/20/30)。天数不足 / 指数缺 → 该 horizon 跳过(不臆造)。
     返回新增 results 行数。
     """
     snaps = _read_jsonl(SNAPSHOTS_FILE)
@@ -269,12 +273,15 @@ def backfill(source, horizons=DEFAULT_HORIZONS) -> int:
         return 0
 
     # 已有 results: 合并 append-only 行后判断已填 horizon, 避免 ret 已齐但 benchmark/excess 缺失时误 complete。
-    target = set(horizons)
+    horizon_list = tuple(int(h) for h in horizons) if horizons is not None else None
+    target = set(horizon_list or ())
     results_by_key = merge_result_rows(_read_jsonl(RESULTS_FILE))
-    complete_keys = {
-        key for key, row in results_by_key.items()
-        if target.issubset(complete_horizons(row))
-    }
+    complete_keys = set()
+    if horizon_list is not None:
+        complete_keys = {
+            key for key, row in results_by_key.items()
+            if target.issubset(complete_horizons(row))
+        }
     bench = None  # 懒取一次(覆盖所有快照日期)
     new_rows = []
     for s in snaps:
@@ -287,7 +294,8 @@ def backfill(source, horizons=DEFAULT_HORIZONS) -> int:
         if not price0:   # 无基准锚价(None/0)无法算收益
             continue
 
-        kl = source.get_daily_kline(code, days=250)
+        lookback_days = max(config.HISTORY_DAYS, max(horizon_list) + 1 if horizon_list else config.HISTORY_DAYS)
+        kl = source.get_daily_kline(code, days=lookback_days)
         if not kl:
             continue
         dates = [str(r.get("trade_date")).split(".")[0] for r in kl]   # 升序
@@ -301,7 +309,8 @@ def backfill(source, horizons=DEFAULT_HORIZONS) -> int:
         base_bench = bench.get(td)
 
         ret, mkt, excess = {}, {}, {}
-        for k in horizons:
+        candidate_horizons = horizon_list if horizon_list is not None else range(1, len(closes) - idx0)
+        for k in candidate_horizons:
             j = idx0 + k
             if j >= len(closes) or closes[j] is None:
                 continue  # 天数不足 -> 跳过该 horizon
@@ -316,17 +325,27 @@ def backfill(source, horizons=DEFAULT_HORIZONS) -> int:
         if not ret:
             continue
         current = results_by_key.get(key, {})
-        has_new_info = (
-            _horizon_set({"ret": ret}, "ret") - _horizon_set(current, "ret")
-            or _horizon_set({"mkt_ret": mkt}, "mkt_ret") - _horizon_set(current, "mkt_ret")
-            or _horizon_set({"excess": excess}, "excess") - _horizon_set(current, "excess")
-        )
-        if not has_new_info:
+        current_ret_h = _horizon_set(current, "ret")
+        current_mkt_h = _horizon_set(current, "mkt_ret")
+        current_excess_h = _horizon_set(current, "excess")
+        new_ret = {h: v for h, v in ret.items() if int(h) not in current_ret_h}
+        new_mkt = {h: v for h, v in mkt.items() if int(h) not in current_mkt_h}
+        new_excess = {h: v for h, v in excess.items() if int(h) not in current_excess_h}
+        if not (new_ret or new_mkt or new_excess):
             continue  # 无新增 horizon -> 不重复 append
+
+        merged_probe = {
+            "ret": dict((current.get("ret") or {}) if isinstance(current, dict) else {}),
+            "mkt_ret": dict((current.get("mkt_ret") or {}) if isinstance(current, dict) else {}),
+            "excess": dict((current.get("excess") or {}) if isinstance(current, dict) else {}),
+        }
+        merged_probe["ret"].update(new_ret)
+        merged_probe["mkt_ret"].update(new_mkt)
+        merged_probe["excess"].update(new_excess)
         new_rows.append({
             "trade_date": td, "code": code,
-            "ret": ret, "mkt_ret": mkt, "excess": excess,
-            "complete": target.issubset(complete_horizons({"ret": ret, "mkt_ret": mkt, "excess": excess})),
+            "ret": new_ret, "mkt_ret": new_mkt, "excess": new_excess,
+            "complete": bool(horizon_list) and target.issubset(complete_horizons(merged_probe)),
             "filled_ts": _now_iso(),
         })
 
