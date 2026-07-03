@@ -13,7 +13,7 @@ from pathlib import Path
 
 from vaxstock import config
 from vaxstock.indicators import regime as R
-from vaxstock.indicators.regime import _replay, _transition, detect_market_regime
+from vaxstock.indicators.regime import _replay, _transition, detect_market_regime, explain_market_regime
 
 
 def _with_temp_state(fn):
@@ -34,6 +34,26 @@ def _read_raw_history(path):
     with open(path, encoding="utf-8") as f:
         return json.load(f).get("raw_history")
 
+
+
+def test_explain_market_regime_evidence():
+    indices = [
+        {"name": "上证指数", "change_pct": 1.5, "source": "tushare"},
+        {"name": "创业板指", "change_pct": 0.0, "source": "tushare"},
+        {"name": "科创50", "change_pct": 0.0, "source": "tushare"},
+    ]
+    detail = explain_market_regime(indices, {"trade_date": "20260702", "limit_down_count": 0, "source": "tushare"}, smoothed_regime="value")
+    assert detail["raw_regime"] == "value"
+    assert detail["smoothed_regime"] == "value"
+    assert detail["inputs"]["sh_change_pct"] == 1.5
+    assert detail["inputs"]["growth_avg_change_pct"] == 0
+    assert "sh - growth_avg" in detail["reason"]
+    assert detail["sources"] == {"indices": ["tushare"], "market_overview": "tushare"}
+
+    panic = explain_market_regime(indices, {"trade_date": "20260703", "limit_down_count": 60}, smoothed_regime="panic")
+    assert panic["raw_regime"] == "panic"
+    assert panic["inputs"]["limit_down_count"] == 60
+    assert "limit_down_count=60" in panic["reason"]
 
 # ── 2. 转移规则表驱动(直接测纯函数)──
 def test_transition_rules_table():

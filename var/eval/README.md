@@ -16,6 +16,8 @@
 | `factor_snapshots.jsonl` | 每日全 universe 因子快照。每个交易日每只股票一行,用于防止只记录触发票导致幸存者偏差。 | `services.eval_recorder.record_snapshots` |
 | `factor_results.jsonl` | 对 `factor_snapshots` 的未来收益回填结果。 | `services.eval_recorder.backfill`/`record_and_backfill` |
 | `layer2_report_<trade_date>.md` | B 线 Layer2 分析报告,按策略档和 `regime|macro_regime` 分桶展示前瞻收益/超额/胜率。 | `research.layer2_eval.run_layer2` |
+| `regime_audit.jsonl` | market_regime 原始输入审计表,每个交易日一行,记录 raw/final、指数涨跌、跌停数和数据源。 | `services.regime_auditor.record_regime_audit` |
+| `regime_audit_<trade_date>.md` | 单日 regime 判定说明,用于人工确认当时 regime 是否真实可信。 | `services.regime_auditor.record_regime_audit` |
 
 ## 核心字段
 
@@ -63,9 +65,25 @@
 | `平均excess` | 桶内超额收益均值。 |
 | `胜率(excess>0)` | 超额收益为正的样本占比。 |
 
+### `regime_audit.jsonl` / `regime_audit_<trade_date>.md`
+
+| 字段/栏目 | 含义 |
+|---|---|
+| `trade_date` | regime 对应的真实交易日。 |
+| `raw_regime` | 当日原始判定: 先看跌停数,再看成长指数相对上证强弱。 |
+| `smoothed_regime` | 平滑后的最终 `market_regime`; prediction/report 使用这个值。 |
+| `reason` | 原始判定触发原因,如 `limit_down_count=60 > 50` 或 `sh - growth_avg >= 1.0%`。 |
+| `inputs.limit_down_count` | 当日跌停数,来自 Tushare 全市场 daily 聚合。 |
+| `inputs.sh_change_pct` | 上证指数涨跌幅,来自 Tushare `index_daily`。 |
+| `inputs.cyb_change_pct` | 创业板指涨跌幅,来自 Tushare `index_daily`。 |
+| `inputs.kc50_change_pct` | 科创50涨跌幅,来自 Tushare `index_daily`。 |
+| `inputs.growth_avg_change_pct` | `(创业板指 + 科创50) / 2`。 |
+| `sources` | 指数和全市场统计的数据源标记;缺失时必须显示待验证,不能臆造。 |
+
 ## 使用原则
 
 - B 线是无偏全截面样本,不是盘中触发样本。
 - `factor_snapshots/results` 是 append-only 样本地基,不要手工改旧行。
 - `layer2_report_*.md` 是可重生成报告,用于看分桶统计,不作为原始事实源。
+- `regime_audit.jsonl` 同交易日幂等跳过; `regime_audit_<trade_date>.md` 可重生成覆盖。
 - 当前 Layer2 不按样本数屏蔽统计值,N 直接展示;样本厚薄由读者自己判断。

@@ -18,6 +18,8 @@ except ModuleNotFoundError:
 from vaxstock import config
 from vaxstock.research import layer2_eval as l2_mod
 from vaxstock.research import prediction_eval as pred_l2_mod
+from vaxstock.research import rule_suggester as rule_mod
+from vaxstock.services import regime_auditor as regime_audit_mod
 from vaxstock.services import eod as eod_mod
 
 _REPO = pathlib.Path(__file__).resolve().parents[2]
@@ -54,6 +56,8 @@ def _install_spies(secrets=None, payload=None, next_trade_date="20260626"):
     saved_l2 = l2_mod.run_layer2
     saved_pred_l2 = pred_l2_mod.run_prediction_layer2
     saved_pred_summary = pred_l2_mod.summarize_prediction_check
+    saved_rule = rule_mod.run_rule_suggestions
+    saved_regime_audit = regime_audit_mod.record_regime_audit
     rec = {"send_calls": [], "order": []}
     run_payload = payload if payload is not None else _PAYLOAD
 
@@ -68,6 +72,18 @@ def _install_spies(secrets=None, payload=None, next_trade_date="20260626"):
         rec["prediction_layer2_called"] = True
         return ""
     pred_l2_mod.run_prediction_layer2 = _prediction_layer2
+
+    def _regime_audit(payload, **k):
+        rec["order"].append("regime_audit")
+        rec["regime_audit_call"] = payload
+        return {"written": 1, "skipped": 0}
+    regime_audit_mod.record_regime_audit = _regime_audit
+
+    def _rule_suggestions(**k):
+        rec["order"].append("rule_suggestions")
+        rec["rule_suggestions_called"] = True
+        return ""
+    rule_mod.run_rule_suggestions = _rule_suggestions
 
     def _prediction_summary(target_trade_date=None, **k):
         rec["order"].append("pred_summary")
@@ -157,6 +173,8 @@ def _install_spies(secrets=None, payload=None, next_trade_date="20260626"):
         l2_mod.run_layer2 = saved_l2
         pred_l2_mod.run_prediction_layer2 = saved_pred_l2
         pred_l2_mod.summarize_prediction_check = saved_pred_summary
+        rule_mod.run_rule_suggestions = saved_rule
+        regime_audit_mod.record_regime_audit = saved_regime_audit
 
     return rec, restore
 
@@ -205,15 +223,17 @@ def test_eod_orchestration_and_passthrough():
         # MR-Eval: record_and_backfill 收到 payload + 同一 source(快照地基接入)
         assert rec["eval_call"]["payload"] is _PAYLOAD
         assert rec["eval_call"]["source"]["_stub"] is True
+        assert rec["regime_audit_call"] is _PAYLOAD
         # E4: E1 后先核验旧 predictions,再生成下一交易日 live predictions
         assert rec["next_trade_call"] == {"source": rec["collect_source"], "baseline": "20260625"}
         assert rec["preds_call"] == {"payload": _PAYLOAD, "target_trade_date": "20260626",
                                       "generation_mode": "live"}
         assert rec["record_predictions_call"] == [{"prediction_id": "p1"}]
-        assert rec["order"] == ["e1", "pred_eval", "next_trade", "pred_live", "pred_record", "pred_summary", "store", "layer2", "prediction_layer2"]
+        assert rec["order"] == ["regime_audit", "e1", "pred_eval", "next_trade", "pred_live", "pred_record", "pred_summary", "store", "layer2", "prediction_layer2", "rule_suggestions"]
         # Layer2(E2): E4 后被调(顺带分析)
         assert rec.get("layer2_called") is True
         assert rec.get("prediction_layer2_called") is True
+        assert rec.get("rule_suggestions_called") is True
     finally:
         restore()
 

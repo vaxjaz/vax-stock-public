@@ -76,29 +76,62 @@ def _normalize_history(history: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return [by_date[k] for k in sorted(by_date)]
 
 
-def detect_market_regime(indices: List[Dict[str, Any]], market_overview: Dict[str, Any]) -> str:
-    # ---- 第一步: 计算今日原始信号(字节级保留, 逻辑不许改) ----
+
+def explain_market_regime(indices: List[Dict[str, Any]], market_overview: Dict[str, Any],
+                          smoothed_regime: str = None) -> Dict[str, Any]:
+    """返回 regime 原始输入与 raw 判定原因; 纯函数, 不读写状态文件。"""
     limit_down = (market_overview or {}).get("limit_down_count", 0)
+    chg_map = {}
+    for idx in indices or []:
+        name = idx.get("name", "")
+        chg = idx.get("change_pct")
+        if chg is not None:
+            chg_map[name] = chg
+    sh = chg_map.get("上证指数", 0)
+    cyb = chg_map.get("创业板指", 0)
+    kc50 = chg_map.get("科创50", 0)
+    growth_avg = (cyb + kc50) / 2 if (cyb or kc50) else 0
+
     if limit_down and limit_down > 50:
         raw = "panic"
+        reason = f"limit_down_count={limit_down} > 50"
+    elif growth_avg - sh >= 2.0:
+        raw = "momentum"
+        reason = f"growth_avg - sh = {growth_avg - sh:.2f}% >= 2.0%"
+    elif sh - growth_avg >= 1.0:
+        raw = "value"
+        reason = f"sh - growth_avg = {sh - growth_avg:.2f}% >= 1.0%"
     else:
-        chg_map = {}
-        for idx in indices or []:
-            name = idx.get("name", "")
-            chg = idx.get("change_pct")
-            if chg is not None:
-                chg_map[name] = chg
-        sh = chg_map.get("上证指数", 0)
-        cyb = chg_map.get("创业板指", 0)
-        kc50 = chg_map.get("科创50", 0)
-        growth_avg = (cyb + kc50) / 2 if (cyb or kc50) else 0
-        if growth_avg - sh >= 2.0:
-            raw = "momentum"
-        elif sh - growth_avg >= 1.0:
-            raw = "value"
-        else:
-            raw = "momentum"  # 默认动量市(A股近年偏成长)
+        raw = "momentum"  # 默认动量市(A股近年偏成长)
+        reason = "未触发 panic/value 阈值,按现行规则默认 momentum"
 
+    return {
+        "trade_date": str((market_overview or {}).get("trade_date") or "").strip() or None,
+        "raw_regime": raw,
+        "smoothed_regime": smoothed_regime,
+        "reason": reason,
+        "inputs": {
+            "limit_down_count": limit_down,
+            "limit_down_threshold": 50,
+            "sh_change_pct": sh,
+            "cyb_change_pct": cyb,
+            "kc50_change_pct": kc50,
+            "growth_avg_change_pct": growth_avg,
+            "growth_minus_sh_pct": growth_avg - sh,
+            "sh_minus_growth_pct": sh - growth_avg,
+            "momentum_threshold_pct": 2.0,
+            "value_threshold_pct": 1.0,
+        },
+        "sources": {
+            "indices": sorted({str(idx.get("source") or "待验证") for idx in (indices or [])}),
+            "market_overview": (market_overview or {}).get("source") or "待验证",
+        },
+    }
+
+
+def detect_market_regime(indices: List[Dict[str, Any]], market_overview: Dict[str, Any]) -> str:
+    # ---- 第一步: 计算今日原始信号(字节级保留, 逻辑不许改) ----
+    raw = explain_market_regime(indices, market_overview).get("raw_regime")
     # ---- 第二步: 纯重放平滑 ----
     state_file = config.REGIME_STATE_FILE
 

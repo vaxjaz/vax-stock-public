@@ -17,7 +17,7 @@
 | `eod_predictions.jsonl` | EOD 预测原文。基于 `baseline_trade_date` 的定稿数据,预测 `target_trade_date` 的走势/动作。 | `services.eod_predictor` |
 | `eod_prediction_results.jsonl` | 预测核验结果。用真实收益、基准收益、超额收益检查预测是否命中。 | `services.prediction_evaluator` |
 | `prediction_layer2_report_<trade_date>.md` | Prediction Layer2 分析报告,按 action/direction/confidence/market/concept 分桶统计命中和超额。 | `research.prediction_eval.run_prediction_layer2` |
-| `rule_suggestions_<trade_date>.md` | 未来规则建议报告。只建议,不自动改参数。 | 待建 `research.rule_suggester` |
+| `rule_suggestions_<trade_date>.md` | 规则建议报告。按 action/market/concept 汇总证据,只建议,不自动改参数。 | `research.rule_suggester.run_rule_suggestions` |
 
 ## 核心字段
 
@@ -79,6 +79,21 @@
 | `excess>0` | 正超额率。 |
 | `action_hit` | 动作命中率。 |
 | `direction_hit` | 方向命中率。 |
+
+### `rule_suggestions_<trade_date>.md`
+
+| 字段/栏目 | 含义 |
+|---|---|
+| `report_date` | 报告锚定交易日,取最新已核验 `target_trade_date`。 |
+| `source_predictions` | 读取到的预测总数,包含 pending。 |
+| `evaluated` | 已有核验结果并进入建议证据的数量。 |
+| `pending` | 尚未核验的数量;只展示,不进入命中率/收益统计。 |
+| `min_evaluated` | 建议强弱分级阈值。低于阈值仍展示,但标为 `thin` 并提示不升级规则。 |
+| `priority` | 建议优先级,如 `P1`/`P2`/`P3`。 |
+| `scope` | 证据作用范围,如 `action:watch`、`market:panic|bear`、`concept:机器人`。 |
+| `evidence_strength` | `strong`/`medium`/`thin`,只表示样本证据强弱,不是自动交易结论。 |
+| `suggestion` | 人工审核用规则建议。它不会自动改生产参数。 |
+| `next_step` | 建议的人工动作,通常是复核样本后另开 PR 并 bump `rule_version`。 |
 
 ## 例子
 

@@ -8,6 +8,15 @@
 import ast
 import datetime as dt
 import pathlib
+import shutil
+import tempfile
+import sys
+import types
+
+try:
+    import requests  # noqa: F401
+except ModuleNotFoundError:
+    sys.modules["requests"] = types.SimpleNamespace()
 
 from vaxstock import config
 from vaxstock.services import collect as collect_mod
@@ -81,12 +90,14 @@ class _StubAITrack:
 
 def _run_collect_with_stubs():
     """monkeypatch 掉所有触网 seam, 用 stub source 跑 collect_payload。返回 (payload, tracks)。"""
+    d = tempfile.mkdtemp(prefix="vaxcollect_")
     saved = {
         "load_watchlist": config.load_watchlist,
         "load_holdings": config.load_holdings,
         "fetch_us": collect_mod.fetch_us_market_data,
         "AITrack": collect_mod.AITrack,
         "sleep": collect_mod.time.sleep,
+        "regime_state": config.REGIME_STATE_FILE,
     }
     try:
         config.load_watchlist = lambda: ({}, {})   # 空池 -> 不调 build_stock_item(避免 sina 连网)
@@ -94,6 +105,7 @@ def _run_collect_with_stubs():
         collect_mod.fetch_us_market_data = lambda: {"sentiment": "stub", "indices": []}
         collect_mod.AITrack = _StubAITrack
         collect_mod.time.sleep = lambda *_a, **_k: None
+        config.REGIME_STATE_FILE = pathlib.Path(d) / "regime_history.json"
         return collect_payload(_StubSource())
     finally:
         config.load_watchlist = saved["load_watchlist"]
@@ -101,6 +113,8 @@ def _run_collect_with_stubs():
         collect_mod.fetch_us_market_data = saved["fetch_us"]
         collect_mod.AITrack = saved["AITrack"]
         collect_mod.time.sleep = saved["sleep"]
+        config.REGIME_STATE_FILE = saved["regime_state"]
+        shutil.rmtree(d, ignore_errors=True)
 
 
 def test_collect_payload_assembly():
@@ -108,7 +122,7 @@ def test_collect_payload_assembly():
 
     # 骨架字段齐全
     for k in ["generated_at", "data_sources", "tushare_points_level", "indices",
-              "stocks", "market_overview", "north_flow", "hsgt_flow_history", "market_regime"]:
+              "stocks", "market_overview", "north_flow", "hsgt_flow_history", "market_regime", "regime_audit"]:
         assert k in payload, f"缺骨架字段: {k}"
 
     # data_sources 只留 sina + tushare, 无 eastmoney
@@ -119,6 +133,10 @@ def test_collect_payload_assembly():
     # market_regime == 注入数据(60跌停)推出的值 = panic
     assert payload["market_overview"].get("limit_down_count") == 60
     assert payload["market_regime"] == "panic", payload["market_regime"]
+    assert payload["regime_audit"]["raw_regime"] == "panic"
+    assert payload["regime_audit"]["smoothed_regime"] == "panic"
+    assert payload["regime_audit"]["inputs"]["limit_down_count"] == 60
+    assert payload["regime_audit"]["sources"]["market_overview"] == "tushare"
 
     # 指数装配自 stub(5 个 INDEX_LIST 标的)
     assert len(payload["indices"]) == len(config.INDEX_LIST)

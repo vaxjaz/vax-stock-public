@@ -17,12 +17,31 @@ from vaxstock.report.claude_md import (
 from vaxstock.tracks import contract
 
 
+
+def _mock_regime_audit():
+    return {
+        "trade_date": "20260625",
+        "raw_regime": "momentum",
+        "smoothed_regime": "momentum",
+        "reason": "growth_avg - sh = 2.10% >= 2.0%",
+        "inputs": {
+            "limit_down_count": 5,
+            "limit_down_threshold": 50,
+            "sh_change_pct": 0.8,
+            "cyb_change_pct": 3.0,
+            "kc50_change_pct": 2.8,
+            "growth_avg_change_pct": 2.9,
+        },
+        "sources": {"indices": ["tushare"], "market_overview": "tushare"},
+    }
+
 def _mock_claude_data():
     return {
         "generated_at": "2026-06-25 16:00",
         "data_sources": ["sina", "tushare"],
         "analysis_instruction": "(分析要求略)",
         "market_regime": "momentum",
+        "regime_audit": _mock_regime_audit(),
         "indices": [{"name": "上证指数", "price": 3500.5, "change_pct": 0.8}],
         "market_overview": {"up_count": 3000, "down_count": 1800,
                             "limit_up_count": 40, "limit_down_count": 5},
@@ -66,6 +85,8 @@ def test_track_section_rendered():
     md = build_claude_markdown(_mock_claude_data(), track_results=[tr])
     assert "AI算力" in md
     assert tr["position_ceiling"] in md
+    assert "Regime判定证据" in md
+    assert "growth_avg - sh = 2.10% >= 2.0%" in md
     assert "赛道择时" in md  # 新赛道落点小标题
     # track_results=None 时写"无赛道信号"
     md_none = build_claude_markdown(_mock_claude_data(), track_results=None)
@@ -112,6 +133,7 @@ def _digest_claude_data():
         "data_sources": ["sina", "tushare"],
         "analysis_instruction": "(分析要求略)",
         "market_regime": "momentum",
+        "regime_audit": _mock_regime_audit(),
         "indices": [{"name": "上证指数", "price": 3500.5, "change_pct": 0.8}],
         "market_overview": {"trade_date": "20260625", "up_count": 3000, "down_count": 1800,
                             "limit_up_count": 40, "limit_down_count": 5},
@@ -152,6 +174,7 @@ def test_email_digest_structure_and_watchlist_filtering():
     assert "动量市" in digest
     assert "涨3000/跌1800/涨停40/跌停5" in digest
     assert "北向+12.30亿" in digest
+    assert "Regime证据: raw=momentum->final=momentum" in digest
     # 宏观: macro_regime + 6维一行(breadth 占位标"待")
     assert "🔴 看空" in digest
     assert "ETF❌❌" in digest and "breadth待" in digest

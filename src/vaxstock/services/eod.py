@@ -40,6 +40,12 @@ def run_eod() -> Dict[str, str]:
     logger.info("[2/7] 采集 payload + 赛道...")
     payload, tracks = collect_payload(source)
 
+    try:
+        from vaxstock.services.regime_auditor import record_regime_audit
+        record_regime_audit(payload)
+    except Exception as e:
+        logger.warning(f"Regime Audit 落盘失败(不影响EOD): {str(e)[:120]}")
+
     # MR-Eval E1: 全 watchlist 因子快照 append + 历史快照 T+k 回填(预测追踪数据地基)。
     # E4-6 要把最新 prediction 核验写进当日报告,所以 E1/E4 必须先于 markdown 渲染执行。
     logger.info("[3/7] MR-Eval 回填 + EOD Prediction 核验...")
@@ -75,7 +81,7 @@ def run_eod() -> Dict[str, str]:
 
     # MR-Eval E2: Layer2 离线分析(分环境分桶前瞻收益/超额)。纯读 E1 两 jsonl,
     # 失败仅 warning 不影响 EOD。Layer2 不按样本数屏蔽统计值; N 直接展示。
-    logger.info("[7/7] Layer2 / Prediction Layer2 离线分析...")
+    logger.info("[7/7] Layer2 / Prediction Layer2 / Rule suggestions 离线分析...")
     try:
         from vaxstock.research.layer2_eval import run_layer2
         run_layer2(write=True)
@@ -89,6 +95,13 @@ def run_eod() -> Dict[str, str]:
         run_prediction_layer2(write=True)
     except Exception as e:
         logger.warning(f"Prediction Layer2 分析跳过(不影响EOD): {str(e)[:120]}")
+
+    # MR-Eval E4-7: Rule suggestions 只输出离线建议,不改 prediction 原文/生产规则。
+    try:
+        from vaxstock.research.rule_suggester import run_rule_suggestions
+        run_rule_suggestions(write=True)
+    except Exception as e:
+        logger.warning(f"Rule suggestions 分析跳过(不影响EOD): {str(e)[:120]}")
 
     return paths
 

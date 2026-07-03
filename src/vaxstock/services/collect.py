@@ -29,7 +29,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from vaxstock import config
 from vaxstock.analysis.stock_item import build_stock_item
-from vaxstock.indicators.regime import detect_market_regime
+from vaxstock.indicators.regime import detect_market_regime, explain_market_regime
 from vaxstock.sources.market import get_index_quotes, get_market_overview
 from vaxstock.sources.us_market import fetch_us_market_data
 from vaxstock.tracks.ai import AITrack
@@ -158,6 +158,7 @@ def collect_payload(source) -> Tuple[Dict[str, Any], List[TrackResult]]:
     # 市场环境: 局部变量, 不再写 _CURRENT_MARKET_REGIME 全局; 逐票显式传入
     regime = detect_market_regime(payload["indices"], payload["market_overview"])
     payload["market_regime"] = regime
+    payload["regime_audit"] = explain_market_regime(payload["indices"], payload["market_overview"], smoothed_regime=regime)
     regime_label = {"momentum": "动量市(成长股占优)", "value": "价值市(主板占优)",
                     "panic": "恐慌市(警惕)"}.get(regime, regime)
     logger.info(f"  📊 当前市场环境: {regime_label}")

@@ -62,6 +62,7 @@ def compact_for_claude(payload: Dict[str, Any]) -> Dict[str, Any]:
         "indices": payload.get("indices", []),
         "market_overview": payload.get("market_overview", {}),
         "market_regime": payload.get("market_regime", "momentum"),  # v1.1: 市场环境
+        "regime_audit": payload.get("regime_audit"),             # regime 输入/判定过程审计
         "north_flow": payload.get("north_flow"),
         "hsgt_flow_history": payload.get("hsgt_flow_history"),  # 北向资金近5日(Tushare)
         "us_market": payload.get("us_market"),              # v1.2: 美股参考
@@ -273,6 +274,34 @@ def render_prediction_digest_line(summary: Optional[Dict[str, Any]]) -> str:
         f"action命中{_fmt_ratio_pct(summary.get('action_hit_rate'), digits=0)}"
     )
 
+
+def render_regime_audit_line(audit: Optional[Dict[str, Any]]) -> str:
+    """Render market_regime evidence from already-injected payload data."""
+    if not audit:
+        return ""
+    inputs = audit.get("inputs") or {}
+    sources = audit.get("sources") or {}
+    src = ",".join(sources.get("indices") or []) or "待验证"
+    return (
+        f"- Regime判定证据: raw={audit.get('raw_regime') or '待验证'} → "
+        f"final={audit.get('smoothed_regime') or '待验证'} | "
+        f"跌停{inputs.get('limit_down_count', '待验证')}/阈值{inputs.get('limit_down_threshold', 50)} | "
+        f"上证{fmt_pct(inputs.get('sh_change_pct'))} / 创业板{fmt_pct(inputs.get('cyb_change_pct'))} / "
+        f"科创50{fmt_pct(inputs.get('kc50_change_pct'))} / 成长均值{fmt_pct(inputs.get('growth_avg_change_pct'))} | "
+        f"原因: {audit.get('reason') or '待验证'} | source: idx={src}, overview={sources.get('market_overview') or '待验证'}"
+    )
+
+
+def render_regime_digest_line(audit: Optional[Dict[str, Any]]) -> str:
+    if not audit:
+        return "Regime证据待验证"
+    inputs = audit.get("inputs") or {}
+    return (
+        f"Regime证据: raw={audit.get('raw_regime') or '待验证'}->final={audit.get('smoothed_regime') or '待验证'}; "
+        f"跌停{inputs.get('limit_down_count', '?')}; "
+        f"上证{fmt_pct(inputs.get('sh_change_pct'))}/创业板{fmt_pct(inputs.get('cyb_change_pct'))}/科创50{fmt_pct(inputs.get('kc50_change_pct'))}"
+    )
+
 def build_claude_markdown(claude_data: Dict[str, Any],
                           track_results: Optional[List[TrackResult]] = None) -> str:
     lines = []
@@ -295,6 +324,9 @@ def build_claude_markdown(claude_data: Dict[str, Any],
         "panic":    "🚨 **恐慌市** (跌停超50个,建议观望,提高现金比例)"
     }.get(regime, regime)
     lines.append(f"- {regime_label}")
+    regime_audit_line = render_regime_audit_line(claude_data.get("regime_audit"))
+    if regime_audit_line:
+        lines.append(regime_audit_line)
 
     for idx in claude_data.get("indices", []):
         if "error" not in idx:
@@ -526,6 +558,7 @@ def build_email_digest(claude_data: Dict[str, Any],
     lines.append(f"## 大盘: {regime_label} | "
                  f"涨{mo.get('up_count', '?')}/跌{mo.get('down_count', '?')}/"
                  f"涨停{mo.get('limit_up_count', '?')}/跌停{mo.get('limit_down_count', '?')} | {north}")
+    lines.append(f"## {render_regime_digest_line(claude_data.get('regime_audit'))}")
     lines.append("")
 
     # —— 宏观: macro_regime | 6维 signal 一行(available=False/缺 -> 待验证, 不臆造) ——
