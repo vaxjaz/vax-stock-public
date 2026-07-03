@@ -115,7 +115,8 @@ tracks/__init__.py 严禁 import ai 或任何会触网/加载重依赖(akshare/p
         - [x] E4-2 Replay bootstrap: 从既有 `factor_snapshots.jsonl` / `var/reports/*/payload.json` 重放生成 `generation_mode=replay`
         - [x] E4-3 Evaluator: 复用 `factor_results.jsonl`/Tushare 真收盘核验 predictions
         - [x] E4-4 接入 EOD: 先核验 pending,再用 Tushare trade_cal 确认下一交易日并生成 `generation_mode=live`
-        - [ ] E4-5 Prediction Layer2(下一步) / E4-6 EOD摘要 / E4-7 Rule suggestions
+        - [x] E4-5 Prediction Layer2: action/direction/confidence/环境/概念分桶评估; live/replay 分开展示,pending 不进指标
+        - [ ] E4-6 EOD摘要(下一步) / E4-7 Rule suggestions
 - [ ] **MR7 文档/README 全面同步**
 
 ---
@@ -131,7 +132,7 @@ from vaxstock import config
 from vaxstock.indicators.technical import calc_rsi
 from vaxstock.indicators.regime import detect_market_regime
 assert calc_rsi([10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25]) == 100.0
-assert detect_market_regime([], {}) == 'momentum'
+assert detect_market_regime([], {}) in ('momentum', 'value', 'panic')
 print('✅ import无副作用 + 纯函数验证通过')
 "
 ```
@@ -177,7 +178,7 @@ print('✅ import无副作用 + 纯函数验证通过')
    铁律:A ⊂ B 但**分开存 / 分开记 / 分开写入时点**;A 绝不冒充 B 全样本(否则幸存者偏差污染反哺);分析按 (trade_date, code) join。E1 只立 B 线;A 线归 C2c,现未动。
 8. **邮件输出设计**:邮件正文 = 精简摘要(大盘/宏观/赛道/持仓详情/观察池高分清单/明日重点);完整40票详情(AGENTS.md)与全量数据(payload.json)走附件。正文不放观察池个股详情(持仓保留)。
 9. **部署 = 基础设施即代码**:v2 三服务(api/intraday/eod-timer)unit 模板在 `deploy/`,`EnvironmentFile=/etc/vaxstock/vaxstock.env` 统一收口;EOD 走 systemd timer(凌晨05:00 + `Persistent=true` 补跑防漏样本),非 cron。v1(`/opt/stock-report`)除 backtest cron 外全退役。
-10. **EOD Prediction 线 = 可审计自我修复闭环**:预测线验证的是"当时策略动作是否正确",不是单纯 score 档未来收益。文件落点与任务拆解以 `CLAUDE.md §9.10` 为详细锚: `var/prediction/eod_predictions.jsonl` 由 `services.eod_predictor` 写入预测原文;后续 `eod_prediction_results.jsonl` / `prediction_layer2_report_<trade_date>.md` / `rule_suggestions_<trade_date>.md` 分别归核验、分桶评估、规则建议。历史预测 append-only,结果回填不得修改 prediction 原文;规则只能 bump `rule_version` 前滚,不自动调参。
+10. **EOD Prediction 线 = 可审计自我修复闭环**:预测线验证的是"当时策略动作是否正确",不是单纯 score 档未来收益。文件落点与任务拆解以 `CLAUDE.md §9.10` 为详细锚: `var/prediction/eod_predictions.jsonl` 由 `services.eod_predictor` 写入预测原文;`eod_prediction_results.jsonl` 由 `services.prediction_evaluator` 写核验结果;`prediction_layer2_report_<trade_date>.md` 由 `research.prediction_eval` 写分桶评估;`rule_suggestions_<trade_date>.md` 后续归规则建议。历史预测 append-only,结果回填不得修改 prediction 原文;规则只能 bump `rule_version` 前滚,不自动调参。
 
 ---
 

@@ -17,6 +17,7 @@ except ModuleNotFoundError:
 
 from vaxstock import config
 from vaxstock.research import layer2_eval as l2_mod
+from vaxstock.research import prediction_eval as pred_l2_mod
 from vaxstock.services import eod as eod_mod
 
 _REPO = pathlib.Path(__file__).resolve().parents[2]
@@ -51,6 +52,7 @@ def _install_spies(secrets=None, payload=None, next_trade_date="20260626"):
     # run_layer2 是 run_eod 内的局部 import(from research.layer2_eval import run_layer2),
     # 在其源模块上打桩才拦得住; 否则真跑会读真 var/eval/ 并落 layer2_report 文件(测试不该有副作用)。
     saved_l2 = l2_mod.run_layer2
+    saved_pred_l2 = pred_l2_mod.run_prediction_layer2
     rec = {"send_calls": [], "order": []}
     run_payload = payload if payload is not None else _PAYLOAD
 
@@ -59,6 +61,12 @@ def _install_spies(secrets=None, payload=None, next_trade_date="20260626"):
         rec["layer2_called"] = True
         return ""
     l2_mod.run_layer2 = _layer2
+
+    def _prediction_layer2(**k):
+        rec["order"].append("prediction_layer2")
+        rec["prediction_layer2_called"] = True
+        return ""
+    pred_l2_mod.run_prediction_layer2 = _prediction_layer2
 
     eod_mod.TushareSource = lambda token: {"_stub": True, "token": token}
 
@@ -134,6 +142,7 @@ def _install_spies(secrets=None, payload=None, next_trade_date="20260626"):
             setattr(eod_mod, n, v)
         config.SECRETS = saved_secrets
         l2_mod.run_layer2 = saved_l2
+        pred_l2_mod.run_prediction_layer2 = saved_pred_l2
 
     return rec, restore
 
@@ -184,9 +193,10 @@ def test_eod_orchestration_and_passthrough():
         assert rec["preds_call"] == {"payload": _PAYLOAD, "target_trade_date": "20260626",
                                       "generation_mode": "live"}
         assert rec["record_predictions_call"] == [{"prediction_id": "p1"}]
-        assert rec["order"] == ["store", "e1", "pred_eval", "next_trade", "pred_live", "pred_record", "layer2"]
+        assert rec["order"] == ["store", "e1", "pred_eval", "next_trade", "pred_live", "pred_record", "layer2", "prediction_layer2"]
         # Layer2(E2): E4 后被调(顺带分析)
         assert rec.get("layer2_called") is True
+        assert rec.get("prediction_layer2_called") is True
     finally:
         restore()
 

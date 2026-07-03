@@ -78,6 +78,14 @@ def run_eod() -> Dict[str, str]:
     except Exception as e:
         logger.warning(f"Layer2 分析跳过(不影响EOD): {str(e)[:120]}")
 
+    # MR-Eval E4-5: Prediction Layer2 离线分桶评估。只读 eod_predictions/eod_prediction_results,
+    # pending 样本只透明计数,不进入命中率/收益统计; 失败 warning-only。
+    try:
+        from vaxstock.research.prediction_eval import run_prediction_layer2
+        run_prediction_layer2(write=True)
+    except Exception as e:
+        logger.warning(f"Prediction Layer2 分析跳过(不影响EOD): {str(e)[:120]}")
+
     return paths
 
 
