@@ -20,7 +20,11 @@
     {
       "trade_date": "20260701",
       "raw": "value"
+    },
+    {
+      "trade_date": "20260702",
+      "raw": "value"
     }
   ],
-  "last_updated": "2026-07-02T05:00:05.446080"
+  "last_updated": "2026-07-03T05:00:10.887510"
 }
