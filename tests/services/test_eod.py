@@ -7,6 +7,13 @@
 
 import ast
 import pathlib
+import sys
+import types
+
+try:
+    import requests  # noqa: F401
+except ModuleNotFoundError:
+    sys.modules["requests"] = types.SimpleNamespace()
 
 from vaxstock import config
 from vaxstock.research import layer2_eval as l2_mod
@@ -15,7 +22,12 @@ from vaxstock.services import eod as eod_mod
 _REPO = pathlib.Path(__file__).resolve().parents[2]
 
 # canned 数据(seam 替身的返回值)
-_PAYLOAD = {"generated_at": "2026-06-25 16:00", "stocks": [], "market_regime": "panic"}
+_PAYLOAD = {
+    "generated_at": "2026-06-25 16:00",
+    "stocks": [],
+    "market_regime": "panic",
+    "market_overview": {"trade_date": "20260625"},
+}
 _TRACKS = [{"track_name": "AI算力", "date": "2026-06-25", "available": False,
             "signals": {}, "summary_lines": [], "vetoes": [],
             "position_ceiling": "待验证(数据缺失, 不出仓位结论)", "pending": ["stub"]}]
@@ -28,25 +40,31 @@ _PATHS = {"payload": "/r/2026-06-25/payload.json",
 
 _SEAMS = ["TushareSource", "collect_payload", "compact_for_claude",
           "build_claude_markdown", "build_email_digest", "store_report", "send_email",
-          "record_and_backfill"]
+          "record_and_backfill", "evaluate_from_files", "predictions_from_payload",
+          "record_predictions", "_next_trade_date"]
 
 
-def _install_spies(secrets=None):
+def _install_spies(secrets=None, payload=None, next_trade_date="20260626"):
     """把 eod 内引用的所有 seam 换成记录型替身; 可选覆盖 config.SECRETS。返回 (rec, restore)。"""
     saved = {n: getattr(eod_mod, n) for n in _SEAMS}
     saved_secrets = config.SECRETS
     # run_layer2 是 run_eod 内的局部 import(from research.layer2_eval import run_layer2),
     # 在其源模块上打桩才拦得住; 否则真跑会读真 var/eval/ 并落 layer2_report 文件(测试不该有副作用)。
     saved_l2 = l2_mod.run_layer2
-    rec = {"send_calls": []}
+    rec = {"send_calls": [], "order": []}
+    run_payload = payload if payload is not None else _PAYLOAD
 
-    l2_mod.run_layer2 = lambda **k: rec.__setitem__("layer2_called", True) or ""
+    def _layer2(**k):
+        rec["order"].append("layer2")
+        rec["layer2_called"] = True
+        return ""
+    l2_mod.run_layer2 = _layer2
 
     eod_mod.TushareSource = lambda token: {"_stub": True, "token": token}
 
     def _collect(source):
         rec["collect_source"] = source
-        return _PAYLOAD, _TRACKS
+        return run_payload, _TRACKS
     eod_mod.collect_payload = _collect
 
     def _compact(payload):
@@ -65,6 +83,7 @@ def _install_spies(secrets=None):
     eod_mod.build_email_digest = _digest
 
     def _store(payload, claude_data, markdown, report_dir=None):
+        rec["order"].append("store")
         rec["store_in"] = {"payload": payload, "claude_data": claude_data, "markdown": markdown}
         return _PATHS
     eod_mod.store_report = _store
@@ -76,9 +95,36 @@ def _install_spies(secrets=None):
     eod_mod.send_email = _send
 
     def _eval(payload, source):
+        rec["order"].append("e1")
         rec["eval_call"] = {"payload": payload, "source": source}
         return {"snapshots": 0, "backfilled": 0}
     eod_mod.record_and_backfill = _eval
+
+    def _pred_eval():
+        rec["order"].append("pred_eval")
+        rec["pred_eval_called"] = True
+        return {"written": 0, "skipped": 0, "source_predictions": 0,
+                "source_factor_results": 0, "generated": 0, "missing_or_pending": 0}
+    eod_mod.evaluate_from_files = _pred_eval
+
+    def _next(source, baseline):
+        rec["order"].append("next_trade")
+        rec["next_trade_call"] = {"source": source, "baseline": baseline}
+        return next_trade_date
+    eod_mod._next_trade_date = _next
+
+    def _preds(payload, target_trade_date, generation_mode="live"):
+        rec["order"].append("pred_live")
+        rec["preds_call"] = {"payload": payload, "target_trade_date": target_trade_date,
+                              "generation_mode": generation_mode}
+        return [{"prediction_id": "p1"}]
+    eod_mod.predictions_from_payload = _preds
+
+    def _record(predictions):
+        rec["order"].append("pred_record")
+        rec["record_predictions_call"] = list(predictions)
+        return {"written": 1, "skipped": 0}
+    eod_mod.record_predictions = _record
 
     if secrets is not None:
         config.SECRETS = secrets
@@ -133,13 +179,75 @@ def test_eod_orchestration_and_passthrough():
         # MR-Eval: record_and_backfill 收到 payload + 同一 source(快照地基接入)
         assert rec["eval_call"]["payload"] is _PAYLOAD
         assert rec["eval_call"]["source"]["_stub"] is True
-        # Layer2(E2): record_and_backfill 之后被调(顺带分析)
+        # E4: E1 后先核验旧 predictions,再生成下一交易日 live predictions
+        assert rec["next_trade_call"] == {"source": rec["collect_source"], "baseline": "20260625"}
+        assert rec["preds_call"] == {"payload": _PAYLOAD, "target_trade_date": "20260626",
+                                      "generation_mode": "live"}
+        assert rec["record_predictions_call"] == [{"prediction_id": "p1"}]
+        assert rec["order"] == ["store", "e1", "pred_eval", "next_trade", "pred_live", "pred_record", "layer2"]
+        # Layer2(E2): E4 后被调(顺带分析)
         assert rec.get("layer2_called") is True
     finally:
         restore()
 
 
-# ── c. 邮件门控 ──
+# ── c. EOD Prediction 接入边界 ──
+def test_eod_prediction_skips_live_without_trade_date():
+    payload = {"generated_at": "2026-06-25 16:00", "stocks": [], "market_regime": "panic"}
+    rec, restore = _install_spies(secrets={"email_enabled": False}, payload=payload)
+    try:
+        assert eod_mod.run_eod() == _PATHS
+        assert "pred_eval" in rec["order"]
+        assert "next_trade" not in rec["order"]
+        assert "pred_live" not in rec["order"]
+        assert "pred_record" not in rec["order"]
+    finally:
+        restore()
+
+
+def test_eod_prediction_skips_live_without_next_trade_date():
+    rec, restore = _install_spies(secrets={"email_enabled": False}, next_trade_date=None)
+    try:
+        assert eod_mod.run_eod() == _PATHS
+        assert "pred_eval" in rec["order"]
+        assert "next_trade" in rec["order"]
+        assert "pred_live" not in rec["order"]
+        assert "pred_record" not in rec["order"]
+    finally:
+        restore()
+
+
+def test_next_trade_date_uses_trade_cal_and_skips_closed_days():
+    calls = []
+
+    class _Cal:
+        columns = ["cal_date", "is_open"]
+
+        def __init__(self, rows):
+            self.rows = rows
+
+        def sort_values(self, *a, **k):
+            self.rows = sorted(self.rows, key=lambda r: r["cal_date"])
+            return self
+
+        def to_dict(self, kind):
+            assert kind == "records"
+            return self.rows
+
+    class _Source:
+        def _safe_call(self, name, **kwargs):
+            calls.append((name, kwargs))
+            return _Cal([
+                {"cal_date": "20260704", "is_open": 0},
+                {"cal_date": "20260705", "is_open": 0},
+                {"cal_date": "20260706", "is_open": 1},
+            ])
+
+    assert eod_mod._next_trade_date(_Source(), "20260703") == "20260706"
+    assert calls == [("trade_cal", {"exchange": "", "start_date": "20260704", "end_date": "20260718"})]
+
+
+# ── d. 邮件门控 ──
 def test_email_gate_disabled():
     rec, restore = _install_spies(secrets={"email_enabled": False, "email_user": "u@qq.com",
                                            "email_authcode": "pw", "email_to": "t@163.com"})

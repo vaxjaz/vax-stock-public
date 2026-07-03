@@ -113,9 +113,9 @@ tracks/__init__.py 严禁 import ai 或任何会触网/加载重依赖(akshare/p
     - [~] E4 EOD Prediction 线:基于 T-1 EOD 真数据生成 T 日 9:30 后走势/动作预测,次日 EOD 核验,长期 day-by-day 修复用户 universe 择股框架
         - [x] E4-1 Schema + writer: `services/eod_predictor.py` + `tests/services/test_eod_predictor.py`
         - [x] E4-2 Replay bootstrap: 从既有 `factor_snapshots.jsonl` 重放生成 `generation_mode=replay`
-        - [ ] E4-3 Evaluator(下一步): 复用 `factor_results.jsonl`/Tushare 真收盘核验 predictions
-        - [ ] E4-4 接入 EOD: 先核验 pending,再生成下一交易日 live predictions
-        - [ ] E4-5 Prediction Layer2 / E4-6 EOD摘要 / E4-7 Rule suggestions
+        - [x] E4-3 Evaluator: 复用 `factor_results.jsonl`/Tushare 真收盘核验 predictions
+        - [x] E4-4 接入 EOD: 先核验 pending,再用 Tushare trade_cal 确认下一交易日并生成 `generation_mode=live`
+        - [ ] E4-5 Prediction Layer2(下一步) / E4-6 EOD摘要 / E4-7 Rule suggestions
 - [ ] **MR7 文档/README 全面同步**
 
 ---

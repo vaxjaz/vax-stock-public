@@ -16,7 +16,8 @@ api/intraday/cron unit 留 PR-C。
 """
 
 import logging
-from typing import Any, Dict
+from datetime import datetime, timedelta
+from typing import Any, Dict, Optional
 
 from vaxstock import config
 from vaxstock.report.claude_md import build_claude_markdown, build_email_digest, compact_for_claude
@@ -24,6 +25,8 @@ from vaxstock.report.mailer import send_email
 from vaxstock.report.store import store_report
 from vaxstock.services.collect import collect_payload
 from vaxstock.services.eval_recorder import record_and_backfill
+from vaxstock.services.eod_predictor import predictions_from_payload, record_predictions
+from vaxstock.services.prediction_evaluator import evaluate_from_files
 from vaxstock.sources.tushare_src import TushareSource
 
 logger = logging.getLogger(__name__)
@@ -62,6 +65,10 @@ def run_eod() -> Dict[str, str]:
     except Exception as e:
         logger.warning(f"MR-Eval 快照/回填失败(不影响落盘): {str(e)[:120]}")
 
+    # MR-Eval E4: EOD Prediction 闭环。必须在 E1 回填后执行: 先核验已有 predictions,
+    # 再基于本次 EOD 定稿 payload 生成下一交易日 live predictions。失败仅 warning,
+    # 不影响报告三件套落盘/邮件/E1。
+    _run_eod_prediction(payload, source)
     # MR-Eval E2: Layer2 离线分析(分环境分桶前瞻收益/超额)。必须在 record_and_backfill 之后
     # (读已回填到最新的 results)。纯读 E1 两 jsonl, 失败仅 warning 不影响 EOD。
     # 早期样本少, 报告会大量"样本不足", 正常——数据攒厚自然有结论。
@@ -72,6 +79,77 @@ def run_eod() -> Dict[str, str]:
         logger.warning(f"Layer2 分析跳过(不影响EOD): {str(e)[:120]}")
 
     return paths
+
+
+def _next_trade_date(source, baseline_trade_date, lookahead_days: int = 15) -> Optional[str]:
+    """用 Tushare trade_cal 查 baseline 后的下一开市日(YYYYMMDD)。
+
+    P0: target_trade_date 必须来自交易日历实测数据; source 不可用/字段缺失/查不到时返回 None,
+    上层跳过 live prediction, 绝不按自然日臆造。
+    """
+    baseline = str(baseline_trade_date or "").strip()
+    if not baseline:
+        return None
+    try:
+        start = (datetime.strptime(baseline, "%Y%m%d") + timedelta(days=1)).strftime("%Y%m%d")
+        end = (datetime.strptime(baseline, "%Y%m%d") + timedelta(days=lookahead_days)).strftime("%Y%m%d")
+    except ValueError:
+        logger.warning(f"EOD Prediction: baseline_trade_date 非 YYYYMMDD, 跳过 live prediction: {baseline!r}")
+        return None
+
+    safe_call = getattr(source, "_safe_call", None)
+    if safe_call is None:
+        logger.warning("EOD Prediction: Tushare source 不可用, 无法确认下一交易日, 跳过 live prediction")
+        return None
+
+    df = safe_call("trade_cal", exchange="", start_date=start, end_date=end)
+    if df is None:
+        logger.warning("EOD Prediction: trade_cal 返回空, 无法确认下一交易日, 跳过 live prediction")
+        return None
+    cols = set(getattr(df, "columns", []))
+    if not {"cal_date", "is_open"}.issubset(cols):
+        logger.warning(f"EOD Prediction: trade_cal 字段缺失({sorted(cols)}), 跳过 live prediction")
+        return None
+
+    try:
+        records = df.sort_values("cal_date", ascending=True).to_dict("records")
+    except Exception as e:
+        logger.warning(f"EOD Prediction: trade_cal 解析失败, 跳过 live prediction: {str(e)[:80]}")
+        return None
+
+    for row in records:
+        cal_date = str(row.get("cal_date") or "").strip()
+        try:
+            is_open = int(float(row.get("is_open")))
+        except (TypeError, ValueError):
+            is_open = 0
+        if cal_date > baseline and is_open == 1:
+            return cal_date
+    logger.warning(f"EOD Prediction: {baseline} 后 {lookahead_days} 日内无开市日, 跳过 live prediction")
+    return None
+
+
+def _run_eod_prediction(payload: Dict[str, Any], source) -> None:
+    """E4 接入 EOD: 先核验已有 prediction, 再冻结下一交易日 live prediction。"""
+    try:
+        stats = evaluate_from_files()
+        logger.info(f"EOD Prediction 核验: 写入 {stats['written']} 条 / 跳过 {stats['skipped']} 条")
+    except Exception as e:
+        logger.warning(f"EOD Prediction 核验失败(不影响EOD): {str(e)[:120]}")
+
+    try:
+        baseline = (payload.get("market_overview") or {}).get("trade_date")
+        if not baseline:
+            logger.warning("EOD Prediction: payload 无 trade_date, 跳过 live prediction(不臆造日期)")
+            return
+        target = _next_trade_date(source, baseline)
+        if not target:
+            return
+        preds = predictions_from_payload(payload, target, generation_mode="live")
+        stats = record_predictions(preds)
+        logger.info(f"EOD Prediction live: target={target} 生成 {len(preds)} 条 / 写入 {stats['written']} 条 / 跳过 {stats['skipped']} 条")
+    except Exception as e:
+        logger.warning(f"EOD Prediction live 生成失败(不影响EOD): {str(e)[:120]}")
 
 
 def _maybe_send_email(body: str, attachments) -> None:

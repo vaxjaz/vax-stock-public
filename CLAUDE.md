@@ -113,9 +113,9 @@ tracks/__init__.py 严禁 import ai 或任何会触网/加载重依赖(akshare/p
     - [~] E4 EOD Prediction 线:基于 T-1 EOD 真数据生成 T 日 9:30 后走势/动作预测,次日 EOD 核验,长期 day-by-day 修复用户 universe 择股框架(详见 §9.10)
         - [x] E4-1 Schema + writer: `services/eod_predictor.py` + `tests/services/test_eod_predictor.py`
         - [x] E4-2 Replay bootstrap: 从既有 `factor_snapshots.jsonl` 重放生成 `generation_mode=replay`
-        - [ ] E4-3 Evaluator(下一步): 复用 `factor_results.jsonl`/Tushare 真收盘核验 predictions
-        - [ ] E4-4 接入 EOD: 先核验 pending,再生成下一交易日 live predictions
-        - [ ] E4-5 Prediction Layer2: action/direction/confidence 分桶评估
+        - [x] E4-3 Evaluator: 复用 `factor_results.jsonl`/Tushare 真收盘核验 predictions
+        - [x] E4-4 接入 EOD: 先核验 pending,再用 Tushare trade_cal 确认下一交易日并生成 `generation_mode=live`
+        - [ ] E4-5 Prediction Layer2(下一步): action/direction/confidence 分桶评估
         - [ ] E4-6 EOD 摘要接入: 报告显示预测核验概览
         - [ ] E4-7 Rule suggestions: 只给规则升级建议,不自动改参数
 - [ ] **MR7 文档/README 全面同步**
@@ -206,16 +206,16 @@ print('✅ import无副作用 + 纯函数验证通过')
    | `var/eval/layer2_report_<trade_date>.md` | `research.layer2_eval.run_layer2` | B线分析报告 | score 档 × `regime|macro_regime` 分桶的前瞻收益/超额/胜率 | 可重生成覆盖 |
    | `var/forecast/forecasts.jsonl` | `services.forecast_recorder.record_forecast` | A线盘中触发预测 | 盘中触发时冻结 codex 结构化预测+T-1基准+lite快照+regime | append-only;触发样本,不可冒充全样本 |
    | `var/prediction/eod_predictions.jsonl` | `services.eod_predictor` | EOD Prediction 输入/动作 | 基于 `baseline_trade_date=T-1` EOD 真数据,预测 `target_trade_date=T` 的动作/方向/置信度 | append-only;同 `(baseline_trade_date,target_trade_date,code,rule_version,generation_mode)` 幂等 |
-   | `var/prediction/eod_prediction_results.jsonl` | **待建** `services.prediction_evaluator` | EOD Prediction 核验结果 | T+1 EOD 后核验 target 日真实收益、benchmark、excess、方向命中、动作命中、偏离 | append-only;同 `prediction_id+horizon` 幂等 |
+   | `var/prediction/eod_prediction_results.jsonl` | `services.prediction_evaluator` | EOD Prediction 核验结果 | T+1 EOD 后核验 target 日真实收益、benchmark、excess、方向命中、动作命中、偏离 | append-only;同 `prediction_id+horizon` 幂等 |
    | `var/prediction/prediction_layer2_report_<trade_date>.md` | **待建** `research.prediction_eval` | EOD Prediction 分析报告 | action/direction/confidence × 环境/概念分桶,评估预测动作而非单纯 score | 可重生成覆盖 |
    | `var/prediction/rule_suggestions_<trade_date>.md` | **待建** `research.rule_suggester` | 研究建议 | 基于足量样本提出规则升级建议;只建议,不自动改生产规则 | 可重生成覆盖;人工审核后另开 PR 升级 rule_version |
 
    **任务拆解(后续 PR 顺序)**:
    - **E4-1 Schema + writer(已完成)**:`services/eod_predictor.py` 定义 prediction record,生成 `prediction_id`,append-only 写 `eod_predictions.jsonl`,并加单测。
    - **E4-2 Replay bootstrap(已完成)**:读取已有 `factor_snapshots.jsonl`,按当前 `zz800_seed_v1` 规则重放生成 `generation_mode=replay` 的历史 predictions;最大化利用已上传地基数据。
-   - **E4-3 Evaluator(下一步)**:`services/prediction_evaluator.py` 优先复用 `factor_results.jsonl` 核验 replay predictions;live 场景可从 Tushare daily 机械算收益/超额;缺数据不写假结果。
-   - **E4-4 接入 EOD**:`services/eod.py` 在报告落盘后先核验 pending predictions,再生成下一交易日 predictions;prediction 失败只 warning,不影响 EOD 三件套落盘。
-   - **E4-5 Prediction Layer2**:`research/prediction_eval.py` join predictions/results,按 `action`/`direction`/`confidence_bucket`/`regime|macro_regime`/`concept` 分桶;`generation_mode=live/replay` 分开展示;样本不足不下结论。
+   - **E4-3 Evaluator(已完成)**:`services/prediction_evaluator.py` 优先复用 `factor_results.jsonl` 核验 replay predictions;live 场景可从 Tushare daily 机械算收益/超额;缺数据不写假结果。
+   - **E4-4 接入 EOD(已完成)**:`services/eod.py` 在 E1 回填后先核验 pending predictions,再用 Tushare `trade_cal` 确认下一交易日并生成 `generation_mode=live` predictions;查不到交易日/字段缺失则跳过,绝不按自然日臆造;prediction 失败只 warning,不影响 EOD 三件套落盘。
+   - **E4-5 Prediction Layer2(下一步)**:`research/prediction_eval.py` join predictions/results,按 `action`/`direction`/`confidence_bucket`/`regime|macro_regime`/`concept` 分桶;`generation_mode=live/replay` 分开展示;样本不足不下结论。
    - **E4-6 EOD 摘要接入**:`report/claude_md.py` 增加"昨日预测核验"小节(预测数、已核验、action 命中、正超额率、pending),无数据时显示"待积累"。
    - **E4-7 Rule suggestions**:`research/rule_suggester.py` 只输出规则升级建议和证据,不自动改参数;升级必须人工确认并 bump `rule_version`。
 
