@@ -159,19 +159,24 @@ def fetch_market_ctx() -> dict:
 
 
 def _get_concepts(code) -> list:
-    """取该 code 的 watchlist 概念标签(惰性加载 config.load_watchlist 的 concepts_map, 进程级缓存)。
+    """Return configured concept tags for watchlist or holding symbols.
 
-    首次调用才读 watchlist.json; 加载失败 -> 缓存空 {}(不臆造概念)。本 PR 不做热重载。
+    Loaded lazily and cached per process. Missing/invalid config returns [] instead
+    of inventing neutral tags. Holdings concepts take precedence because current
+    holdings may be intentionally excluded from the observation watchlist.
     """
     global _concepts_map
     if _concepts_map is None:
         try:
-            _, _concepts_map = config.load_watchlist()
+            _, loaded = config.load_watchlist()
+            _concepts_map = dict(loaded or {})
+            for h_code, info in (config.load_holdings() or {}).items():
+                if (info or {}).get("concepts"):
+                    _concepts_map[h_code] = list(info["concepts"])
         except Exception as e:
-            logger.warning(f"watchlist 概念标签加载失败, 本进程置空: {e}")
+            logger.warning(f"concept tags loading failed, this process will use empty tags: {e}")
             _concepts_map = {}
     return _concepts_map.get(code, [])
-
 
 def _load_rules_prompt():
     """读 codex system prompt(盘中六铁律); 失败兜底极简铁律串(守住底线)。"""

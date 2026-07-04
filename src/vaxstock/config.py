@@ -204,7 +204,7 @@ def load_watchlist() -> Tuple[Dict[str, str], Dict[str, List[str]]]:
 def load_holdings() -> Dict[str, Dict[str, Any]]:
     """从 CONFIG_DIR/holdings.json 加载持仓真相(可选)。
 
-    返回 {code: {"name", "cost", "shares"}}; 文件缺失/损坏 -> {}。
+    返回 {code: {"name", "cost", "shares", "concepts"}}; 文件缺失/损坏 -> {}。
     注: holdings.json 在 v2 架构下标注"VPS不读"(持仓真相由 Claude 端维护);
         此处做成可选加载——缺失即空持仓, 兼容 VPS 仅观察池的形态。
     """

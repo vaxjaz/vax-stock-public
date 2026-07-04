@@ -191,14 +191,14 @@ def collect_payload(source) -> Tuple[Dict[str, Any], List[TrackResult]]:
         item = build_stock_item("holding", code, info.get("name", ""),
                                 info.get("cost"), info.get("shares"),
                                 source=source, market_regime=regime,
-                                manual_concepts=concepts_map.get(code))
+                                manual_concepts=info.get("concepts") or concepts_map.get(code))
         payload["stocks"].append(item)
         seen.add(code)
         logger.info(f"  ✅ 持仓 {code} {info.get('name', '')}")
         time.sleep(config.REQUEST_SLEEP_SECONDS)
     for code, name in watchlist.items():
         if code in seen:
-            continue  # 持仓股(holdings⊂watchlist)已装配, 不重复取数
+            continue  # Already assembled as holding if present in both pools.
         item = build_stock_item("watchlist", code, name, None, None,
                                 source=source, market_regime=regime,
                                 manual_concepts=concepts_map.get(code))

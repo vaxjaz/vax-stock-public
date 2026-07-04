@@ -344,7 +344,7 @@ def test_codex_verdict_none_when_disabled():
 # ── C2b: _get_concepts 惰性加载 + 进程级缓存 + 失败降级 ──
 def test_get_concepts_lazy_loads_and_caches():
     import vaxstock.config as cfg
-    saved_map, saved_load = intra._concepts_map, cfg.load_watchlist
+    saved_map, saved_load, saved_holdings = intra._concepts_map, cfg.load_watchlist, cfg.load_holdings
     calls = {"n": 0}
     try:
         intra._concepts_map = None  # 复位惰性缓存
@@ -354,17 +354,34 @@ def test_get_concepts_lazy_loads_and_caches():
             return {"002475": "立讯"}, {"002475": ["消费电子", "AI硬件"]}
 
         cfg.load_watchlist = _load
+        cfg.load_holdings = lambda: {}
         assert intra._get_concepts("002475") == ["消费电子", "AI硬件"]
         assert intra._get_concepts("000001") == []          # 未标注 -> 空
         assert intra._get_concepts("002475") == ["消费电子", "AI硬件"]
         assert calls["n"] == 1                               # 惰性: 只读一次(进程级缓存)
     finally:
-        intra._concepts_map, cfg.load_watchlist = saved_map, saved_load
+        intra._concepts_map, cfg.load_watchlist, cfg.load_holdings = saved_map, saved_load, saved_holdings
+
+
+def test_get_concepts_prefers_holding_concepts_and_keeps_holding_only_symbols():
+    import vaxstock.config as cfg
+    saved_map, saved_load, saved_holdings = intra._concepts_map, cfg.load_watchlist, cfg.load_holdings
+    try:
+        intra._concepts_map = None
+        cfg.load_watchlist = lambda: ({"600000": "watch"}, {"600000": ["watch"]})
+        cfg.load_holdings = lambda: {
+            "600000": {"concepts": ["holding"]},
+            "600001": {"concepts": ["holding-only"]},
+        }
+        assert intra._get_concepts("600000") == ["holding"]
+        assert intra._get_concepts("600001") == ["holding-only"]
+    finally:
+        intra._concepts_map, cfg.load_watchlist, cfg.load_holdings = saved_map, saved_load, saved_holdings
 
 
 def test_get_concepts_degrades_to_empty_on_error():
     import vaxstock.config as cfg
-    saved_map, saved_load = intra._concepts_map, cfg.load_watchlist
+    saved_map, saved_load, saved_holdings = intra._concepts_map, cfg.load_watchlist, cfg.load_holdings
     try:
         intra._concepts_map = None
 
@@ -375,7 +392,7 @@ def test_get_concepts_degrades_to_empty_on_error():
         assert intra._get_concepts("002475") == []  # 加载失败 -> 空, 不臆造概念
         assert intra._concepts_map == {}             # 缓存空 dict, 不反复重试
     finally:
-        intra._concepts_map, cfg.load_watchlist = saved_map, saved_load
+        intra._concepts_map, cfg.load_watchlist, cfg.load_holdings = saved_map, saved_load, saved_holdings
 
 
 # ── C2b: run() 今日触发计数 —— 同 code 多规则递增; 跨日清零 ──
