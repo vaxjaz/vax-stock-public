@@ -161,7 +161,9 @@ flowchart TD
 
 当前盘中数据层状态:
 
-- 已有 A 线输入冻结: `var/forecast/forecasts.jsonl`。
+- 已有 D 线触发评价冻结: `var/forecast/forecasts.jsonl`。
+- 已有 D 线 EOD 观察任务生成器: `services.forecast_planner`, 输出 `var/forecast/observation_tasks.jsonl` 与 `current_tasks.json`。
+- 每条 D 线 observation task 保存给 Codex 的 `evidence_pack(A/B/C/D_contract)`。
 - 每条 forecast 保存 `T-1 baseline + lite_snapshot + regime + structured verdict`。
 - 目前尚未有独立 forecast result 回填文件。
 - C2d 待办包括盘中演变记忆、主动盘面体检、`/intraday/ask` 咨询端点。
@@ -176,6 +178,7 @@ flowchart TD
 | `services.regime_auditor.record_regime_audit` | `var/eval/regime_audit.jsonl` + md | JSONL 幂等, md 可重生成 |
 | `services.eod_predictor.record_predictions` | `var/prediction/eod_predictions.jsonl` | append-only, `prediction_id` 幂等 |
 | `services.prediction_evaluator.record_prediction_results` | `var/prediction/eod_prediction_results.jsonl` | append-only, `(prediction_id, horizon)` 幂等 |
+| `services.forecast_planner.record_observation_tasks` | `var/forecast/observation_tasks.jsonl` + `current_tasks.json` | observation_tasks append-only; current 可物化覆盖 |
 | `services.forecast_recorder.record_forecast` | `var/forecast/forecasts.jsonl` | append-only, 每次盘中触发一行 |
 | `services.pool_admin` | `script/config/watchlist.json` + `var/pool_audit.jsonl` | watchlist 覆盖写, audit append-only |
 
@@ -196,16 +199,18 @@ flowchart TD
 
 ## 盘中数据层下一步边界
 
-当前代码已经把盘中 A 线和 EOD B 线分开:
+当前代码按用户最新术语区分四条线:
 
-- B 线: `var/eval` 全 universe 每日样本;基础结果层记录连续日路径,策略层只抽取所需 horizon。
-- EOD Prediction: `var/prediction` 基于 EOD 定稿数据的 T 日动作预测。
-- A 线: `var/forecast` 盘中触发那一刻的结构化研判。
+- A 线: `var/reports` EOD 原始地基数据。
+- B 线: `var/eval` EOD 因子快照 + 连续日真实结果回填。
+- C 线: `var/prediction` 基于 EOD 定稿数据的 T 日动作预测与核验。
+- D 线: `var/forecast` 盘中观察任务、触发评价与后续结果回填。
 
-下一步进入盘中数据层时, 不应把 A 线样本混入 B 线全样本。建议先补齐:
+D 线已经具备 EOD 观察任务生成器;下一步不应把 D 线样本混入 B 线全样本。建议继续补齐:
 
-1. 盘中事件/演变记忆的 schema 边界。
-2. 盘中结果如何在 EOD 后核验的文件位置和 horizon 定义。
-3. `/intraday/ask` 是否只读 T-1 基准、lite 快照和已冻结 forecast。
-4. 主动盘面体检的输入来源, 以及哪些字段必须标记为盘中未定稿。
+1. 盘中消费者读取 `current_tasks.json` 并执行 D 线触发 DSL。
+2. 盘中触发后把 observation task + lite 快照 + T-1 基准喂给 Codex 做客观评价。
+3. D 线结果如何在 EOD 后核验的文件位置和 horizon 定义。
+4. `/intraday/ask` 是否只读 A/B/C/D 已冻结 evidence、T-1 基准、lite 快照和已冻结 forecast。
+5. 主动盘面体检的输入来源, 以及哪些字段必须标记为盘中未定稿。
 

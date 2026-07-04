@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-"""C线 forecast 数据层: 盘中触发结构化预测的冻结写入(append-only)。
+"""D线 forecast 数据层: 盘中触发结构化预测的冻结写入(append-only)。
 
-C线 = EOD(B线全截面) ∪ Layer2(解读) 之上的"预测线": 盘中触发那一刻, 把 codex 的结构化研判
+D线 = 盘中预测告警/观察层: 盘中触发那一刻, 把 codex 的结构化研判
 (verdict/direction/confidence/horizon/falsify_if)连同**当时输入**(T-1 基准+lite 快照+regime)一起
 冻结入库, 供日后 T+k 回测归因。
 
@@ -9,7 +9,7 @@ C线 = EOD(B线全截面) ∪ Layer2(解读) 之上的"预测线": 盘中触发�
   - 预测先于结果冻结、append-only(只增不改); inputs_ref 必须存当时输入(回测归因命门)。
   - trade_date 锚触发当日交易日(由调用方从触发数据取, 非 now()); 缺则跳过不写(不臆造日期)。
   - 本 PR 只做"预测冻结写入"; 结果回填(forecast_results.jsonl + T+k)留后续 PR。
-  - C线(A 盯盘触发样本)与 B线(eval 全截面)分开存/分开写入时点(§9.7)。
+  - D线与 B线(eval 全截面)分开存/分开写入时点;D线不可冒充 B线全样本。
 """
 
 import datetime as dt

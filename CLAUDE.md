@@ -97,7 +97,7 @@ tracks/__init__.py 严禁 import ai 或任何会触网/加载重依赖(akshare/p
     - [x] C1 api.py 去副作用(lite=1 前置 refresh_regime,消全局,惰性单例)
     - [x] C2a intraday 迁包 + codex/notify 抽离 + 盘中铁律硬校验器
     - [x] C2b codex 注入大盘背景/概念/触发次数
-    - [x] C2c T-1基准注入 + 校验器白名单 + A样本线(forecast冻结)  # PR-A(PR#30)
+    - [x] C2c T-1基准注入 + 校验器白名单 + D线 forecast 冻结  # PR-A(PR#30)
     - [ ] C2d 盘中演变记忆 + 主动盘面体检 + /intraday/ask 咨询端点(C2c 未尽的演变记忆归此)
     - [x] B1+2 macro 迁包(骨架+5维: ETF/M1/融资/换手/ERP)
     - [x] B3 macro 维度5(全市场 breadth MA60/200 + MA250乖离)  # PR#27
@@ -110,7 +110,7 @@ tracks/__init__.py 严禁 import ai 或任何会触网/加载重依赖(akshare/p
     - [x] E2 research 分桶/前瞻IC/超额评估报告(不按样本数屏蔽,N 直接展示)
     - [x] Regime Audit: `services.regime_auditor` 落盘 raw/final/input/source,报告展示 market_regime 判定证据
     - [x] E3 人工依据报告反哺因子权重: `research.factor_weight_review` 生成人工调权复盘,只给证据不自动调参
-    - [x] C线 forecast 第三条数据线已立(EOD∪Layer2 之上的预测线; T-1基准注入 + JSON结构化预测冻结 var/forecast/forecasts.jsonl); 结果 T+k 回填留后续 PR  # PR-A(PR#30)
+    - [x] D线盘中预测告警线已立(T-1基准注入 + JSON结构化预测冻结 var/forecast/forecasts.jsonl); EOD Codex 观察任务生成已接入 var/forecast/observation_tasks.jsonl; 盘中消费者与结果回填留后续 PR  # PR-A(PR#30)
     - [x] E4 EOD Prediction 线:基于 T-1 EOD 真数据生成 T 日 9:30 后走势/动作预测,次日 EOD 核验,长期 day-by-day 修复用户 universe 择股框架(详见 §9.10)
         - [x] E4-1 Schema + writer: `services/eod_predictor.py` + `tests/services/test_eod_predictor.py`
         - [x] E4-2 Replay bootstrap: 从既有 `factor_snapshots.jsonl` / `var/reports/*/payload.json` 重放生成 `generation_mode=replay`
@@ -165,19 +165,19 @@ print('✅ import无副作用 + 纯函数验证通过')
 4. **单一真相 / 消全局**:`_CURRENT_MARKET_REGIME` 已消除,regime 显式传 `build_stock_item`;intraday 是 api 纯消费者,大盘 regime 只走 `GET /market`(api REGIME_TTL 缓存),不自取 Tushare。
 5. **盘中六铁律 = 输出层硬校验,不靠 codex 自觉**:codex 研判过 `enforce_intraday_rules`(正则拦评分/买卖价/资金臆测)。引入 T-1 基准后(C2c):"昨日/T-1"限定词的评分引用合法,盘中新生成评分非法——用限定词白名单区分。
 6. **数据时效分层**:实时(新浪指数regime/lite个股)可信;Tushare daily 聚合(涨跌家数)T日收盘滞后,喂 codex 必标"T日收盘聚合, 盘中滞后"口径;T-1 EOD(评分/资金/位置)是"昨日定稿基准"可引用,非盘中新结论。
-7. **MR-Eval 反哺原则**:主样本 = 全 watchlist 无条件每日快照(防幸存者偏差,非只记触发的);append-only(预测先于结果冻结);每条快照带市场状态(regime/宏观/宽度,用于按"世界状态"分桶 / 剔除特殊期如15股灾/AI暴涨);结果用 Tushare 真收盘机械算 + 指数基准算超额;反哺人工拍板,不自动调参;E3 只生成 `factor_weight_review_<trade_date>.md` 供人工复盘,不得自动改权重;样本量只作为 N 透明展示,不作为报告屏蔽条件。`market_regime` 必须同步写 `var/eval/regime_audit.jsonl` / `regime_audit_<trade_date>.md`,保留 raw/final/input/source,用于核实分桶真实性。盘中触发(A)是该样本的带情境子集,分开存不混。
+7. **MR-Eval 反哺原则**:主样本 = 全 watchlist 无条件每日快照(防幸存者偏差,非只记触发的);append-only(预测先于结果冻结);每条快照带市场状态(regime/宏观/宽度,用于按"世界状态"分桶 / 剔除特殊期如15股灾/AI暴涨);结果用 Tushare 真收盘机械算 + 指数基准算超额;反哺人工拍板,不自动调参;E3 只生成 `factor_weight_review_<trade_date>.md` 供人工复盘,不得自动改权重;样本量只作为 N 透明展示,不作为报告屏蔽条件。`market_regime` 必须同步写 `var/eval/regime_audit.jsonl` / `regime_audit_<trade_date>.md`,保留 raw/final/input/source,用于核实分桶真实性。D线盘中触发/观察是该样本的带情境子集,分开存不混。
 
-   **A/B 两条样本线区分(不可混)**:
+   **B/D 两条样本线区分(不可混)**:
 
-   | | B 主样本(无偏全截面) | A 盯盘样本(触发子集) |
+   | | B 主样本(无偏全截面) | D 盘中观察/触发样本 |
    |---|---|---|
-   | 写入时点 | EOD 每天5点各票一条 | 盘中触发那一刻即时一条 |
-   | 写入者 | eval_recorder(EOD调) | intraday notify(盯盘调) |
-   | 数据 | T日定稿因子 | 触发时实时快照+当时regime+T-1基准 |
-   | 文件 | factor_snapshots.jsonl + factor_results.jsonl | 独立盘中触发jsonl(另文件) |
+   | 写入时点 | EOD 每天5点各票一条 | EOD 生成次日观察任务;盘中触发那一刻即时写评价 |
+   | 写入者 | eval_recorder(EOD调) | forecast_planner(EOD调) + intraday notify(盯盘调) |
+   | 数据 | T日定稿因子 | A/B/C evidence pack + 触发时实时快照+当时regime+T-1基准 |
+   | 文件 | factor_snapshots.jsonl + factor_results.jsonl | var/forecast/observation_tasks.jsonl + current_tasks.json + forecasts.jsonl |
    | 落点 | E1(已做 PR#22) | 并入 C2c(依赖盘中T-1基准) |
 
-   铁律:A ⊂ B 但**分开存 / 分开记 / 分开写入时点**;A 绝不冒充 B 全样本(否则幸存者偏差污染反哺);分析按 (trade_date, code) join。E1 只立 B 线;A 线归 C2c,现未动。
+   铁律:D 是 B 的盘中观察/触发子集,但**分开存 / 分开记 / 分开写入时点**;D 绝不冒充 B 全样本(否则幸存者偏差污染反哺);分析按 (trade_date, code) join。E1 只立 B 线;D 线归盘中 forecast/D-observation。
 8. **邮件输出设计**:邮件正文 = 精简摘要(大盘/宏观/赛道/持仓详情/观察池高分清单/明日重点);完整40票详情(claude.md)与全量数据(payload.json)走附件。正文不放观察池个股详情(持仓保留)。
 9. **部署 = 基础设施即代码**:v2 三服务(api/intraday/eod-timer)unit 模板在 `deploy/`,`EnvironmentFile=/etc/vaxstock/vaxstock.env` 统一收口;EOD 走 systemd timer(凌晨05:00 + `Persistent=true` 补跑防漏样本),非 cron。v1(`/opt/stock-report`)除 backtest cron 外全退役。
 10. **EOD Prediction 线(实施中,MR-Eval E4) = zz800 seed → 用户 universe 自我迭代**:
@@ -206,7 +206,9 @@ print('✅ import无副作用 + 纯函数验证通过')
    | `var/eval/factor_results.jsonl` | `services.eval_recorder.backfill` | B线结果 | 对 `factor_snapshots` 的逐交易日 T+1/T+2/T+3... 真收益、基准收益、超额回填;策略报告默认只抽取 1/3/5/10/20/30 | append-only;ret/mkt_ret/excess 任一新增 horizon 时追加,读取时按同 key 合并 |
    | `var/eval/layer2_report_<trade_date>.md` | `research.layer2_eval.run_layer2` | B线分析报告 | score 档 × `regime|macro_regime` 分桶的前瞻收益/超额/胜率;不按样本数屏蔽,N 直接展示 | 可重生成覆盖 |
    | `var/eval/factor_weight_review_<trade_date>.md` | `research.factor_weight_review.run_factor_weight_review` | E3人工调权复盘 | 按冻结因子 low/high 桶比较未来超额,输出 evidence_strength/review_action;只给证据不自动改权重 | 可重生成覆盖;采纳须另开 PR |
-   | `var/forecast/forecasts.jsonl` | `services.forecast_recorder.record_forecast` | A线盘中触发预测 | 盘中触发时冻结 codex 结构化预测+T-1基准+lite快照+regime | append-only;触发样本,不可冒充全样本 |
+   | `var/forecast/observation_tasks.jsonl` | `services.forecast_planner.record_observation_tasks` | D线EOD观察任务 | EOD后把 A/B/C evidence_pack 喂 Codex 生成次日观察任务 | append-only;task_id 幂等 |
+   | `var/forecast/current_tasks.json` | `services.forecast_planner.record_observation_tasks` | D线当前任务快照 | 当前目标交易日任务物化,供后续盘中消费者读取 | 可覆盖;由 observation_tasks 重建 |
+   | `var/forecast/forecasts.jsonl` | `services.forecast_recorder.record_forecast` | D线盘中触发评价 | 盘中触发时冻结 codex 结构化预测+T-1基准+lite快照+regime | append-only;触发样本,不可冒充全样本 |
    | `var/prediction/eod_predictions.jsonl` | `services.eod_predictor` | EOD Prediction 输入/动作 | 基于 `baseline_trade_date=T-1` EOD 真数据,预测 `target_trade_date=T` 的动作/方向/置信度 | append-only;同 `(baseline_trade_date,target_trade_date,code,rule_version,generation_mode)` 幂等 |
    | `var/prediction/eod_prediction_results.jsonl` | `services.prediction_evaluator` | EOD Prediction 核验结果 | T+1 EOD 后核验 target 日真实收益、benchmark、excess、方向命中、动作命中、偏离 | append-only;同 `prediction_id+horizon` 幂等 |
    | `var/prediction/prediction_layer2_report_<trade_date>.md` | `research.prediction_eval.run_prediction_layer2` | EOD Prediction 分析报告 | action/direction/confidence × 环境/概念分桶,评估预测动作而非单纯 score;live/replay 分开展示,pending 不进指标,N 直接展示 | 可重生成覆盖 |

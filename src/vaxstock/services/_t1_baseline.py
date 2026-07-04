@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
-"""T-1 EOD 基准读取(C线 forecast 用)。
+"""T-1 EOD 基准读取(D线 forecast 用)。
 
 盘中物理上算不出评分/资金(lite 快照无), 但"昨日定稿"的 EOD 结论可引用。本模块从最新交易日
 EOD 报告(claude.json)取该票的 T-1 定稿基准, 喂给 codex 做"今日行为 vs 昨日 thesis"的假设检验,
-并冻结进 forecast 的 inputs_ref。
+并冻结进 D线 forecast 的 inputs_ref。
 
 锚交易日铁律(§9.1): 目录名 YYYY-MM-DD 解析取最新, 不用 now() 推日期(自动跳过周末/节假日)。
 P0: 找不到目录/code/解析失败 -> None(不抛、不臆造)。只读 claude.json(已含所需字段), 不回退 payload.json。

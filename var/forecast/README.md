@@ -1,26 +1,60 @@
 # var/forecast 目录说明
 
-本目录保存盘中触发预测,也就是 MR-Eval 的 A 线样本。
+本目录保存 **D线: 盘中预测告警/观察层**。
 
-它回答的问题是:
+D线的定位是: 用 A/B/C 已定稿证据生成次日盘中观察任务, 盘中触发后给出客观评价, 最终反哺 C线 EOD Prediction 的因子与规则。
 
 ```text
-盘中某个触发发生时,系统当场怎么看?
+A线 EOD 原始地基数据
+B线 EOD 因子快照 + 真实结果回填
+C线 EOD Prediction
+  -> D线 EOD 观察任务
+  -> D线盘中触发评价
+  -> D线结果回填(后续)
 ```
 
-注意:A 线是触发子集,不是全 universe 样本。全 universe 的无偏样本在 `var/eval`。
+D线不是全 universe 无偏样本, 不能冒充 B线。D线记录的是“被观察/被触发的盘中情境”。
 
 ## 文件作用
 
 | 文件 | 作用 | 来源/写入者 |
 |---|---|---|
-| `forecasts.jsonl` | 盘中触发时冻结的结构化预测,包含 T-1 基准、盘中 lite 快照、regime、Codex 结构化判断等。 | `services.forecast_recorder.record_forecast` |
+| `observation_tasks.jsonl` | EOD 后由 Codex 基于 A/B/C 证据生成的次日观察任务历史, append-only。 | `services.forecast_planner.record_observation_tasks` |
+| `current_tasks.json` | 当前目标交易日可加载的 D线观察任务快照, 由历史任务物化生成。 | `services.forecast_planner.record_observation_tasks` |
+| `forecasts.jsonl` | 盘中触发时冻结的结构化评价,包含 T-1 基准、盘中 lite 快照、regime、Codex 结构化判断等。 | `services.forecast_recorder.record_forecast` |
 
-## 核心字段
+## `observation_tasks.jsonl`
 
-### `forecasts.jsonl`
+每行是一条“次日观察任务”。任务来自 Codex LLM, 但必须通过 schema 校验和触发字段白名单。
 
-每行是一条盘中触发预测。
+核心字段:
+
+| 字段 | 含义 |
+|---|---|
+| `task_id` | 稳定任务 ID: `baseline_trade_date + target_trade_date + code + plan_version`。 |
+| `baseline_trade_date` | 任务依据的 EOD 定稿交易日。 |
+| `target_trade_date` | 任务要观察的盘中交易日。 |
+| `source` | 当前为 `codex_llm`。 |
+| `plan_version` | D线观察计划版本, prompt/schema 升级时应前滚。 |
+| `evidence_pack` | 给 Codex 的抽象上下文,按 A/B/C/D_contract 分层。 |
+| `evidence_pack.A_eod` | A线 EOD 地基证据,如价格、评分、位置、资金、regime。 |
+| `evidence_pack.B_factor_history` | B线近期因子结果回填摘要。 |
+| `evidence_pack.C_prediction` | C线对目标交易日的 action/direction/confidence。 |
+| `evidence_pack.D_contract` | D线允许的触发字段、操作符、触发类型和禁止输出。 |
+| `observation.observe_intent` | 次日盘中要验证什么。 |
+| `observation.trigger_blueprints` | 可机械执行的触发条件 DSL。 |
+| `observation.c_line_feedback_focus` | 触发后重点反馈 C线哪个 action/confidence/factor。 |
+| `observation.falsify_if` | 什么盘中行为会推翻观察计划。 |
+
+## `current_tasks.json`
+
+这是当前任务快照, 方便后续盘中消费者读取。它不是原始事实源, 可由 `observation_tasks.jsonl` 重建。
+
+## `forecasts.jsonl`
+
+每行是一条盘中触发后的结构化评价。
+
+核心字段:
 
 | 字段 | 含义 |
 |---|---|
@@ -34,18 +68,19 @@
 | `inputs_ref.t1_baseline` | 从最新 EOD `claude.json` 读取的该票 T-1 基准。 |
 | `inputs_ref.lite_snapshot` | 盘中 lite 行情快照。 |
 | `inputs_ref.regime` | 当时市场 regime。 |
-| `structured.verdict` | 结构化结论,如确认/否定/观察。 |
+| `structured.verdict` | 结构化结论,如确认/证伪/背离/噪音。 |
 | `structured.direction` | 结构化方向判断。 |
-| `structured.confidence` | 置信度。 |
+| `structured.confidence` | 置信度,是规则/证据强弱,不是统计胜率。 |
 | `structured.horizon` | 判断窗口。 |
 | `structured.thesis_tags` | 支撑 thesis 的标签。 |
 | `structured.falsify_if` | 证伪条件。 |
-| `reasoning` | 模型原始推理/摘要。 |
+| `reasoning` | 模型摘要,已通过盘中铁律校验。 |
 | `falsify_if` | 顶层证伪条件冗余字段,便于快速读取。 |
 
 ## 使用原则
 
-- A 线只记录“盘中触发那一刻”的情境样本。
-- A 线不能冒充 B 线全样本,否则会有幸存者偏差。
-- 回测/复盘时应按 `(trade_date, code)` 和 `var/eval` 的 B 线样本 join,不要混写。
-- 如果缺 T-1 基准或 lite 快照,应标待验证,不要补默认中性值。
+- D线只记录盘中观察和触发情境, 不能混入 B线全样本。
+- Codex 可生成观察逻辑和触发后解释, 但输出必须 JSON schema 化。
+- 缺 A/B/C 证据时标待验证或跳过, 不补默认中性值。
+- 盘中新评分、具体买卖价、臆测资金流向一律禁止。
+- 后续 D线结果回填应新增独立文件, 不修改 `observation_tasks.jsonl` 或 `forecasts.jsonl` 原文。

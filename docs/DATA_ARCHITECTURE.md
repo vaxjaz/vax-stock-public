@@ -245,13 +245,54 @@ Prediction 线验证的是:
 | `prediction_layer2_report_<trade_date>.md` | `research.prediction_eval.run_prediction_layer2` | 按 action/direction/confidence/market/concept 分桶 | 可重生成覆盖 |
 | `rule_suggestions_<trade_date>.md` | `research.rule_suggester.run_rule_suggestions` | 给人工规则升级建议 | 可重生成覆盖 |
 
-## 盘中 A 线: `var/forecast`
+## D 线: `var/forecast`
 
-A 线是盘中触发子集, 不等于全 universe 样本。它回答:
+D 线是盘中预测告警/观察层。它不是全 universe 样本,而是用 A/B/C 已冻结证据生成次日观察任务,盘中触发后形成客观评价,最终反哺 C线。
 
 ```text
-盘中某个触发发生那一刻, 系统拿到了什么输入, 当场如何判断?
+A线 EOD 原始地基数据
+B线 EOD 因子快照 + 真实结果回填
+C线 EOD Prediction
+  -> D线 EOD 观察任务
+  -> D线盘中触发评价
 ```
+
+### `observation_tasks.jsonl`
+
+来源: `services.forecast_planner.record_observation_tasks`
+
+写入时点:
+
+- EOD 流程中, C线 live prediction 生成后。
+- Codex 基于 A/B/C evidence pack 生成次日观察任务,任务通过 schema 与触发字段白名单后写入。
+
+写入规则:
+
+- append-only。
+- `task_id = baseline_trade_date + target_trade_date + code + plan_version` 幂等。
+- LLM 输出非 JSON、字段不在白名单、没有有效触发条件时跳过,不写假任务。
+
+核心字段:
+
+| 字段 | 含义 |
+|---|---|
+| `task_id` | 稳定任务 ID |
+| `baseline_trade_date` | 任务依据的 EOD 定稿交易日 |
+| `target_trade_date` | 次日要观察的交易日 |
+| `source` | 当前为 `codex_llm` |
+| `plan_version` | D线观察计划版本 |
+| `evidence_pack.A_eod` | A线 EOD 地基证据 |
+| `evidence_pack.B_factor_history` | B线近期因子表现摘要 |
+| `evidence_pack.C_prediction` | C线 action/direction/confidence |
+| `evidence_pack.D_contract` | 允许触发字段/操作符/触发类型和禁止输出 |
+| `observation.trigger_blueprints` | 可机械执行的触发条件 DSL |
+| `observation.c_line_feedback_focus` | 触发后应反馈 C线的重点 |
+
+### `current_tasks.json`
+
+来源: `services.forecast_planner.record_observation_tasks`
+
+作用: 物化当前目标交易日任务,方便后续盘中消费者加载。它不是 append-only 原始事实源,可由 `observation_tasks.jsonl` 重建。
 
 ### `forecasts.jsonl`
 
@@ -260,7 +301,7 @@ A 线是盘中触发子集, 不等于全 universe 样本。它回答:
 写入时点:
 
 - `services.intraday.notify` 中, 规则触发后。
-- 已取得 lite 快照、T-1 baseline、market ctx、Codex 结构化研判后写入。
+- 已取得 lite 快照、T-1 baseline、market ctx、Codex 结构化评价后写入。
 
 写入规则:
 
@@ -291,6 +332,7 @@ A 线是盘中触发子集, 不等于全 universe 样本。它回答:
 
 当前缺口:
 
+- 盘中消费者尚未读取 `current_tasks.json` 执行 D线触发 DSL。
 - 还没有 `forecast_results.jsonl`。
 - 还没有盘中演变记忆的独立状态文件。
 - 还没有主动盘面体检的落盘 schema。
@@ -335,18 +377,21 @@ turnover_history.parquet
 | `regime_audit.jsonl` | 否 | 是 | 同交易日幂等 |
 | `eod_predictions.jsonl` | 否 | 是 | `prediction_id` 幂等 |
 | `eod_prediction_results.jsonl` | 否 | 是 | `(prediction_id, horizon)` 幂等 |
+| `observation_tasks.jsonl` | 否 | 是 | D线任务历史,按 `task_id` 幂等 |
+| `current_tasks.json` | 是 | 否 | D线当前任务快照,可由历史任务重建 |
 | `forecasts.jsonl` | 否 | 是 | 同日同票多触发是正常事件 |
 | `layer2/factor/prediction/rule *.md` | 是 | 否 | 报告可重生成, 不是原始事实源 |
 
 ## 下一步盘中数据层施工原则
 
-盘中数据层应保持三条线清楚分离:
+盘中数据层应保持四条线清楚分离:
 
 | 数据线 | 当前位置 | 代表含义 |
 |---|---|---|
+| A 线 | `var/reports` | EOD 原始地基数据 |
 | B 线 | `var/eval` | 全 universe 无偏 EOD 因子样本 |
-| EOD Prediction | `var/prediction` | 基于 T-1/EOD 定稿数据预测 T 日动作 |
-| A 线 | `var/forecast` | 盘中触发那一刻的输入和判断 |
+| C 线 | `var/prediction` | 基于 T-1/EOD 定稿数据预测 T 日动作 |
+| D 线 | `var/forecast` | 盘中观察任务、触发评价与后续回填 |
 
 进入下一步时建议先定义:
 

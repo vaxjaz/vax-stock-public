@@ -26,6 +26,7 @@ from vaxstock.report.store import store_report
 from vaxstock.services.collect import collect_payload
 from vaxstock.services.eval_recorder import record_and_backfill
 from vaxstock.services.eod_predictor import predictions_from_payload, record_predictions
+from vaxstock.services.forecast_planner import generate_observation_tasks, record_observation_tasks
 from vaxstock.services.prediction_evaluator import evaluate_from_files
 from vaxstock.sources.tushare_src import TushareSource
 
@@ -57,7 +58,8 @@ def run_eod() -> Dict[str, str]:
 
     # MR-Eval E4: 先核验已有 predictions,再基于本次 EOD 定稿 payload 生成下一交易日 live predictions。
     # 失败仅 warning,不影响报告三件套落盘/邮件/E1。
-    _run_eod_prediction(payload, source)
+    prediction_run = _run_eod_prediction(payload, source)
+    _run_d_observation_tasks(payload, prediction_run)
     prediction_summary = _build_prediction_summary(payload)
 
     logger.info("[4/7] 压缩为 claude_data + 注入 prediction_summary + 渲染 markdown...")
@@ -187,7 +189,7 @@ def _next_trade_date(source, baseline_trade_date, lookahead_days: int = 15) -> O
     return None
 
 
-def _run_eod_prediction(payload: Dict[str, Any], source) -> None:
+def _run_eod_prediction(payload: Dict[str, Any], source) -> Optional[Dict[str, Any]]:
     """E4 接入 EOD: 先核验已有 prediction, 再冻结下一交易日 live prediction。"""
     try:
         stats = evaluate_from_files()
@@ -199,16 +201,51 @@ def _run_eod_prediction(payload: Dict[str, Any], source) -> None:
         baseline = (payload.get("market_overview") or {}).get("trade_date")
         if not baseline:
             logger.warning("EOD Prediction: payload 无 trade_date, 跳过 live prediction(不臆造日期)")
-            return
+            return None
         target = _next_trade_date(source, baseline)
         if not target:
-            return
+            return None
         preds = predictions_from_payload(payload, target, generation_mode="live")
         stats = record_predictions(preds)
         logger.info(f"EOD Prediction live: target={target} 生成 {len(preds)} 条 / 写入 {stats['written']} 条 / 跳过 {stats['skipped']} 条")
+        return {
+            "baseline_trade_date": str(baseline),
+            "target_trade_date": str(target),
+            "predictions": preds,
+            "stats": stats,
+        }
     except Exception as e:
         logger.warning(f"EOD Prediction live 生成失败(不影响EOD): {str(e)[:120]}")
+        return None
 
+def _run_d_observation_tasks(payload: Dict[str, Any], prediction_run: Optional[Dict[str, Any]]) -> None:
+    """D线: 基于 A/B/C 证据生成次日盘中观察任务。
+
+    失败仅 warning, 不影响 EOD 报告、邮件和 C线 prediction。D线任务会写入
+    var/forecast/observation_tasks.jsonl,并物化 current_tasks.json 供盘中消费者后续读取。
+    """
+    if not prediction_run or not prediction_run.get("target_trade_date"):
+        logger.info("D线观察任务: 缺 target_trade_date, 跳过")
+        return
+    try:
+        tasks = generate_observation_tasks(
+            payload,
+            prediction_run["target_trade_date"],
+            c_predictions=prediction_run.get("predictions") or [],
+        )
+        if not tasks:
+            logger.warning("D线观察任务: 未生成有效任务")
+            return
+        stats = record_observation_tasks(tasks)
+        logger.info(
+            "D线观察任务: target=%s 生成 %s 条 / 写入 %s 条 / 跳过 %s 条",
+            prediction_run["target_trade_date"],
+            len(tasks),
+            stats["written"],
+            stats["skipped"],
+        )
+    except Exception as e:
+        logger.warning(f"D线观察任务生成失败(不影响EOD): {str(e)[:120]}")
 
 def _maybe_send_email(body: str, attachments) -> None:
     """邮件门控: SECRETS 凭据齐才发; SECRETS 键 → send_email 的 smtp_conf 键适配(发信固定 QQ)。
