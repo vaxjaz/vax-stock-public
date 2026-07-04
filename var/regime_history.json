@@ -24,7 +24,11 @@
     {
       "trade_date": "20260702",
       "raw": "value"
+    },
+    {
+      "trade_date": "20260703",
+      "raw": "momentum"
     }
   ],
-  "last_updated": "2026-07-03T09:34:02.349104"
+  "last_updated": "2026-07-04T05:00:05.889210"
 }
