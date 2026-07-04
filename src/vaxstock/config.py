@@ -47,6 +47,7 @@ _ENV_OVERRIDES: Dict[str, str] = {
     "codex_token": "CODEX_TOKEN",
     "codex_url": "CODEX_URL",
     "codex_model": "CODEX_MODEL",
+    "codex_timeout": "CODEX_TIMEOUT",
     "email_enabled": "EMAIL_ENABLED",
     "email_user": "EMAIL_USER",
     "email_authcode": "EMAIL_AUTHCODE",
@@ -60,7 +61,7 @@ _ENV_OVERRIDES: Dict[str, str] = {
 
 # 需要类型转换的字段(来自环境变量的值恒为字符串)
 _BOOL_FIELDS = {"email_enabled", "auto_concept_sync"}
-_INT_FIELDS = {"cleanup_keep_days"}
+_INT_FIELDS = {"cleanup_keep_days", "codex_timeout"}
 _FLOAT_FIELDS = {"yield_10y_pct"}
 
 
@@ -105,6 +106,7 @@ def _load_secrets() -> Dict[str, Any]:
         "codex_token": None,
         "codex_url": None,
         "codex_model": None,
+        "codex_timeout": 30,
     }
 
     # 第一步: secrets.json 兜底
