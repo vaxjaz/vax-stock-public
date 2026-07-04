@@ -27,6 +27,8 @@ logger = logging.getLogger(__name__)
 FORECAST_DIR = config.STATE_DIR / "forecast"
 OBSERVATION_TASKS_FILE = FORECAST_DIR / "observation_tasks.jsonl"
 CURRENT_TASKS_FILE = FORECAST_DIR / "current_tasks.json"
+OBSERVATION_JOBS_FILE = FORECAST_DIR / "observation_jobs.jsonl"
+CURRENT_OBSERVATION_JOB_FILE = FORECAST_DIR / "current_job.json"
 PLAN_PROMPT_FILE = config.PROJECT_ROOT / "deploy" / "d_observation_plan_prompt.md"
 
 SCHEMA_VERSION = 1
@@ -85,6 +87,18 @@ def _read_jsonl(path) -> List[dict]:
             except Exception:
                 logger.warning(f"D line jsonl 行解析失败,跳过: {line[:80]}")
     return rows
+
+
+def _read_json(path) -> Optional[dict]:
+    p = Path(path)
+    if not p.exists():
+        return None
+    try:
+        obj = json.loads(p.read_text(encoding="utf-8"))
+        return obj if isinstance(obj, dict) else None
+    except Exception as e:
+        logger.warning(f"D line json parse failed, skip: {p} {str(e)[:80]}")
+        return None
 
 
 def _append_jsonl(path, row) -> None:
@@ -217,9 +231,56 @@ def _load_prompt() -> str:
         )
 
 
+def _codex_plan_runtime_config(secrets: Dict[str, Any]) -> Dict[str, Any]:
+    """Resolve D-line Codex runtime config, falling back to shared Codex config."""
+    timeout = secrets.get("codex_dline_timeout")
+    if timeout is None:
+        timeout = secrets.get("codex_timeout", 30)
+    try:
+        timeout = int(timeout)
+    except (TypeError, ValueError):
+        timeout = 30
+    return {
+        "url": secrets.get("codex_url"),
+        "model": secrets.get("codex_dline_model") or secrets.get("codex_model"),
+        "token": secrets.get("codex_token"),
+        "timeout": timeout,
+    }
+
+
+def _stock_code(item: Dict[str, Any]) -> str:
+    return str((item or {}).get("code") or "").strip()
+
+
+def select_observation_task_codes(payload: Dict[str, Any], task_pool: Optional[Dict[str, Dict[str, Any]]] = None) -> List[str]:
+    """Return D-line task codes = holdings in payload + active task_pool entries.
+
+    The wide watchlist remains the A/B/C data foundation.  D-line LLM planning
+    consumes only this smaller target pool, and holdings always enter even when
+    they are not present in watchlist/task_pool config.
+    """
+    pool = task_pool if task_pool is not None else config.load_task_pool()
+    task_codes = {str(code).strip() for code, info in (pool or {}).items() if str(code).strip() and (info or {}).get("active") is not False}
+    holding_codes = {
+        _stock_code(item)
+        for item in (payload or {}).get("stocks") or []
+        if isinstance(item, dict) and item.get("group") == "holding" and _stock_code(item)
+    }
+    wanted = holding_codes | task_codes
+    ordered = []
+    seen = set()
+    for item in (payload or {}).get("stocks") or []:
+        code = _stock_code(item) if isinstance(item, dict) else ""
+        if code and code in wanted and code not in seen:
+            ordered.append(code)
+            seen.add(code)
+    return ordered
+
+
 def build_observation_evidence(payload: Dict[str, Any], target_trade_date: str, *,
                                c_predictions: Optional[Iterable[Dict[str, Any]]] = None,
                                factor_results: Optional[Iterable[Dict[str, Any]]] = None,
+                               task_codes: Optional[Iterable[str]] = None,
                                generated_at: Optional[str] = None) -> List[Dict[str, Any]]:
     """Build per-stock D-line evidence packs from A/B/C data.
 
@@ -236,6 +297,7 @@ def build_observation_evidence(payload: Dict[str, Any], target_trade_date: str, 
     factor_idx = _factor_history_index(factor_results if factor_results is not None else _load_factor_results())
     market = _compact_market(payload)
     ts = generated_at or _now_iso()
+    task_code_set = {str(c).strip() for c in task_codes or [] if str(c).strip()} if task_codes is not None else None
     evidences: List[Dict[str, Any]] = []
 
     for item in (payload or {}).get("stocks") or []:
@@ -243,6 +305,8 @@ def build_observation_evidence(payload: Dict[str, Any], target_trade_date: str, 
             continue
         code = str(item.get("code") or "").strip()
         if not code:
+            continue
+        if task_code_set is not None and code not in task_code_set:
             continue
         rt = item.get("realtime") or {}
         metrics = item.get("metrics") or {}
@@ -412,7 +476,8 @@ def task_from_llm_plan(evidence: Dict[str, Any], llm_plan: Dict[str, Any], *,
 
 def _call_codex_for_plan(evidence: Dict[str, Any]) -> Optional[str]:
     s = config.SECRETS
-    if not (s.get("codex_enabled", True) and s.get("codex_url") and s.get("codex_model") and s.get("codex_token")):
+    runtime = _codex_plan_runtime_config(s)
+    if not (s.get("codex_enabled", True) and runtime.get("url") and runtime.get("model") and runtime.get("token")):
         logger.warning("D线观察计划: Codex 配置缺失,跳过 LLM 任务生成")
         return None
     from vaxstock.sources.codex import call_codex
@@ -424,16 +489,17 @@ def _call_codex_for_plan(evidence: Dict[str, Any]) -> Optional[str]:
     return call_codex(
         _load_prompt(),
         user_msg,
-        url=s.get("codex_url"),
-        model=s.get("codex_model"),
-        token=s.get("codex_token"),
-        timeout=int(s.get("codex_timeout", 30)),
+        url=runtime["url"],
+        model=runtime["model"],
+        token=runtime["token"],
+        timeout=runtime["timeout"],
     )
 
 
 def generate_observation_tasks(payload: Dict[str, Any], target_trade_date: str, *,
                                c_predictions: Optional[Iterable[Dict[str, Any]]] = None,
                                factor_results: Optional[Iterable[Dict[str, Any]]] = None,
+                               task_codes: Optional[Iterable[str]] = None,
                                planner_func: Optional[Callable[[Dict[str, Any]], Any]] = None,
                                plan_version: str = DEFAULT_PLAN_VERSION,
                                generated_at: Optional[str] = None) -> List[Dict[str, Any]]:
@@ -447,6 +513,7 @@ def generate_observation_tasks(payload: Dict[str, Any], target_trade_date: str, 
         target_trade_date,
         c_predictions=c_predictions,
         factor_results=factor_results,
+        task_codes=task_codes,
         generated_at=generated_at,
     )
     tasks = []
@@ -462,6 +529,84 @@ def generate_observation_tasks(payload: Dict[str, Any], target_trade_date: str, 
         else:
             logger.warning("D线观察计划: LLM schema 校验失败,跳过 %s", (evidence.get("stock") or {}).get("code"))
     return tasks
+
+
+def make_observation_job_id(baseline_trade_date: str, target_trade_date: str,
+                            plan_version: str = DEFAULT_PLAN_VERSION) -> str:
+    return "_".join([str(baseline_trade_date), str(target_trade_date), str(plan_version), "job"])
+
+
+def enqueue_observation_job(payload_path, target_trade_date: str, *,
+                            c_predictions: Optional[Iterable[Dict[str, Any]]] = None,
+                            baseline_trade_date: Optional[str] = None,
+                            plan_version: str = DEFAULT_PLAN_VERSION,
+                            job_path=None,
+                            current_job_path=None) -> Dict[str, Any]:
+    """Queue D-line observation planning without calling Codex synchronously."""
+    baseline = str(baseline_trade_date or "").strip()
+    target = str(target_trade_date or "").strip()
+    if not (baseline and target and payload_path):
+        return {"queued": 0, "skipped": 1, "reason": "missing_job_fields"}
+    job = {
+        "schema_version": SCHEMA_VERSION,
+        "job_id": make_observation_job_id(baseline, target, plan_version=plan_version),
+        "line": "D",
+        "status": "queued",
+        "created_at": _now_iso(),
+        "plan_version": plan_version,
+        "baseline_trade_date": baseline,
+        "target_trade_date": target,
+        "payload_path": str(payload_path),
+        "c_predictions": list(c_predictions or []),
+    }
+    hist = Path(job_path or OBSERVATION_JOBS_FILE)
+    current = Path(current_job_path or CURRENT_OBSERVATION_JOB_FILE)
+    existing = {r.get("job_id") for r in _read_jsonl(hist)}
+    queued = 0
+    skipped = 0
+    if job["job_id"] in existing:
+        skipped = 1
+    else:
+        _append_jsonl(hist, job)
+        queued = 1
+    _write_json(current, job)
+    return {"queued": queued, "skipped": skipped, "job_id": job["job_id"], "current": str(current)}
+
+
+def run_observation_job(job: Optional[Dict[str, Any]] = None, *,
+                        planner_func: Optional[Callable[[Dict[str, Any]], Any]] = None,
+                        job_path=None,
+                        current_job_path=None,
+                        history_path=None,
+                        current_tasks_path=None) -> Dict[str, Any]:
+    """Consume the current D-line planning job and generate observation tasks."""
+    current = Path(current_job_path or CURRENT_OBSERVATION_JOB_FILE)
+    job = job or _read_json(current)
+    if not job:
+        logger.info("D线观察任务: 无待处理 job")
+        return {"status": "no_job", "generated": 0, "written": 0, "skipped": 0}
+    payload_path = job.get("payload_path")
+    payload = _read_json(payload_path) if payload_path else None
+    if not payload:
+        logger.warning("D线观察任务: job payload 不可读,跳过: %s", payload_path)
+        return {"status": "missing_payload", "generated": 0, "written": 0, "skipped": 0}
+    task_codes = select_observation_task_codes(payload)
+    tasks = generate_observation_tasks(
+        payload,
+        job.get("target_trade_date"),
+        c_predictions=job.get("c_predictions") or [],
+        task_codes=task_codes,
+        planner_func=planner_func,
+        plan_version=job.get("plan_version") or DEFAULT_PLAN_VERSION,
+    )
+    stats = record_observation_tasks(tasks, history_path=history_path, current_path=current_tasks_path)
+    done = dict(job)
+    done["status"] = "done"
+    done["finished_at"] = _now_iso()
+    done["task_codes"] = task_codes
+    done["stats"] = {"generated": len(tasks), **stats}
+    _write_json(current, done)
+    return {"status": "done", "generated": len(tasks), **stats, "task_codes": len(task_codes)}
 
 
 def record_observation_tasks(tasks: Iterable[Dict[str, Any]], *,

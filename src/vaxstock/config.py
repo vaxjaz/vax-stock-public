@@ -48,6 +48,8 @@ _ENV_OVERRIDES: Dict[str, str] = {
     "codex_url": "CODEX_URL",
     "codex_model": "CODEX_MODEL",
     "codex_timeout": "CODEX_TIMEOUT",
+    "codex_dline_model": "CODEX_DLINE_MODEL",
+    "codex_dline_timeout": "CODEX_DLINE_TIMEOUT",
     "email_enabled": "EMAIL_ENABLED",
     "email_user": "EMAIL_USER",
     "email_authcode": "EMAIL_AUTHCODE",
@@ -61,7 +63,7 @@ _ENV_OVERRIDES: Dict[str, str] = {
 
 # 需要类型转换的字段(来自环境变量的值恒为字符串)
 _BOOL_FIELDS = {"email_enabled", "auto_concept_sync"}
-_INT_FIELDS = {"cleanup_keep_days", "codex_timeout"}
+_INT_FIELDS = {"cleanup_keep_days", "codex_timeout", "codex_dline_timeout"}
 _FLOAT_FIELDS = {"yield_10y_pct"}
 
 
@@ -107,6 +109,8 @@ def _load_secrets() -> Dict[str, Any]:
         "codex_url": None,
         "codex_model": None,
         "codex_timeout": 30,
+        "codex_dline_model": None,
+        "codex_dline_timeout": None,
     }
 
     # 第一步: secrets.json 兜底
@@ -202,11 +206,10 @@ def load_watchlist() -> Tuple[Dict[str, str], Dict[str, List[str]]]:
 
 
 def load_holdings() -> Dict[str, Dict[str, Any]]:
-    """从 CONFIG_DIR/holdings.json 加载持仓真相(可选)。
+    """从 CONFIG_DIR/holdings.json 加载独立持仓池。
 
     返回 {code: {"name", "cost", "shares", "concepts"}}; 文件缺失/损坏 -> {}。
-    注: holdings.json 在 v2 架构下标注"VPS不读"(持仓真相由 Claude 端维护);
-        此处做成可选加载——缺失即空持仓, 兼容 VPS 仅观察池的形态。
+    holdings 与 watchlist 解耦:D线任务池会强制纳入 holdings,不要求持仓重复写入 watchlist。
     """
     path = CONFIG_DIR / "holdings.json"
     if not path.exists():
@@ -217,4 +220,28 @@ def load_holdings() -> Dict[str, Dict[str, Any]]:
         return {code: (info or {}) for code, info in (cfg.get("holdings") or {}).items()}
     except Exception as e:
         logger.warning(f"holdings.json 解析失败,返回空持仓: {str(e)[:80]}")
+        return {}
+
+
+def load_task_pool() -> Dict[str, Dict[str, Any]]:
+    """从 CONFIG_DIR/task_pool.json 加载 D线任务候选池。
+
+    返回 active 的 {code: info}; 文件缺失/损坏 -> {}。
+    这里只表示从宽 watchlist 中抽出的 D线 LLM 候选;真实持仓由 load_holdings() 另行强制并入。
+    """
+    path = CONFIG_DIR / "task_pool.json"
+    if not path.exists():
+        return {}
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            cfg = json.load(f)
+        out: Dict[str, Dict[str, Any]] = {}
+        for code, info in (cfg.get("task_pool") or {}).items():
+            info = info or {}
+            if info.get("active") is False:
+                continue
+            out[code] = info
+        return out
+    except Exception as e:
+        logger.warning(f"task_pool.json 解析失败,返回空任务池: {str(e)[:80]}")
         return {}

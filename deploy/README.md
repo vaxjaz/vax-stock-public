@@ -8,6 +8,7 @@ v2 一刀切顶替 v1(不并存)。本目录是三服务的 systemd 模板,env �
 | API | `stock-api.service` | `python -m vaxstock.services.api` | FastAPI/Uvicorn,端口读 `API_PORT`(缺省80) |
 | 盘中盯盘 | `intraday-watch.service` | `python -m vaxstock.services.intraday` | 长驻,触发推送 |
 | EOD | `vaxstock-eod.service` + `.timer` | `python -m vaxstock.services.eod` | oneshot,次日凌晨05:00 由 timer 拉起 |
+| D线观察任务 | `vaxstock-dline-plan.service` | `python -m vaxstock.services.dline_plan` | EOD 成功后 `--no-block` 异步启动,消费 `var/forecast/current_job.json` |
 
 > v2 入口已验:api(内部 uvicorn,`API_PORT` 缺省80)/ intraday(`[--once][--force]`)/ eod(oneshot,退出码 0/1)。
 

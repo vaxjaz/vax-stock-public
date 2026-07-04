@@ -1,8 +1,8 @@
 {
-  "_说明": "持仓真相 SSOT。仅在本地维护,通过截图驱动更新。VPS不读此文件。",
+  "_说明": "持仓池 SSOT。EOD/D线均读取,与 watchlist 观察池解耦;持仓必定进入 D线 task pool。",
   "_格式": "code -> {name, cost, shares, concepts}",
   "_最后更新": "2026-07-04",
-  "_更新方式": "用户上传券商持仓截图 → Claude生成新版 → 用户替换本文件 → 重新上传Claude project",
+  "_更新方式": "用户上传券商持仓截图 → Codex/Claude 生成新版 → 代码审阅后落盘",
   "holdings": {
     "601138": {
       "name": "工业富联",

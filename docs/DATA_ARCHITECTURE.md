@@ -250,49 +250,65 @@ Prediction 线验证的是:
 D 线是盘中预测告警/观察层。它不是全 universe 样本,而是用 A/B/C 已冻结证据生成次日观察任务,盘中触发后形成客观评价,最终反哺 C线。
 
 ```text
-A线 EOD 原始地基数据
-B线 EOD 因子快照 + 真实结果回填
-C线 EOD Prediction
-  -> D线 EOD 观察任务
-  -> D线盘中触发评价
+A-line EOD raw foundation
+B-line EOD factor snapshots + daily real-return backfill
+C-line EOD Prediction
+  -> D-line EOD job enqueue (current_job)
+  -> D-line async worker generates observation tasks
+  -> D-line intraday trigger evaluation
 ```
+
+### `observation_jobs.jsonl` / `current_job.json`
+
+Source: `services.forecast_planner.enqueue_observation_job`
+
+Write timing:
+
+- During EOD, after C-line live predictions and report payload are written.
+- It only queues a local job. It does not call Codex and must not block report/email delivery.
+
+Purpose:
+
+- `observation_jobs.jsonl` is append-only job history.
+- `current_job.json` points to the latest job consumed by `vaxstock-dline-plan.service`.
 
 ### `observation_tasks.jsonl`
 
-来源: `services.forecast_planner.record_observation_tasks`
+Source: `services.forecast_planner.record_observation_tasks`
 
-写入时点:
+Write timing:
 
-- EOD 流程中, C线 live prediction 生成后。
-- Codex 基于 A/B/C evidence pack 生成次日观察任务,任务通过 schema 与触发字段白名单后写入。
+- After `vaxstock-dline-plan.service` consumes `current_job.json`.
+- Codex receives the A/B/C evidence pack and returns next-session observation tasks.
+- D-line candidates are not the full watchlist. They are holdings from `holdings.json` plus active candidates from `task_pool.json`.
 
-写入规则:
+Write rules:
 
-- append-only。
-- `task_id = baseline_trade_date + target_trade_date + code + plan_version` 幂等。
-- LLM 输出非 JSON、字段不在白名单、没有有效触发条件时跳过,不写假任务。
+- append-only.
+- `task_id = baseline_trade_date + target_trade_date + code + plan_version`.
+- Non-JSON LLM output, non-whitelisted trigger fields, or plans without valid triggers are skipped.
 
-核心字段:
+Core fields:
 
-| 字段 | 含义 |
+| Field | Meaning |
 |---|---|
-| `task_id` | 稳定任务 ID |
-| `baseline_trade_date` | 任务依据的 EOD 定稿交易日 |
-| `target_trade_date` | 次日要观察的交易日 |
-| `source` | 当前为 `codex_llm` |
-| `plan_version` | D线观察计划版本 |
-| `evidence_pack.A_eod` | A线 EOD 地基证据 |
-| `evidence_pack.B_factor_history` | B线近期因子表现摘要 |
-| `evidence_pack.C_prediction` | C线 action/direction/confidence |
-| `evidence_pack.D_contract` | 允许触发字段/操作符/触发类型和禁止输出 |
-| `observation.trigger_blueprints` | 可机械执行的触发条件 DSL |
-| `observation.c_line_feedback_focus` | 触发后应反馈 C线的重点 |
+| `task_id` | Stable task id |
+| `baseline_trade_date` | EOD trade date used as evidence baseline |
+| `target_trade_date` | Intraday session to observe |
+| `source` | Currently `codex_llm` |
+| `plan_version` | D-line observation plan version |
+| `evidence_pack.A_eod` | A-line EOD evidence |
+| `evidence_pack.B_factor_history` | Recent B-line factor result summary |
+| `evidence_pack.C_prediction` | C-line action/direction/confidence |
+| `evidence_pack.D_contract` | Allowed trigger fields/operators/types and forbidden outputs |
+| `observation.trigger_blueprints` | Mechanically executable trigger DSL |
+| `observation.c_line_feedback_focus` | What this task should feed back to C-line |
 
 ### `current_tasks.json`
 
-来源: `services.forecast_planner.record_observation_tasks`
+Source: `services.forecast_planner.record_observation_tasks`
 
-作用: 物化当前目标交易日任务,方便后续盘中消费者加载。它不是 append-only 原始事实源,可由 `observation_tasks.jsonl` 重建。
+Purpose: materialized active tasks for the target session. It is not append-only and can be rebuilt from `observation_tasks.jsonl`.
 
 ### `forecasts.jsonl`
 
@@ -342,8 +358,9 @@ C线 EOD Prediction
 
 | 文件 | 来源/写入者 | 作用 |
 |---|---|---|
-| `script/config/watchlist.json` | 人工/API/CLI | 观察池和 concepts |
-| `script/config/holdings.json` | 本地可选 | 持仓真相, VPS 可为空 |
+| `script/config/watchlist.json` | manual/API/CLI | Wide observation pool and concepts; A/B/C data foundation, not D-line task pool |
+| `script/config/holdings.json` | manual / broker screenshot | Independent real holdings pool; always included in D-line task candidates |
+| `script/config/task_pool.json` | manual / code review | D-line LLM task candidate pool; active subset selected from the wide observation pool |
 | `var/watch_rules.json` | API watch 端点或手工配置 | 盘中盯盘规则, `WATCH_RULES_FILE` 可覆盖 |
 | `var/pool_audit.jsonl` | `services.pool_admin` | 观察池增删改审计 |
 | `var/regime_history.json` | `indicators.regime` | market regime 平滑历史 |

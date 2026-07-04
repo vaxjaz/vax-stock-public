@@ -45,7 +45,7 @@ _PATHS = {"payload": "/r/2026-06-25/payload.json",
 _SEAMS = ["TushareSource", "collect_payload", "compact_for_claude",
           "build_claude_markdown", "build_email_digest", "store_report", "send_email",
           "record_and_backfill", "evaluate_from_files", "predictions_from_payload",
-          "record_predictions", "generate_observation_tasks", "record_observation_tasks",
+          "record_predictions", "enqueue_observation_job",
           "_next_trade_date"]
 
 
@@ -172,21 +172,16 @@ def _install_spies(secrets=None, payload=None, next_trade_date="20260626"):
         return {"written": 1, "skipped": 0}
     eod_mod.record_predictions = _record
 
-    def _d_tasks(payload, target_trade_date, c_predictions=None, **kwargs):
-        rec["order"].append("d_plan")
-        rec["d_plan_call"] = {
-            "payload": payload,
+    def _enqueue(payload_path, target_trade_date, c_predictions=None, baseline_trade_date=None, **kwargs):
+        rec["order"].append("d_enqueue")
+        rec["d_enqueue_call"] = {
+            "payload_path": payload_path,
             "target_trade_date": target_trade_date,
             "c_predictions": list(c_predictions or []),
+            "baseline_trade_date": baseline_trade_date,
         }
-        return [{"task_id": "d1", "target_trade_date": target_trade_date}]
-    eod_mod.generate_observation_tasks = _d_tasks
-
-    def _record_d(tasks):
-        rec["order"].append("d_record")
-        rec["record_d_call"] = list(tasks)
-        return {"written": 1, "skipped": 0, "current": len(rec["record_d_call"])}
-    eod_mod.record_observation_tasks = _record_d
+        return {"queued": 1, "skipped": 0, "job_id": "j1"}
+    eod_mod.enqueue_observation_job = _enqueue
 
     if secrets is not None:
         config.SECRETS = secrets
@@ -255,11 +250,12 @@ def test_eod_orchestration_and_passthrough():
         assert rec["preds_call"] == {"payload": _PAYLOAD, "target_trade_date": "20260626",
                                       "generation_mode": "live"}
         assert rec["record_predictions_call"] == [{"prediction_id": "p1"}]
-        assert rec["d_plan_call"] == {"payload": _PAYLOAD, "target_trade_date": "20260626",
-                                      "c_predictions": [{"prediction_id": "p1"}]}
-        assert rec["record_d_call"] == [{"task_id": "d1", "target_trade_date": "20260626"}]
+        assert rec["d_enqueue_call"] == {"payload_path": _PATHS["payload"],
+                                         "target_trade_date": "20260626",
+                                         "c_predictions": [{"prediction_id": "p1"}],
+                                         "baseline_trade_date": "20260625"}
         assert rec["order"] == ["regime_audit", "e1", "pred_eval", "next_trade", "pred_live",
-                                "pred_record", "d_plan", "d_record", "pred_summary", "store",
+                                "pred_record", "pred_summary", "store", "d_enqueue",
                                 "layer2", "factor_weight_review", "prediction_layer2", "rule_suggestions"]
         # Layer2(E2): E4 后被调(顺带分析)
         assert rec.get("layer2_called") is True
@@ -280,7 +276,7 @@ def test_eod_prediction_skips_live_without_trade_date():
         assert "next_trade" not in rec["order"]
         assert "pred_live" not in rec["order"]
         assert "pred_record" not in rec["order"]
-        assert "d_plan" not in rec["order"]
+        assert "d_enqueue" not in rec["order"]
     finally:
         restore()
 
@@ -293,7 +289,7 @@ def test_eod_prediction_skips_live_without_next_trade_date():
         assert "next_trade" in rec["order"]
         assert "pred_live" not in rec["order"]
         assert "pred_record" not in rec["order"]
-        assert "d_plan" not in rec["order"]
+        assert "d_enqueue" not in rec["order"]
     finally:
         restore()
 

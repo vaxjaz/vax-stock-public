@@ -104,6 +104,123 @@ def _rows(path):
     return [json.loads(line) for line in pathlib.Path(path).read_text(encoding="utf-8").splitlines() if line.strip()]
 
 
+def _payload_with_watchlist():
+    payload = _payload()
+    payload["stocks"] = list(payload["stocks"]) + [
+        {
+            "group": "watchlist",
+            "code": "002371",
+            "configured_name": "WatchA",
+            "concepts": ["semi", "ai"],
+            "realtime": {"name": "WatchA", "price": 500.0},
+            "metrics": {"right_side_score": 2.5, "price_vs_ma20_pct": 3.2},
+        },
+        {
+            "group": "watchlist",
+            "code": "600522",
+            "configured_name": "WatchB",
+            "concepts": ["ai", "optical"],
+            "realtime": {"name": "WatchB", "price": 18.0},
+            "metrics": {"right_side_score": 1.0},
+        },
+    ]
+    return payload
+
+
+def test_select_observation_task_codes_merges_holdings_and_task_pool():
+    codes = fp.select_observation_task_codes(
+        _payload_with_watchlist(),
+        task_pool={
+            "002371": {"active": True},
+            "600522": {"active": False},
+        },
+    )
+    assert codes == ["002475", "002371"]
+
+
+def test_generate_observation_tasks_filters_to_task_codes():
+    tasks = fp.generate_observation_tasks(
+        _payload_with_watchlist(),
+        "20260706",
+        c_predictions=[_c_prediction()],
+        factor_results=_factor_results(),
+        task_codes=["002371"],
+        planner_func=lambda evidence: _plan(),
+        generated_at="2026-07-04T05:00:00",
+    )
+    assert len(tasks) == 1
+    assert tasks[0]["code"] == "002371"
+
+
+def test_enqueue_and_run_observation_job_consumes_current_job():
+    d = tempfile.mkdtemp(prefix="vax_dline_job_")
+    try:
+        payload_path = pathlib.Path(d) / "payload.json"
+        jobs = pathlib.Path(d) / "observation_jobs.jsonl"
+        current_job = pathlib.Path(d) / "current_job.json"
+        task_hist = pathlib.Path(d) / "observation_tasks.jsonl"
+        current_tasks = pathlib.Path(d) / "current_tasks.json"
+        payload_path.write_text(json.dumps(_payload(), ensure_ascii=False), encoding="utf-8")
+
+        queued = fp.enqueue_observation_job(
+            payload_path,
+            "20260706",
+            c_predictions=[_c_prediction()],
+            baseline_trade_date="20260703",
+            job_path=jobs,
+            current_job_path=current_job,
+        )
+        assert queued["queued"] == 1
+        queued2 = fp.enqueue_observation_job(
+            payload_path,
+            "20260706",
+            c_predictions=[_c_prediction()],
+            baseline_trade_date="20260703",
+            job_path=jobs,
+            current_job_path=current_job,
+        )
+        assert queued2["skipped"] == 1
+
+        stats = fp.run_observation_job(
+            planner_func=lambda evidence: _plan(),
+            current_job_path=current_job,
+            history_path=task_hist,
+            current_tasks_path=current_tasks,
+        )
+        assert stats["status"] == "done"
+        assert stats["generated"] == 1
+        assert stats["written"] == 1
+        cur = json.loads(current_job.read_text(encoding="utf-8"))
+        assert cur["status"] == "done"
+        assert cur["task_codes"] == ["002475"]
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+
+
+def test_codex_plan_runtime_config_uses_dline_overrides():
+    runtime = fp._codex_plan_runtime_config({
+        "codex_url": "http://127.0.0.1:8317/v1/chat/completions",
+        "codex_model": "gpt-5.5",
+        "codex_timeout": 30,
+        "codex_dline_model": "gpt-5.4-mini",
+        "codex_dline_timeout": 90,
+        "codex_token": "token",
+    })
+    assert runtime["model"] == "gpt-5.4-mini"
+    assert runtime["timeout"] == 90
+
+
+def test_codex_plan_runtime_config_falls_back_to_shared_config():
+    runtime = fp._codex_plan_runtime_config({
+        "codex_url": "http://127.0.0.1:8317/v1/chat/completions",
+        "codex_model": "gpt-5.5",
+        "codex_timeout": 30,
+        "codex_token": "token",
+    })
+    assert runtime["model"] == "gpt-5.5"
+    assert runtime["timeout"] == 30
+
+
 def test_build_observation_evidence_includes_abc_contract():
     evs = fp.build_observation_evidence(
         _payload(),

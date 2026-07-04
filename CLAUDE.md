@@ -206,6 +206,8 @@ print('✅ import无副作用 + 纯函数验证通过')
    | `var/eval/factor_results.jsonl` | `services.eval_recorder.backfill` | B线结果 | 对 `factor_snapshots` 的逐交易日 T+1/T+2/T+3... 真收益、基准收益、超额回填;策略报告默认只抽取 1/3/5/10/20/30 | append-only;ret/mkt_ret/excess 任一新增 horizon 时追加,读取时按同 key 合并 |
    | `var/eval/layer2_report_<trade_date>.md` | `research.layer2_eval.run_layer2` | B线分析报告 | score 档 × `regime|macro_regime` 分桶的前瞻收益/超额/胜率;不按样本数屏蔽,N 直接展示 | 可重生成覆盖 |
    | `var/eval/factor_weight_review_<trade_date>.md` | `research.factor_weight_review.run_factor_weight_review` | E3人工调权复盘 | 按冻结因子 low/high 桶比较未来超额,输出 evidence_strength/review_action;只给证据不自动改权重 | 可重生成覆盖;采纳须另开 PR |
+   | `var/forecast/observation_jobs.jsonl` | `services.forecast_planner.enqueue_observation_job` | D线观察任务异步job | EOD只入队,不阻塞主流程;systemd异步启动 worker | append-only;job_id 幂等 |
+   | `var/forecast/current_job.json` | `services.forecast_planner.enqueue_observation_job` | D线当前job | `vaxstock-dline-plan.service` 消费的当前待处理job | 可覆盖;指向最新job |
    | `var/forecast/observation_tasks.jsonl` | `services.forecast_planner.record_observation_tasks` | D线EOD观察任务 | EOD后把 A/B/C evidence_pack 喂 Codex 生成次日观察任务 | append-only;task_id 幂等 |
    | `var/forecast/current_tasks.json` | `services.forecast_planner.record_observation_tasks` | D线当前任务快照 | 当前目标交易日任务物化,供后续盘中消费者读取 | 可覆盖;由 observation_tasks 重建 |
    | `var/forecast/forecasts.jsonl` | `services.forecast_recorder.record_forecast` | D线盘中触发评价 | 盘中触发时冻结 codex 结构化预测+T-1基准+lite快照+regime | append-only;触发样本,不可冒充全样本 |
@@ -255,5 +257,8 @@ print('✅ import无副作用 + 纯函数验证通过')
 - **codex 盘中链路依赖三项齐全**:`CODEX_URL`(CLIProxyAPI 端点,如 `http://127.0.0.1:8317/v1/chat/completions`)+ `CODEX_TOKEN`(CLIProxyAPI 的 api-key,**不是** Codex OAuth token)+ `codex_model`(须在 CLIProxyAPI `/v1/models` 列表内,如 `gpt-5.5`)。
   - 故障对照:缺 URL → `Invalid URL None`;key 错 → 返回 `{"error":"Invalid API key"}`;model 不认 → 返回 JSON 但无 choices(报 `KeyError 'choices'`)。
   - 配置位置:可放 `secrets.json` 或 `/etc/vaxstock/vaxstock.env`,环境变量优先(`_ENV_OVERRIDES` 映射 `codex_url/codex_token/codex_model → CODEX_URL/CODEX_TOKEN/CODEX_MODEL`)。生产由 systemd `EnvironmentFile` 注入;手动跑须先 `set -a; . /etc/vaxstock/vaxstock.env; set +a` 导入,否则读不到。
+  - D线观察任务可单独覆盖模型/超时:`CODEX_DLINE_MODEL` / `CODEX_DLINE_TIMEOUT`。默认沿用 `CODEX_MODEL` / `CODEX_TIMEOUT`;用于 EOD observation planner 过慢时切轻模型或拉长超时,不影响基础 URL/token。
   - 验证:`curl` 直打端点带 `Bearer` key,返回含 `choices` 即通。
   - 历史教训:C2a/C2b 期间该链路因 url/key 未配通,盘中一直静默走"无研判"分支;2026-06-26 PR-A 验证时首次点亮。
+
+11. **三池分层与D线异步**:`script/config/watchlist.json` 是宽观察池/A-B-C数据地基;`script/config/holdings.json` 是真实持仓池,与 watchlist 解耦;`script/config/task_pool.json` 是 D线 LLM 任务候选池。D线实际任务候选 = holdings ∪ active task_pool,持仓必进;EOD 只写 `var/forecast/observation_jobs.jsonl` / `current_job.json`,由 `vaxstock-dline-plan.service` 异步生成 `observation_tasks.jsonl` / `current_tasks.json`,不得阻塞 EOD 报告/邮件。

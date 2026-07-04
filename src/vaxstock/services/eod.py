@@ -26,7 +26,7 @@ from vaxstock.report.store import store_report
 from vaxstock.services.collect import collect_payload
 from vaxstock.services.eval_recorder import record_and_backfill
 from vaxstock.services.eod_predictor import predictions_from_payload, record_predictions
-from vaxstock.services.forecast_planner import generate_observation_tasks, record_observation_tasks
+from vaxstock.services.forecast_planner import enqueue_observation_job
 from vaxstock.services.prediction_evaluator import evaluate_from_files
 from vaxstock.sources.tushare_src import TushareSource
 
@@ -59,7 +59,6 @@ def run_eod() -> Dict[str, str]:
     # MR-Eval E4: 先核验已有 predictions,再基于本次 EOD 定稿 payload 生成下一交易日 live predictions。
     # 失败仅 warning,不影响报告三件套落盘/邮件/E1。
     prediction_run = _run_eod_prediction(payload, source)
-    _run_d_observation_tasks(payload, prediction_run)
     prediction_summary = _build_prediction_summary(payload)
 
     logger.info("[4/7] 压缩为 claude_data + 注入 prediction_summary + 渲染 markdown...")
@@ -70,6 +69,7 @@ def run_eod() -> Dict[str, str]:
 
     logger.info("[5/7] 报告落盘(var/reports/{date}/)...")
     paths = store_report(payload, claude_data, markdown)
+    _enqueue_d_observation_job(paths, payload, prediction_run)
 
     logger.info("[6/7] 邮件门控 + 发送...")
     # 邮件正文 = 精简摘要(大盘/宏观/赛道/持仓详情/观察池高分清单); 完整 markdown(claude.md)
@@ -218,34 +218,34 @@ def _run_eod_prediction(payload: Dict[str, Any], source) -> Optional[Dict[str, A
         logger.warning(f"EOD Prediction live 生成失败(不影响EOD): {str(e)[:120]}")
         return None
 
-def _run_d_observation_tasks(payload: Dict[str, Any], prediction_run: Optional[Dict[str, Any]]) -> None:
-    """D线: 基于 A/B/C 证据生成次日盘中观察任务。
+def _enqueue_d_observation_job(paths: Dict[str, str], payload: Dict[str, Any],
+                             prediction_run: Optional[Dict[str, Any]]) -> None:
+    """D线: 只入队观察任务生成 job,不在 EOD 主流程同步调用 Codex。
 
-    失败仅 warning, 不影响 EOD 报告、邮件和 C线 prediction。D线任务会写入
-    var/forecast/observation_tasks.jsonl,并物化 current_tasks.json 供盘中消费者后续读取。
+    真正的 LLM 生成由 vaxstock.services.dline_plan 独立服务异步消费。这样 D线慢、
+    超时或失败都不会阻塞 A/B/C/EOD 报告与邮件。
     """
     if not prediction_run or not prediction_run.get("target_trade_date"):
-        logger.info("D线观察任务: 缺 target_trade_date, 跳过")
+        logger.info("D线观察任务: 缺 target_trade_date, 不入队")
         return
     try:
-        tasks = generate_observation_tasks(
-            payload,
+        baseline = str((payload.get("market_overview") or {}).get("trade_date") or prediction_run.get("baseline_trade_date") or "")
+        stats = enqueue_observation_job(
+            paths.get("payload"),
             prediction_run["target_trade_date"],
             c_predictions=prediction_run.get("predictions") or [],
+            baseline_trade_date=baseline,
         )
-        if not tasks:
-            logger.warning("D线观察任务: 未生成有效任务")
-            return
-        stats = record_observation_tasks(tasks)
         logger.info(
-            "D线观察任务: target=%s 生成 %s 条 / 写入 %s 条 / 跳过 %s 条",
+            "D线观察任务已入队: target=%s queued=%s skipped=%s job=%s",
             prediction_run["target_trade_date"],
-            len(tasks),
-            stats["written"],
-            stats["skipped"],
+            stats.get("queued"),
+            stats.get("skipped"),
+            stats.get("job_id"),
         )
     except Exception as e:
-        logger.warning(f"D线观察任务生成失败(不影响EOD): {str(e)[:120]}")
+        logger.warning(f"D线观察任务入队失败(不影响EOD): {str(e)[:120]}")
+
 
 def _maybe_send_email(body: str, attachments) -> None:
     """邮件门控: SECRETS 凭据齐才发; SECRETS 键 → send_email 的 smtp_conf 键适配(发信固定 QQ)。

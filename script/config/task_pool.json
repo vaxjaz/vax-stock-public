@@ -1,0 +1,125 @@
+{
+  "_说明": "D线任务池。只管从宽观察池中抽出的 LLM 观察候选;真实持仓由 holdings.json 强制并入,不要在本文件里重复维护持仓。",
+  "_格式": "task_pool: code -> {name, active, priority, reason, concepts}; active=false 表示暂不进 D线任务",
+  "schema_version": 1,
+  "task_pool": {
+    "002371": {
+      "name": "北方华创",
+      "active": true,
+      "priority": 1,
+      "concepts": [
+        "半导体设备",
+        "AI算力"
+      ],
+      "reason": "selected_dline_candidate"
+    },
+    "002463": {
+      "name": "沪电股份",
+      "active": true,
+      "priority": 2,
+      "concepts": [
+        "AI算力",
+        "PCB",
+        "服务器"
+      ],
+      "reason": "selected_dline_candidate"
+    },
+    "002384": {
+      "name": "东山精密",
+      "active": true,
+      "priority": 3,
+      "concepts": [
+        "AI算力",
+        "PCB"
+      ],
+      "reason": "selected_dline_candidate"
+    },
+    "600183": {
+      "name": "生益科技",
+      "active": true,
+      "priority": 4,
+      "concepts": [
+        "AI算力",
+        "CCL覆铜板",
+        "PCB"
+      ],
+      "reason": "selected_dline_candidate"
+    },
+    "600522": {
+      "name": "中天科技",
+      "active": true,
+      "priority": 5,
+      "concepts": [
+        "AI算力",
+        "HVLP铜箔",
+        "光模块"
+      ],
+      "reason": "selected_dline_candidate"
+    },
+    "600580": {
+      "name": "卧龙电驱",
+      "active": true,
+      "priority": 6,
+      "concepts": [
+        "人形机器人",
+        "力矩电机"
+      ],
+      "reason": "selected_dline_candidate"
+    },
+    "603009": {
+      "name": "北特科技",
+      "active": true,
+      "priority": 7,
+      "concepts": [
+        "人形机器人",
+        "丝杠"
+      ],
+      "reason": "selected_dline_candidate"
+    },
+    "603667": {
+      "name": "五洲新春",
+      "active": true,
+      "priority": 8,
+      "concepts": [
+        "人形机器人",
+        "丝杠",
+        "灵巧手"
+      ],
+      "reason": "selected_dline_candidate"
+    },
+    "603728": {
+      "name": "鸣志电器",
+      "active": true,
+      "priority": 9,
+      "concepts": [
+        "人形机器人",
+        "空心杯电机",
+        "灵巧手"
+      ],
+      "reason": "selected_dline_candidate"
+    },
+    "601689": {
+      "name": "拓普集团",
+      "active": true,
+      "priority": 10,
+      "concepts": [
+        "人形机器人",
+        "执行器",
+        "特斯拉链"
+      ],
+      "reason": "selected_dline_candidate"
+    },
+    "002050": {
+      "name": "三花智控",
+      "active": true,
+      "priority": 11,
+      "concepts": [
+        "人形机器人",
+        "执行器",
+        "热管理",
+        "特斯拉链"
+      ],
+      "reason": "selected_dline_candidate"
+    }
+  }
+}

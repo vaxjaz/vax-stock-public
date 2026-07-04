@@ -27,6 +27,8 @@ _ENV_NAMES = {
     "codex_model": "CODEX_MODEL",
     "codex_token": "CODEX_TOKEN",
     "codex_timeout": "CODEX_TIMEOUT",
+    "codex_dline_model": "CODEX_DLINE_MODEL",
+    "codex_dline_timeout": "CODEX_DLINE_TIMEOUT",
 }
 
 
@@ -72,11 +74,15 @@ def _error_summary(payload: Any) -> str:
     return str(payload)[:500]
 
 
-def _print_config(timeout_override: Optional[int]) -> Dict[str, Any]:
+def _print_config(timeout_override: Optional[int], *, use_dline: bool = False) -> Dict[str, Any]:
     s = config.SECRETS
-    timeout = int(timeout_override if timeout_override is not None else s.get("codex_timeout", 30))
+    base_timeout = s.get("codex_timeout", 30)
+    dline_timeout = s.get("codex_dline_timeout")
+    timeout = int(timeout_override if timeout_override is not None else ((dline_timeout or base_timeout) if use_dline else base_timeout))
     raw_url = s.get("codex_url") or ""
-    model = s.get("codex_model") or ""
+    base_model = s.get("codex_model") or ""
+    dline_model = s.get("codex_dline_model") or ""
+    model = (dline_model or base_model) if use_dline else base_model
     token = s.get("codex_token") or ""
     chat_url = normalize_chat_completions_url(raw_url)
     models_url = models_url_from_chat_url(raw_url)
@@ -85,12 +91,15 @@ def _print_config(timeout_override: Optional[int]) -> Dict[str, Any]:
     print(f"- secrets_file: {config.SECRETS_FILE}")
     for field, env_name in _ENV_NAMES.items():
         print(f"- env {env_name}: {_env_state(env_name)}")
+    print(f"- probe_mode: {'dline' if use_dline else 'shared'}")
     print(f"- config.codex_url: {raw_url or 'MISSING'}")
     print(f"- normalized_chat_url: {chat_url or 'MISSING'}")
     print(f"- models_url: {models_url or 'MISSING'}")
-    print(f"- config.codex_model: {model or 'MISSING'}")
+    print(f"- config.codex_model: {base_model or 'MISSING'}")
+    print(f"- config.codex_dline_model: {dline_model or 'not set'}")
+    print(f"- effective_model: {model or 'MISSING'}")
     print(f"- config.codex_token: {_token_desc(token)}")
-    print(f"- config.codex_timeout: {timeout}")
+    print(f"- effective_timeout: {timeout}")
     return {
         "chat_url": chat_url,
         "models_url": models_url,
@@ -173,11 +182,12 @@ def probe_chat(chat_url: str, model: str, token: str, timeout: int) -> int:
 def main(argv: Optional[Iterable[str]] = None) -> int:
     parser = argparse.ArgumentParser(description="Probe local Codex OpenAI-compatible endpoint config.")
     parser.add_argument("--timeout", type=int, default=None, help="Override request timeout seconds.")
+    parser.add_argument("--dline", action="store_true", help="Probe D-line effective model/timeout overrides.")
     parser.add_argument("--no-chat", action="store_true", help="Only check config and /v1/models.")
     parser.add_argument("--models-limit", type=int, default=30, help="Max model ids to print.")
     args = parser.parse_args(list(argv) if argv is not None else None)
 
-    cfg = _print_config(args.timeout)
+    cfg = _print_config(args.timeout, use_dline=args.dline)
     missing = [k for k in ("chat_url", "model", "token") if not cfg.get(k)]
     if missing:
         print(f"\n[config] missing required: {', '.join(missing)}")
