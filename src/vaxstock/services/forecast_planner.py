@@ -517,17 +517,55 @@ def generate_observation_tasks(payload: Dict[str, Any], target_trade_date: str, 
         generated_at=generated_at,
     )
     tasks = []
-    for evidence in evidences:
+    total = len(evidences)
+    runtime = None if planner_func else _codex_plan_runtime_config(config.SECRETS)
+    for idx, evidence in enumerate(evidences, start=1):
+        stock = evidence.get("stock") or {}
+        code = stock.get("code")
+        name = stock.get("name")
+        evidence_chars = len(json.dumps(evidence, ensure_ascii=False, default=str))
+        started = dt.datetime.now()
+        if runtime:
+            logger.info(
+                "D-line plan: [%s/%s] start code=%s name=%s model=%s timeout=%ss evidence_chars=%s",
+                idx,
+                total,
+                code,
+                name,
+                runtime.get("model"),
+                runtime.get("timeout"),
+                evidence_chars,
+            )
+        else:
+            logger.info(
+                "D-line plan: [%s/%s] start code=%s name=%s planner=injected evidence_chars=%s",
+                idx,
+                total,
+                code,
+                name,
+                evidence_chars,
+            )
         raw = planner_func(evidence) if planner_func else _call_codex_for_plan(evidence)
+        elapsed = (dt.datetime.now() - started).total_seconds()
         plan = _parse_llm_json(raw)
+        logger.info(
+            "D-line plan: [%s/%s] done code=%s elapsed=%.2fs raw_present=%s raw_chars=%s json_ok=%s",
+            idx,
+            total,
+            code,
+            elapsed,
+            bool(raw),
+            len(raw or "") if isinstance(raw, str) else 0,
+            bool(plan),
+        )
         if not plan:
-            logger.warning("D线观察计划: LLM 输出非 JSON 或为空,跳过 %s", (evidence.get("stock") or {}).get("code"))
+            logger.warning("D-line plan: LLM output invalid/empty, skip %s", code)
             continue
         task = task_from_llm_plan(evidence, plan, plan_version=plan_version, created_at=generated_at)
         if task:
             tasks.append(task)
         else:
-            logger.warning("D线观察计划: LLM schema 校验失败,跳过 %s", (evidence.get("stock") or {}).get("code"))
+            logger.warning("D-line plan: LLM schema invalid, skip %s", code)
     return tasks
 
 
