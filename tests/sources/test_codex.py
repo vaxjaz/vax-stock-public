@@ -68,6 +68,23 @@ def test_call_codex_returns_none_on_server_error_payload():
         codex._requests_module = saved
 
 
+def test_call_codex_raises_provider_unavailable_when_requested():
+    saved = _patch_post(lambda *a, **k: _Resp(
+        {"error": {"message": "auth_unavailable: no auth available", "code": "internal_server_error"}},
+        status_code=503,
+    ))
+    try:
+        try:
+            codex.call_codex("s", "u", url="http://x/v1", model="m", token="t", raise_on_error=True)
+        except codex.CodexCallError as e:
+            assert e.status_code == 503
+            assert e.code == "internal_server_error"
+            assert e.error_type == "provider_unavailable"
+            assert e.retryable is True
+        else:
+            assert False, "CodexCallError not raised"
+    finally:
+        codex._requests_module = saved
 def test_call_codex_returns_none_on_exception():
     def _boom(*a, **k):
         raise TimeoutError("timeout")

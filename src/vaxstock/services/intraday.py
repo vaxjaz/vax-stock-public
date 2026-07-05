@@ -328,8 +328,17 @@ def notify(rule, quote, fire_count=None):
         else:
             logger.info(f"{code} 池外临时票(无T-1基准且不在概念池): 出研判, 不写 forecast(防回测污染)")
     elif raw:
-        logger.warning(f"{code} codex 返回非 JSON, 降级纯价位告警: {str(raw)[:80]}")
-
+        logger.warning(f"{code} codex returned non-JSON; trigger alert will still be sent. raw={str(raw)[:80]}")
+        body += (
+            "\n------------\n"
+            "AI研判返回非 JSON，本次已降级为规则触发告警；请以实时盘口和 EOD 基准复核。"
+        )
+    elif snap:
+        logger.warning("%s codex unavailable; trigger alert will still be sent", code)
+        body += (
+            "\n------------\n"
+            "AI研判暂不可用，本次仍按规则触发发送告警；请以实时盘口和 EOD 基准复核。"
+        )
     logger.info(f"\n{'='*40}\n🚨 {title}\n{body}\n{'='*40}")
     push_wechat(title, body, pushplus_token=_PUSHPLUS_TOKEN)
     push_email(title, body, smtp_conf=_smtp_conf())

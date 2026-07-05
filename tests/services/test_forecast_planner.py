@@ -7,6 +7,7 @@ import shutil
 import tempfile
 
 from vaxstock.services import forecast_planner as fp
+from vaxstock.sources.codex import CodexCallError
 
 
 def _payload():
@@ -197,6 +198,115 @@ def test_enqueue_and_run_observation_job_consumes_current_job():
         shutil.rmtree(d, ignore_errors=True)
 
 
+def test_run_observation_job_partial_failed_preserves_success_and_remaining():
+    d = tempfile.mkdtemp(prefix="vax_dline_partial_")
+    saved_task_pool = fp.config.load_task_pool
+    try:
+        fp.config.load_task_pool = lambda: {"002371": {"active": True}}
+        payload_path = pathlib.Path(d) / "payload.json"
+        jobs = pathlib.Path(d) / "observation_jobs.jsonl"
+        current_job = pathlib.Path(d) / "current_job.json"
+        task_hist = pathlib.Path(d) / "observation_tasks.jsonl"
+        current_tasks = pathlib.Path(d) / "current_tasks.json"
+        payload_path.write_text(json.dumps(_payload_with_watchlist(), ensure_ascii=False), encoding="utf-8")
+
+        fp.enqueue_observation_job(
+            payload_path,
+            "20260706",
+            c_predictions=[_c_prediction()],
+            baseline_trade_date="20260703",
+            job_path=jobs,
+            current_job_path=current_job,
+        )
+
+        def _planner(evidence):
+            code = evidence["stock"]["code"]
+            if code == "002475":
+                return _plan()
+            raise CodexCallError(
+                "auth_unavailable: no auth available",
+                status_code=503,
+                code="internal_server_error",
+                error_type="provider_unavailable",
+                retryable=True,
+            )
+
+        stats = fp.run_observation_job(
+            planner_func=_planner,
+            current_job_path=current_job,
+            history_path=task_hist,
+            current_tasks_path=current_tasks,
+        )
+        assert stats["status"] == "partial_failed"
+        assert stats["generated"] == 1
+        assert stats["written"] == 1
+        assert stats["remaining"] == 1
+        assert [r["code"] for r in _rows(task_hist)] == ["002475"]
+        cur = json.loads(current_job.read_text(encoding="utf-8"))
+        assert cur["status"] == "partial_failed"
+        assert cur["done_codes"] == ["002475"]
+        assert cur["remaining_codes"] == ["002371"]
+        assert cur["error"]["failed_code"] == "002371"
+        assert cur["error"]["type"] == "provider_unavailable"
+        current = json.loads(current_tasks.read_text(encoding="utf-8"))
+        assert [t["code"] for t in current["tasks"]] == ["002475"]
+    finally:
+        fp.config.load_task_pool = saved_task_pool
+        shutil.rmtree(d, ignore_errors=True)
+
+
+def test_run_observation_job_resumes_remaining_codes():
+    d = tempfile.mkdtemp(prefix="vax_dline_resume_")
+    saved_task_pool = fp.config.load_task_pool
+    try:
+        fp.config.load_task_pool = lambda: {"002371": {"active": True}}
+        payload = _payload_with_watchlist()
+        payload_path = pathlib.Path(d) / "payload.json"
+        jobs = pathlib.Path(d) / "observation_jobs.jsonl"
+        current_job = pathlib.Path(d) / "current_job.json"
+        task_hist = pathlib.Path(d) / "observation_tasks.jsonl"
+        current_tasks = pathlib.Path(d) / "current_tasks.json"
+        payload_path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+        existing_task = fp.generate_observation_tasks(
+            payload,
+            "20260706",
+            c_predictions=[_c_prediction()],
+            factor_results=[] ,
+            task_codes=["002475"],
+            planner_func=lambda evidence: _plan(),
+            generated_at="2026-07-04T05:00:00",
+        )[0]
+        fp.record_observation_tasks([existing_task], history_path=task_hist, current_path=current_tasks)
+
+        fp.enqueue_observation_job(
+            payload_path,
+            "20260706",
+            c_predictions=[_c_prediction()],
+            baseline_trade_date="20260703",
+            job_path=jobs,
+            current_job_path=current_job,
+        )
+        stats = fp.run_observation_job(
+            planner_func=lambda evidence: _plan(),
+            current_job_path=current_job,
+            history_path=task_hist,
+            current_tasks_path=current_tasks,
+        )
+        assert stats["status"] == "done"
+        assert stats["generated"] == 1
+        assert stats["written"] == 1
+        assert stats["remaining"] == 0
+        assert [r["code"] for r in _rows(task_hist)] == ["002475", "002371"]
+        cur = json.loads(current_job.read_text(encoding="utf-8"))
+        assert cur["status"] == "done"
+        assert cur["done_codes"] == ["002475", "002371"]
+        assert cur["remaining_codes"] == []
+        current = json.loads(current_tasks.read_text(encoding="utf-8"))
+        assert sorted(t["code"] for t in current["tasks"]) == ["002371", "002475"]
+    finally:
+        fp.config.load_task_pool = saved_task_pool
+        shutil.rmtree(d, ignore_errors=True)
 def test_codex_plan_runtime_config_uses_dline_overrides():
     runtime = fp._codex_plan_runtime_config({
         "codex_url": "http://127.0.0.1:8317/v1/chat/completions",
