@@ -1,0 +1,1889 @@
+{
+  "schema_version": 1,
+  "updated_at": "2026-07-05T10:06:03",
+  "target_trade_dates": [
+    "20260706"
+  ],
+  "tasks": [
+    {
+      "schema_version": 1,
+      "task_id": "20260703_20260706_601138_d_observe_llm_v1",
+      "line": "D",
+      "created_at": "2026-07-05T10:03:03",
+      "source": "codex_llm",
+      "plan_version": "d_observe_llm_v1",
+      "baseline_trade_date": "20260703",
+      "target_trade_date": "20260706",
+      "code": "601138",
+      "name": "工业富联",
+      "group": "holding",
+      "concepts": [
+        "AI算力",
+        "服务器"
+      ],
+      "status": "active",
+      "evidence_pack": {
+        "schema_version": 1,
+        "line": "D",
+        "purpose": "validate_c_line_with_intraday_observation",
+        "generated_at": "2026-07-05T10:02:13",
+        "baseline_trade_date": "20260703",
+        "target_trade_date": "20260706",
+        "stock": {
+          "code": "601138",
+          "name": "工业富联",
+          "group": "holding",
+          "concepts": [
+            "AI算力",
+            "服务器"
+          ]
+        },
+        "A_eod": {
+          "price": 64.72,
+          "metrics": {
+            "right_side_score": 3.5,
+            "right_side_grade": "强买入信号",
+            "position_20d_pct": 10.230632761679459,
+            "position_52w_pct": 65.47781569965869,
+            "main_inflow_10d": -9927443800.0,
+            "np_yoy": 102.5485,
+            "ma5": 68.1,
+            "ma10": 71.747,
+            "ma20": 72.22749999999999,
+            "ma60": 68.06099999999999,
+            "price_vs_ma5_pct": -4.963289280469891,
+            "price_vs_ma20_pct": -10.394240420892311,
+            "price_vs_ma60_pct": -4.90883178325325,
+            "volume_ratio_5d": 0.7682204937217237,
+            "recent_5d_change_pct": -7.832526345770435,
+            "recent_20d_change_pct": -17.606619987269255,
+            "macd_hist": -2.893,
+            "rsi_14": 42.63
+          },
+          "market": {
+            "market_regime": "value",
+            "macro_regime": "🟡 中性",
+            "trade_date": "20260703",
+            "breadth": {
+              "up_count": 3804,
+              "down_count": 1628,
+              "limit_up_count": 116,
+              "limit_down_count": 27
+            },
+            "ai_track": {
+              "track_name": "AI算力",
+              "available": true,
+              "position_ceiling": "减档 (单否决, 不加且高位减)",
+              "summary_lines": [
+                "【景气·NVDA capex】✅扩张加速  [已证实]",
+                "  营收YoY 85.2% | QoQ 19.8% | 加速度 0.3pp | 最新季营收 816.2亿美元",
+                "【海外闸门·SOX】❌关闭  收12626.2 / MA50 12323.5 / 近1月-9.3%",
+                "  触发: 近1月动量转负(-9.3%)",
+                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF 23.18 / 创业板 42.18",
+                "【篮子拥挤度】换手分位 62% / 篮子52周位置 70%  [已证实]"
+              ]
+            }
+          }
+        },
+        "B_factor_history": [
+          {
+            "trade_date": "20260630",
+            "ret": {
+              "1": -0.02979902979902993
+            },
+            "mkt_ret": {
+              "1": 0.004407999302070698
+            },
+            "excess": {
+              "1": -0.03420702910110063
+            },
+            "complete": false
+          },
+          {
+            "trade_date": "20260630",
+            "ret": {
+              "2": -0.11268191268191285,
+              "3": -0.10297990297990312
+            },
+            "mkt_ret": {
+              "2": -0.01599585892643729,
+              "3": -0.012395963928462983
+            },
+            "excess": {
+              "2": -0.09668605375547557,
+              "3": -0.09058393905144013
+            },
+            "complete": false
+          },
+          {
+            "trade_date": "20260701",
+            "ret": {
+              "1": -0.08542857142857152
+            },
+            "mkt_ret": {
+              "1": -0.020314312752074848
+            },
+            "excess": {
+              "1": -0.06511425867649667
+            },
+            "complete": false
+          },
+          {
+            "trade_date": "20260701",
+            "ret": {
+              "2": -0.0754285714285714
+            },
+            "mkt_ret": {
+              "2": -0.016730216448107016
+            },
+            "excess": {
+              "2": -0.058698354980464384
+            },
+            "complete": false
+          },
+          {
+            "trade_date": "20260702",
+            "ret": {
+              "1": 0.010934083099031655
+            },
+            "mkt_ret": {
+              "1": 0.003658414479889016
+            },
+            "excess": {
+              "1": 0.007275668619142639
+            },
+            "complete": false
+          }
+        ],
+        "C_prediction": {
+          "schema_version": 1,
+          "prediction_id": "20260703_20260706_601138_zz800_seed_v1_live",
+          "generated_at": "2026-07-05T00:25:21",
+          "generation_mode": "live",
+          "baseline_trade_date": "20260703",
+          "target_trade_date": "20260706",
+          "code": "601138",
+          "name": "工业富联",
+          "group": "holding",
+          "concepts": [
+            "AI算力",
+            "服务器"
+          ],
+          "features_ref": {
+            "price_at_baseline": 64.72,
+            "right_side_score": 3.5,
+            "right_side_grade": "强买入信号",
+            "main_inflow_10d": -9927443800.0,
+            "np_yoy": 102.5485,
+            "holder_change_pct": null,
+            "position_20d_pct": 10.230632761679459,
+            "market_regime": "value",
+            "macro_regime": "🟡 中性",
+            "ai_position_ceiling": "减档 (单否决, 不加且高位减)"
+          },
+          "prediction": {
+            "action": "candidate_buy",
+            "direction": "up",
+            "confidence": 0.75,
+            "horizon": "T+1",
+            "expected_excess_bucket": "positive",
+            "reason_codes": [
+              "score_ge_3_5"
+            ],
+            "reason": "评分≥3.5且非 panic,列为候选买入验证"
+          },
+          "rule_version": "zz800_seed_v1",
+          "model_version": "manual_rules_v1"
+        },
+        "D_contract": {
+          "allowed_trigger_fields": [
+            "amount_yi",
+            "amplitude_pct",
+            "change_pct",
+            "macd_hist",
+            "position_20d_pct",
+            "position_52w_pct",
+            "price",
+            "price_vs_ma10_pct",
+            "price_vs_ma20_pct",
+            "price_vs_ma5_pct",
+            "price_vs_ma60_pct",
+            "recent_20d_change_pct",
+            "recent_5d_change_pct",
+            "rsi_14",
+            "volume_ratio_5d"
+          ],
+          "allowed_ops": [
+            "!=",
+            "<",
+            "<=",
+            "==",
+            ">",
+            ">="
+          ],
+          "allowed_trigger_types": [
+            "breakdown_confirm",
+            "breakout_confirm",
+            "failed_breakout",
+            "noise_filter",
+            "panic_rebound_probe",
+            "reclaim_confirm",
+            "risk_off_confirm",
+            "weak_rebound"
+          ],
+          "forbidden_outputs": [
+            "intraday_new_score",
+            "buy_sell_price_instruction",
+            "fabricated_fund_flow"
+          ],
+          "notification_role": "objective_evaluation_for_user_decision"
+        }
+      },
+      "observation": {
+        "observe_intent": "观察明天盘中是否出现对MA5/MA20的有效修复，验证C线“candidate_buy”究竟是超跌后真实回收，还是仅仅弱反弹后的继续走弱。",
+        "primary_risk": "在近期主流入净流出、价格持续低于MA5/MA20/MA60的背景下，次日若只是反弹但不能收复关键均线，则C线的候选买入假设可能只是技术性噪音。",
+        "watch_points": [
+          {
+            "name": "均线修复力度",
+            "why": "这是验证超跌修复是否成立的核心，看盘中能否从均线下方重新站回短中期趋势位。",
+            "signals": [
+              "price_vs_ma5_pct",
+              "price_vs_ma20_pct",
+              "price_vs_ma60_pct"
+            ]
+          },
+          {
+            "name": "反弹是否有延续性",
+            "why": "如果只是低位抬一下但动能不足，通常难以支持对C线的正向验证。",
+            "signals": [
+              "change_pct",
+              "amplitude_pct",
+              "volume_ratio_5d"
+            ]
+          },
+          {
+            "name": "弱势是否继续恶化",
+            "why": "若继续走弱并放大跌离中期均线，则可以直接证伪候选买入的修复逻辑。",
+            "signals": [
+              "recent_5d_change_pct",
+              "macd_hist",
+              "rsi_14"
+            ]
+          }
+        ],
+        "trigger_blueprints": [
+          {
+            "trigger_type": "reclaim_confirm",
+            "severity": "high",
+            "condition": {
+              "all": [
+                {
+                  "field": "price_vs_ma5_pct",
+                  "op": ">=",
+                  "value": 0.0
+                },
+                {
+                  "field": "price_vs_ma20_pct",
+                  "op": ">=",
+                  "value": 0.0
+                },
+                {
+                  "field": "volume_ratio_5d",
+                  "op": ">=",
+                  "value": 1.0
+                }
+              ],
+              "any": [
+                {
+                  "field": "change_pct",
+                  "op": ">=",
+                  "value": 1.0
+                },
+                {
+                  "field": "amplitude_pct",
+                  "op": ">=",
+                  "value": 4.0
+                }
+              ]
+            },
+            "why": "盘中若能同步收复MA5和MA20，并伴随不弱的成交活跃度，说明次日不是单纯弱反弹，而是对C线候选买入的实质性验证。",
+            "expected_feedback_to_c": "confirm_recovery -> support_candidate_buy"
+          },
+          {
+            "trigger_type": "weak_rebound",
+            "severity": "medium",
+            "condition": {
+              "all": [
+                {
+                  "field": "change_pct",
+                  "op": ">",
+                  "value": 0.0
+                },
+                {
+                  "field": "price_vs_ma5_pct",
+                  "op": "<",
+                  "value": 0.0
+                },
+                {
+                  "field": "price_vs_ma20_pct",
+                  "op": "<",
+                  "value": 0.0
+                }
+              ],
+              "any": [
+                {
+                  "field": "volume_ratio_5d",
+                  "op": ">=",
+                  "value": 1.0
+                },
+                {
+                  "field": "rsi_14",
+                  "op": ">=",
+                  "value": 45.0
+                },
+                {
+                  "field": "macd_hist",
+                  "op": ">=",
+                  "value": -2.5
+                }
+              ]
+            },
+            "why": "出现反弹但仍处在均线下方，代表只是弱修复而非趋势反转，需要继续观察是否能转为真正回收。",
+            "expected_feedback_to_c": "watch -> keep_pending"
+          },
+          {
+            "trigger_type": "breakdown_confirm",
+            "severity": "high",
+            "condition": {
+              "all": [
+                {
+                  "field": "price_vs_ma20_pct",
+                  "op": "<",
+                  "value": -12.0
+                },
+                {
+                  "field": "price_vs_ma60_pct",
+                  "op": "<",
+                  "value": -5.0
+                }
+              ],
+              "any": [
+                {
+                  "field": "volume_ratio_5d",
+                  "op": ">",
+                  "value": 0.9
+                },
+                {
+                  "field": "recent_5d_change_pct",
+                  "op": "<=",
+                  "value": -10.0
+                },
+                {
+                  "field": "amplitude_pct",
+                  "op": ">",
+                  "value": 5.0
+                }
+              ]
+            },
+            "why": "若继续跌离MA20并逼近/跌破更弱的中期结构，同时波动放大，则说明修复失败，C线的上行假设被削弱。",
+            "expected_feedback_to_c": "invalidate_rebound_case -> avoid_review"
+          }
+        ],
+        "c_line_feedback_focus": "重点反馈C线的action= candidate_buy 与 confidence=0.75 是否能被盘中对MA5/MA20的实际修复所支持，尤其检验“score_ge_3_5”在弱趋势背景下是否仍然有效。",
+        "falsify_if": "若盘中迅速收复price_vs_ma5_pct与price_vs_ma20_pct并维持为正，且未出现继续下破MA20/MA60的行为，则本计划中关于“弱反弹或修复失败”的前提被推翻。"
+      }
+    },
+    {
+      "schema_version": 1,
+      "task_id": "20260703_20260706_002475_d_observe_llm_v1",
+      "line": "D",
+      "created_at": "2026-07-05T10:03:37",
+      "source": "codex_llm",
+      "plan_version": "d_observe_llm_v1",
+      "baseline_trade_date": "20260703",
+      "target_trade_date": "20260706",
+      "code": "002475",
+      "name": "立讯精密",
+      "group": "holding",
+      "concepts": [
+        "AI算力",
+        "AI硬件",
+        "消费电子",
+        "苹果链"
+      ],
+      "status": "active",
+      "evidence_pack": {
+        "schema_version": 1,
+        "line": "D",
+        "purpose": "validate_c_line_with_intraday_observation",
+        "generated_at": "2026-07-05T10:02:13",
+        "baseline_trade_date": "20260703",
+        "target_trade_date": "20260706",
+        "stock": {
+          "code": "002475",
+          "name": "立讯精密",
+          "group": "holding",
+          "concepts": [
+            "AI算力",
+            "AI硬件",
+            "消费电子",
+            "苹果链"
+          ]
+        },
+        "A_eod": {
+          "price": 64.44,
+          "metrics": {
+            "right_side_score": 2.5,
+            "right_side_grade": "可考虑介入",
+            "position_20d_pct": 24.168797953964198,
+            "position_52w_pct": 62.287951283166585,
+            "main_inflow_10d": -1579676300.0000002,
+            "np_yoy": 20.2416,
+            "ma5": 65.45599999999999,
+            "ma10": 68.251,
+            "ma20": 67.6635,
+            "ma60": 67.99916666666667,
+            "price_vs_ma5_pct": -1.552187729161561,
+            "price_vs_ma20_pct": -4.764016050012194,
+            "price_vs_ma60_pct": -5.234132771234946,
+            "volume_ratio_5d": 0.936451572449752,
+            "recent_5d_change_pct": -5.235294117647062,
+            "recent_20d_change_pct": -13.607722214774107,
+            "macd_hist": -1.42,
+            "rsi_14": 50.77
+          },
+          "market": {
+            "market_regime": "value",
+            "macro_regime": "🟡 中性",
+            "trade_date": "20260703",
+            "breadth": {
+              "up_count": 3804,
+              "down_count": 1628,
+              "limit_up_count": 116,
+              "limit_down_count": 27
+            },
+            "ai_track": {
+              "track_name": "AI算力",
+              "available": true,
+              "position_ceiling": "减档 (单否决, 不加且高位减)",
+              "summary_lines": [
+                "【景气·NVDA capex】✅扩张加速  [已证实]",
+                "  营收YoY 85.2% | QoQ 19.8% | 加速度 0.3pp | 最新季营收 816.2亿美元",
+                "【海外闸门·SOX】❌关闭  收12626.2 / MA50 12323.5 / 近1月-9.3%",
+                "  触发: 近1月动量转负(-9.3%)",
+                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF 23.18 / 创业板 42.18",
+                "【篮子拥挤度】换手分位 62% / 篮子52周位置 70%  [已证实]"
+              ]
+            }
+          }
+        },
+        "B_factor_history": [
+          {
+            "trade_date": "20260630",
+            "ret": {
+              "1": -0.059090909090909194
+            },
+            "mkt_ret": {
+              "1": 0.004407999302070698
+            },
+            "excess": {
+              "1": -0.06349890839297989
+            },
+            "complete": false
+          },
+          {
+            "trade_date": "20260630",
+            "ret": {
+              "2": -0.13494318181818188,
+              "3": -0.08465909090909096
+            },
+            "mkt_ret": {
+              "2": -0.01599585892643729,
+              "3": -0.012395963928462983
+            },
+            "excess": {
+              "2": -0.11894732289174459,
+              "3": -0.07226312698062798
+            },
+            "complete": false
+          },
+          {
+            "trade_date": "20260701",
+            "ret": {
+              "1": -0.08061594202898548
+            },
+            "mkt_ret": {
+              "1": -0.020314312752074848
+            },
+            "excess": {
+              "1": -0.06030162927691063
+            },
+            "complete": false
+          },
+          {
+            "trade_date": "20260701",
+            "ret": {
+              "2": -0.02717391304347827
+            },
+            "mkt_ret": {
+              "2": -0.016730216448107016
+            },
+            "excess": {
+              "2": -0.010443696595371255
+            },
+            "complete": false
+          },
+          {
+            "trade_date": "20260702",
+            "ret": {
+              "1": 0.058128078817734075
+            },
+            "mkt_ret": {
+              "1": 0.003658414479889016
+            },
+            "excess": {
+              "1": 0.05446966433784506
+            },
+            "complete": false
+          }
+        ],
+        "C_prediction": {
+          "schema_version": 1,
+          "prediction_id": "20260703_20260706_002475_zz800_seed_v1_live",
+          "generated_at": "2026-07-05T00:25:21",
+          "generation_mode": "live",
+          "baseline_trade_date": "20260703",
+          "target_trade_date": "20260706",
+          "code": "002475",
+          "name": "立讯精密",
+          "group": "holding",
+          "concepts": [
+            "AI算力",
+            "AI硬件",
+            "消费电子",
+            "苹果链"
+          ],
+          "features_ref": {
+            "price_at_baseline": 64.44,
+            "right_side_score": 2.5,
+            "right_side_grade": "可考虑介入",
+            "main_inflow_10d": -1579676300.0000002,
+            "np_yoy": 20.2416,
+            "holder_change_pct": null,
+            "position_20d_pct": 24.168797953964198,
+            "market_regime": "value",
+            "macro_regime": "🟡 中性",
+            "ai_position_ceiling": "减档 (单否决, 不加且高位减)"
+          },
+          "prediction": {
+            "action": "watch",
+            "direction": "up",
+            "confidence": 0.6,
+            "horizon": "T+1",
+            "expected_excess_bucket": "positive",
+            "reason_codes": [
+              "score_ge_2"
+            ],
+            "reason": "评分≥2,列为高优先观察,需盘中行为确认"
+          },
+          "rule_version": "zz800_seed_v1",
+          "model_version": "manual_rules_v1"
+        },
+        "D_contract": {
+          "allowed_trigger_fields": [
+            "amount_yi",
+            "amplitude_pct",
+            "change_pct",
+            "macd_hist",
+            "position_20d_pct",
+            "position_52w_pct",
+            "price",
+            "price_vs_ma10_pct",
+            "price_vs_ma20_pct",
+            "price_vs_ma5_pct",
+            "price_vs_ma60_pct",
+            "recent_20d_change_pct",
+            "recent_5d_change_pct",
+            "rsi_14",
+            "volume_ratio_5d"
+          ],
+          "allowed_ops": [
+            "!=",
+            "<",
+            "<=",
+            "==",
+            ">",
+            ">="
+          ],
+          "allowed_trigger_types": [
+            "breakdown_confirm",
+            "breakout_confirm",
+            "failed_breakout",
+            "noise_filter",
+            "panic_rebound_probe",
+            "reclaim_confirm",
+            "risk_off_confirm",
+            "weak_rebound"
+          ],
+          "forbidden_outputs": [
+            "intraday_new_score",
+            "buy_sell_price_instruction",
+            "fabricated_fund_flow"
+          ],
+          "notification_role": "objective_evaluation_for_user_decision"
+        }
+      },
+      "observation": {
+        "observe_intent": "明天盘中重点观察立讯精密是否能在回撤后完成对短期均线的修复，验证C线“watch / up / 0.6”到底是弱势中的修复性反弹，还是仅有观察价值但缺乏持续性。",
+        "primary_risk": "核心风险是反弹无量、修复失败后继续沿着20日线以下的弱势通道运行，导致C线的向上判断无法被盘中行为确认。",
+        "watch_points": [
+          {
+            "name": "短线均线修复",
+            "why": "当前价格仍低于MA5和MA20，是否重新站回短线均线是验证上行假设的第一道门槛。",
+            "signals": [
+              "price_vs_ma5_pct",
+              "price_vs_ma20_pct"
+            ]
+          },
+          {
+            "name": "反弹是否有量",
+            "why": "前期5日量比低于1且主力近10日净流出，若修复过程没有量能配合，往往只能视为弱反弹。",
+            "signals": [
+              "volume_ratio_5d",
+              "amplitude_pct"
+            ]
+          },
+          {
+            "name": "弱势延续还是止跌",
+            "why": "需要区分只是盘中波动，还是已经出现止跌修复；若价格改善但涨跌幅和中期跌幅仍恶化，则说明下行趋势未改。",
+            "signals": [
+              "change_pct",
+              "recent_5d_change_pct",
+              "recent_20d_change_pct"
+            ]
+          }
+        ],
+        "trigger_blueprints": [
+          {
+            "trigger_type": "reclaim_confirm",
+            "severity": "medium",
+            "condition": {
+              "all": [
+                {
+                  "field": "price_vs_ma5_pct",
+                  "op": ">=",
+                  "value": 0.0
+                },
+                {
+                  "field": "price_vs_ma20_pct",
+                  "op": ">=",
+                  "value": -2.0
+                },
+                {
+                  "field": "volume_ratio_5d",
+                  "op": ">=",
+                  "value": 1.0
+                }
+              ]
+            },
+            "why": "如果盘中或收盘阶段能重新站上MA5，并把与MA20的距离收窄到可修复区间，同时量能不弱，说明C线的向上观察有了客观支撑。",
+            "expected_feedback_to_c": "watch -> confirm_repair"
+          },
+          {
+            "trigger_type": "breakdown_confirm",
+            "severity": "high",
+            "condition": {
+              "all": [
+                {
+                  "field": "price_vs_ma20_pct",
+                  "op": "<=",
+                  "value": -6.0
+                },
+                {
+                  "field": "recent_5d_change_pct",
+                  "op": "<=",
+                  "value": -7.0
+                },
+                {
+                  "field": "volume_ratio_5d",
+                  "op": ">=",
+                  "value": 1.1
+                }
+              ]
+            },
+            "why": "如果进一步跌破MA20并伴随更差的近5日表现和放量，说明弱势延续被确认，向上假设失效。",
+            "expected_feedback_to_c": "watch -> risk_off_review"
+          },
+          {
+            "trigger_type": "noise_filter",
+            "severity": "low",
+            "condition": {
+              "all": [
+                {
+                  "field": "amplitude_pct",
+                  "op": "<=",
+                  "value": 3.0
+                },
+                {
+                  "field": "volume_ratio_5d",
+                  "op": "<=",
+                  "value": 0.9
+                }
+              ]
+            },
+            "why": "若全天波动和量能都偏低，说明没有形成有效验证样本，C线只能维持观察而不能据此强化方向判断。",
+            "expected_feedback_to_c": "watch -> no_decisive_signal"
+          }
+        ],
+        "c_line_feedback_focus": "重点反馈C线的action=watch与confidence=0.6是否成立，以及reason_codes中的score_ge_2在盘中是否能被MA5/MA20修复和量能配合所验证。",
+        "falsify_if": "如果盘中持续站回MA5并明显收窄对MA20的负偏离，或者直接出现放量修复而不是继续走弱，则本观察计划中“弱势延续/修复失败”的预设被推翻。"
+      }
+    },
+    {
+      "schema_version": 1,
+      "task_id": "20260703_20260706_601179_d_observe_llm_v1",
+      "line": "D",
+      "created_at": "2026-07-05T10:04:28",
+      "source": "codex_llm",
+      "plan_version": "d_observe_llm_v1",
+      "baseline_trade_date": "20260703",
+      "target_trade_date": "20260706",
+      "code": "601179",
+      "name": "中国西电",
+      "group": "holding",
+      "concepts": [
+        "特高压",
+        "电网设备",
+        "AIDC"
+      ],
+      "status": "active",
+      "evidence_pack": {
+        "schema_version": 1,
+        "line": "D",
+        "purpose": "validate_c_line_with_intraday_observation",
+        "generated_at": "2026-07-05T10:02:13",
+        "baseline_trade_date": "20260703",
+        "target_trade_date": "20260706",
+        "stock": {
+          "code": "601179",
+          "name": "中国西电",
+          "group": "holding",
+          "concepts": [
+            "特高压",
+            "电网设备",
+            "AIDC"
+          ]
+        },
+        "A_eod": {
+          "price": 14.29,
+          "metrics": {
+            "right_side_score": 0.8,
+            "right_side_grade": "观察等待",
+            "position_20d_pct": 25.138121546961283,
+            "position_52w_pct": 55.741127348643005,
+            "main_inflow_10d": -2500796900.0,
+            "np_yoy": 17.5364,
+            "ma5": 14.553999999999998,
+            "ma10": 15.297999999999998,
+            "ma20": 14.9525,
+            "ma60": 16.319833333333335,
+            "price_vs_ma5_pct": -1.813934313590761,
+            "price_vs_ma20_pct": -4.430697207824788,
+            "price_vs_ma60_pct": -12.437831268701698,
+            "volume_ratio_5d": 0.7879601483697398,
+            "recent_5d_change_pct": -3.965053763440871,
+            "recent_20d_change_pct": -8.456117873158234,
+            "macd_hist": -0.164,
+            "rsi_14": 54.69
+          },
+          "market": {
+            "market_regime": "value",
+            "macro_regime": "🟡 中性",
+            "trade_date": "20260703",
+            "breadth": {
+              "up_count": 3804,
+              "down_count": 1628,
+              "limit_up_count": 116,
+              "limit_down_count": 27
+            },
+            "ai_track": {
+              "track_name": "AI算力",
+              "available": true,
+              "position_ceiling": "减档 (单否决, 不加且高位减)",
+              "summary_lines": [
+                "【景气·NVDA capex】✅扩张加速  [已证实]",
+                "  营收YoY 85.2% | QoQ 19.8% | 加速度 0.3pp | 最新季营收 816.2亿美元",
+                "【海外闸门·SOX】❌关闭  收12626.2 / MA50 12323.5 / 近1月-9.3%",
+                "  触发: 近1月动量转负(-9.3%)",
+                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF 23.18 / 创业板 42.18",
+                "【篮子拥挤度】换手分位 62% / 篮子52周位置 70%  [已证实]"
+              ]
+            }
+          }
+        },
+        "B_factor_history": [
+          {
+            "trade_date": "20260630",
+            "ret": {
+              "1": -0.02815013404825739
+            },
+            "mkt_ret": {
+              "1": 0.004407999302070698
+            },
+            "excess": {
+              "1": -0.03255813335032809
+            },
+            "complete": false
+          },
+          {
+            "trade_date": "20260630",
+            "ret": {
+              "2": -0.057640750670241214,
+              "3": -0.04222520107238614
+            },
+            "mkt_ret": {
+              "2": -0.01599585892643729,
+              "3": -0.012395963928462983
+            },
+            "excess": {
+              "2": -0.041644891743803925,
+              "3": -0.02982923714392316
+            },
+            "complete": false
+          },
+          {
+            "trade_date": "20260701",
+            "ret": {
+              "1": -0.030344827586206824
+            },
+            "mkt_ret": {
+              "1": -0.020314312752074848
+            },
+            "excess": {
+              "1": -0.010030514834131976
+            },
+            "complete": false
+          },
+          {
+            "trade_date": "20260701",
+            "ret": {
+              "2": -0.014482758620689706
+            },
+            "mkt_ret": {
+              "2": -0.016730216448107016
+            },
+            "excess": {
+              "2": 0.0022474578274173096
+            },
+            "complete": false
+          },
+          {
+            "trade_date": "20260702",
+            "ret": {
+              "1": 0.016358463726884764
+            },
+            "mkt_ret": {
+              "1": 0.003658414479889016
+            },
+            "excess": {
+              "1": 0.012700049246995748
+            },
+            "complete": false
+          }
+        ],
+        "C_prediction": {
+          "schema_version": 1,
+          "prediction_id": "20260703_20260706_601179_zz800_seed_v1_live",
+          "generated_at": "2026-07-05T00:25:21",
+          "generation_mode": "live",
+          "baseline_trade_date": "20260703",
+          "target_trade_date": "20260706",
+          "code": "601179",
+          "name": "中国西电",
+          "group": "holding",
+          "concepts": [
+            "特高压",
+            "电网设备",
+            "AIDC"
+          ],
+          "features_ref": {
+            "price_at_baseline": 14.29,
+            "right_side_score": 0.8,
+            "right_side_grade": "观察等待",
+            "main_inflow_10d": -2500796900.0,
+            "np_yoy": 17.5364,
+            "holder_change_pct": null,
+            "position_20d_pct": 25.138121546961283,
+            "market_regime": "value",
+            "macro_regime": "🟡 中性",
+            "ai_position_ceiling": "减档 (单否决, 不加且高位减)"
+          },
+          "prediction": {
+            "action": "avoid",
+            "direction": "neutral",
+            "confidence": 0.55,
+            "horizon": "T+1",
+            "expected_excess_bucket": "non_positive",
+            "reason_codes": [
+              "score_lt_2",
+              "non_panic"
+            ],
+            "reason": "非 panic 且评分<2,默认回避/低优先级"
+          },
+          "rule_version": "zz800_seed_v1",
+          "model_version": "manual_rules_v1"
+        },
+        "D_contract": {
+          "allowed_trigger_fields": [
+            "amount_yi",
+            "amplitude_pct",
+            "change_pct",
+            "macd_hist",
+            "position_20d_pct",
+            "position_52w_pct",
+            "price",
+            "price_vs_ma10_pct",
+            "price_vs_ma20_pct",
+            "price_vs_ma5_pct",
+            "price_vs_ma60_pct",
+            "recent_20d_change_pct",
+            "recent_5d_change_pct",
+            "rsi_14",
+            "volume_ratio_5d"
+          ],
+          "allowed_ops": [
+            "!=",
+            "<",
+            "<=",
+            "==",
+            ">",
+            ">="
+          ],
+          "allowed_trigger_types": [
+            "breakdown_confirm",
+            "breakout_confirm",
+            "failed_breakout",
+            "noise_filter",
+            "panic_rebound_probe",
+            "reclaim_confirm",
+            "risk_off_confirm",
+            "weak_rebound"
+          ],
+          "forbidden_outputs": [
+            "intraday_new_score",
+            "buy_sell_price_instruction",
+            "fabricated_fund_flow"
+          ],
+          "notification_role": "objective_evaluation_for_user_decision"
+        }
+      },
+      "observation": {
+        "observe_intent": "验证 C线“avoid/neutral”是否成立：看该票是否继续受制于 MA5/MA20 并延续弱势，还是出现放量收复短均线的反证。",
+        "primary_risk": "盘中弱转强并重新站上短均线，导致当前回避结论失效。",
+        "watch_points": [
+          {
+            "name": "MA20压制是否延续",
+            "why": "基线收盘已低于MA20，先看次日是否继续在MA20下方运行，以确认弱势是否延续。",
+            "signals": [
+              "price_vs_ma20_pct",
+              "price_vs_ma5_pct",
+              "price_vs_ma60_pct"
+            ]
+          },
+          {
+            "name": "反弹是否有量",
+            "why": "当前5日量比偏低，若反弹无量更像噪音；若放量则说明修复强度需要重新评估。",
+            "signals": [
+              "volume_ratio_5d",
+              "amount_yi",
+              "change_pct"
+            ]
+          },
+          {
+            "name": "下行延续还是技术性修复",
+            "why": "近期5日和20日回撤偏弱，需要观察盘中是否只是超跌修复，还是继续走弱并放大波动。",
+            "signals": [
+              "recent_5d_change_pct",
+              "amplitude_pct",
+              "macd_hist",
+              "rsi_14"
+            ]
+          }
+        ],
+        "trigger_blueprints": [
+          {
+            "trigger_type": "breakdown_confirm",
+            "severity": "high",
+            "condition": {
+              "all": [
+                {
+                  "field": "price_vs_ma20_pct",
+                  "op": "<=",
+                  "value": -5.0
+                },
+                {
+                  "field": "recent_5d_change_pct",
+                  "op": "<=",
+                  "value": -5.0
+                },
+                {
+                  "field": "price_vs_ma5_pct",
+                  "op": "<=",
+                  "value": -2.0
+                }
+              ],
+              "any": [
+                {
+                  "field": "volume_ratio_5d",
+                  "op": ">=",
+                  "value": 1.0
+                },
+                {
+                  "field": "amplitude_pct",
+                  "op": ">=",
+                  "value": 4.0
+                }
+              ]
+            },
+            "why": "若盘中继续深度受压且波动放大，说明弱势延续，支持C线回避判断。",
+            "expected_feedback_to_c": "confirm_avoid"
+          },
+          {
+            "trigger_type": "reclaim_confirm",
+            "severity": "high",
+            "condition": {
+              "all": [
+                {
+                  "field": "price_vs_ma5_pct",
+                  "op": ">=",
+                  "value": 0.0
+                },
+                {
+                  "field": "price_vs_ma20_pct",
+                  "op": ">=",
+                  "value": -1.0
+                },
+                {
+                  "field": "volume_ratio_5d",
+                  "op": ">=",
+                  "value": 1.2
+                }
+              ],
+              "any": [
+                {
+                  "field": "change_pct",
+                  "op": ">",
+                  "value": 0.5
+                },
+                {
+                  "field": "amplitude_pct",
+                  "op": ">=",
+                  "value": 3.0
+                }
+              ]
+            },
+            "why": "若盘中放量收复短均线，说明弱势修复强于预期，C线的回避前提被削弱。",
+            "expected_feedback_to_c": "avoid -> review"
+          },
+          {
+            "trigger_type": "weak_rebound",
+            "severity": "medium",
+            "condition": {
+              "all": [
+                {
+                  "field": "price_vs_ma5_pct",
+                  "op": ">",
+                  "value": -2.0
+                },
+                {
+                  "field": "price_vs_ma20_pct",
+                  "op": "<",
+                  "value": 0.0
+                },
+                {
+                  "field": "volume_ratio_5d",
+                  "op": "<=",
+                  "value": 1.0
+                }
+              ],
+              "any": [
+                {
+                  "field": "rsi_14",
+                  "op": "<",
+                  "value": 55.0
+                },
+                {
+                  "field": "macd_hist",
+                  "op": "<",
+                  "value": 0.0
+                }
+              ]
+            },
+            "why": "若只是无量弱反弹且仍在MA20下方，更接近噪音修复，不构成对C线回避结论的实质挑战。",
+            "expected_feedback_to_c": "hold_avoid"
+          }
+        ],
+        "c_line_feedback_focus": "重点反馈 C线的 action=avoid 是否被盘中收复 MA5/MA20 与量能放大证伪，以及 confidence=0.55 在弱反弹/继续走弱两种路径上的稳定性。",
+        "falsify_if": "盘中出现并维持 price_vs_ma5_pct >= 0 且 price_vs_ma20_pct >= -1.0 的放量修复，则本次回避观察计划被推翻。"
+      }
+    },
+    {
+      "schema_version": 1,
+      "task_id": "20260703_20260706_600875_d_observe_llm_v1",
+      "line": "D",
+      "created_at": "2026-07-05T10:05:10",
+      "source": "codex_llm",
+      "plan_version": "d_observe_llm_v1",
+      "baseline_trade_date": "20260703",
+      "target_trade_date": "20260706",
+      "code": "600875",
+      "name": "东方电气",
+      "group": "holding",
+      "concepts": [
+        "AI算力",
+        "配电",
+        "电力设备"
+      ],
+      "status": "active",
+      "evidence_pack": {
+        "schema_version": 1,
+        "line": "D",
+        "purpose": "validate_c_line_with_intraday_observation",
+        "generated_at": "2026-07-05T10:02:13",
+        "baseline_trade_date": "20260703",
+        "target_trade_date": "20260706",
+        "stock": {
+          "code": "600875",
+          "name": "东方电气",
+          "group": "holding",
+          "concepts": [
+            "AI算力",
+            "配电",
+            "电力设备"
+          ]
+        },
+        "A_eod": {
+          "price": 28.89,
+          "metrics": {
+            "right_side_score": 2.5,
+            "right_side_grade": "可考虑介入",
+            "position_20d_pct": 16.095380029806275,
+            "position_52w_pct": 39.128829826504244,
+            "main_inflow_10d": -1098809500.0,
+            "np_yoy": 37.4091,
+            "ma5": 28.688,
+            "ma10": 29.629,
+            "ma20": 30.425,
+            "ma60": 35.82083333333333,
+            "price_vs_ma5_pct": 0.7041271611823819,
+            "price_vs_ma20_pct": -5.04519309778143,
+            "price_vs_ma60_pct": -19.348609980225657,
+            "volume_ratio_5d": 1.0535977394213178,
+            "recent_5d_change_pct": 1.475237091675454,
+            "recent_20d_change_pct": -14.602423884126509,
+            "macd_hist": -0.033,
+            "rsi_14": 43.25
+          },
+          "market": {
+            "market_regime": "value",
+            "macro_regime": "🟡 中性",
+            "trade_date": "20260703",
+            "breadth": {
+              "up_count": 3804,
+              "down_count": 1628,
+              "limit_up_count": 116,
+              "limit_down_count": 27
+            },
+            "ai_track": {
+              "track_name": "AI算力",
+              "available": true,
+              "position_ceiling": "减档 (单否决, 不加且高位减)",
+              "summary_lines": [
+                "【景气·NVDA capex】✅扩张加速  [已证实]",
+                "  营收YoY 85.2% | QoQ 19.8% | 加速度 0.3pp | 最新季营收 816.2亿美元",
+                "【海外闸门·SOX】❌关闭  收12626.2 / MA50 12323.5 / 近1月-9.3%",
+                "  触发: 近1月动量转负(-9.3%)",
+                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF 23.18 / 创业板 42.18",
+                "【篮子拥挤度】换手分位 62% / 篮子52周位置 70%  [已证实]"
+              ]
+            }
+          }
+        },
+        "B_factor_history": [
+          {
+            "trade_date": "20260630",
+            "ret": {
+              "1": 0.004518595759471555
+            },
+            "mkt_ret": {
+              "1": 0.004407999302070698
+            },
+            "excess": {
+              "1": 0.00011059645740085777
+            },
+            "complete": false
+          },
+          {
+            "trade_date": "20260630",
+            "ret": {
+              "2": -0.029892248870351024,
+              "3": 0.004171011470281538
+            },
+            "mkt_ret": {
+              "2": -0.01599585892643729,
+              "3": -0.012395963928462983
+            },
+            "excess": {
+              "2": -0.013896389943913734,
+              "3": 0.01656697539874452
+            },
+            "complete": false
+          },
+          {
+            "trade_date": "20260701",
+            "ret": {
+              "1": -0.03425605536332177
+            },
+            "mkt_ret": {
+              "1": -0.020314312752074848
+            },
+            "excess": {
+              "1": -0.013941742611246921
+            },
+            "complete": false
+          },
+          {
+            "trade_date": "20260701",
+            "ret": {
+              "2": -0.000346020761245569
+            },
+            "mkt_ret": {
+              "2": -0.016730216448107016
+            },
+            "excess": {
+              "2": 0.016384195686861447
+            },
+            "complete": false
+          },
+          {
+            "trade_date": "20260702",
+            "ret": {
+              "1": 0.03511286277319958
+            },
+            "mkt_ret": {
+              "1": 0.003658414479889016
+            },
+            "excess": {
+              "1": 0.031454448293310566
+            },
+            "complete": false
+          }
+        ],
+        "C_prediction": {
+          "schema_version": 1,
+          "prediction_id": "20260703_20260706_600875_zz800_seed_v1_live",
+          "generated_at": "2026-07-05T00:25:21",
+          "generation_mode": "live",
+          "baseline_trade_date": "20260703",
+          "target_trade_date": "20260706",
+          "code": "600875",
+          "name": "东方电气",
+          "group": "holding",
+          "concepts": [
+            "AI算力",
+            "配电",
+            "电力设备"
+          ],
+          "features_ref": {
+            "price_at_baseline": 28.89,
+            "right_side_score": 2.5,
+            "right_side_grade": "可考虑介入",
+            "main_inflow_10d": -1098809500.0,
+            "np_yoy": 37.4091,
+            "holder_change_pct": null,
+            "position_20d_pct": 16.095380029806275,
+            "market_regime": "value",
+            "macro_regime": "🟡 中性",
+            "ai_position_ceiling": "减档 (单否决, 不加且高位减)"
+          },
+          "prediction": {
+            "action": "watch",
+            "direction": "up",
+            "confidence": 0.6,
+            "horizon": "T+1",
+            "expected_excess_bucket": "positive",
+            "reason_codes": [
+              "score_ge_2"
+            ],
+            "reason": "评分≥2,列为高优先观察,需盘中行为确认"
+          },
+          "rule_version": "zz800_seed_v1",
+          "model_version": "manual_rules_v1"
+        },
+        "D_contract": {
+          "allowed_trigger_fields": [
+            "amount_yi",
+            "amplitude_pct",
+            "change_pct",
+            "macd_hist",
+            "position_20d_pct",
+            "position_52w_pct",
+            "price",
+            "price_vs_ma10_pct",
+            "price_vs_ma20_pct",
+            "price_vs_ma5_pct",
+            "price_vs_ma60_pct",
+            "recent_20d_change_pct",
+            "recent_5d_change_pct",
+            "rsi_14",
+            "volume_ratio_5d"
+          ],
+          "allowed_ops": [
+            "!=",
+            "<",
+            "<=",
+            "==",
+            ">",
+            ">="
+          ],
+          "allowed_trigger_types": [
+            "breakdown_confirm",
+            "breakout_confirm",
+            "failed_breakout",
+            "noise_filter",
+            "panic_rebound_probe",
+            "reclaim_confirm",
+            "risk_off_confirm",
+            "weak_rebound"
+          ],
+          "forbidden_outputs": [
+            "intraday_new_score",
+            "buy_sell_price_instruction",
+            "fabricated_fund_flow"
+          ],
+          "notification_role": "objective_evaluation_for_user_decision"
+        }
+      },
+      "observation": {
+        "observe_intent": "明天盘中重点验证东方电气能否在20日线下方完成回收并维持相对强势，从而确认C线“watch/up”假设，还是继续受20日线压制并演化为弱势修复失败。",
+        "primary_risk": "当前价格明显低于20日线且中期趋势偏弱，最大风险是盘中反弹缺乏持续性、无法收复关键均线，导致看多观察失真。",
+        "watch_points": [
+          {
+            "name": "20日线回收",
+            "why": "这是验证C线“方向向上”假设的核心；若能重新站回20日线，说明短线结构修复成立。",
+            "signals": [
+              "price_vs_ma20_pct",
+              "price_vs_ma5_pct"
+            ]
+          },
+          {
+            "name": "反弹是否有量能配合",
+            "why": "若只是价格回升但量能不配合，通常不足以证明修复有效，容易形成无效反抽。",
+            "signals": [
+              "volume_ratio_5d",
+              "amplitude_pct"
+            ]
+          },
+          {
+            "name": "中期趋势压力",
+            "why": "20日、60日均线都处在价格上方，若盘中无法改善中期位置，说明趋势压力仍在。",
+            "signals": [
+              "price_vs_ma60_pct",
+              "recent_20d_change_pct"
+            ]
+          }
+        ],
+        "trigger_blueprints": [
+          {
+            "trigger_type": "reclaim_confirm",
+            "severity": "high",
+            "condition": {
+              "all": [
+                {
+                  "field": "price_vs_ma20_pct",
+                  "op": ">=",
+                  "value": 0.0
+                },
+                {
+                  "field": "price_vs_ma5_pct",
+                  "op": ">=",
+                  "value": 0.0
+                },
+                {
+                  "field": "volume_ratio_5d",
+                  "op": ">=",
+                  "value": 1.0
+                }
+              ]
+            },
+            "why": "说明盘中已有效收复20日线并站稳短均线，属于对C线看多观察的直接确认。",
+            "expected_feedback_to_c": "watch -> confirm_up"
+          },
+          {
+            "trigger_type": "breakdown_confirm",
+            "severity": "high",
+            "condition": {
+              "all": [
+                {
+                  "field": "price_vs_ma20_pct",
+                  "op": "<=",
+                  "value": -7.0
+                },
+                {
+                  "field": "price_vs_ma60_pct",
+                  "op": "<=",
+                  "value": -20.0
+                }
+              ],
+              "any": [
+                {
+                  "field": "volume_ratio_5d",
+                  "op": ">",
+                  "value": 1.2
+                },
+                {
+                  "field": "amplitude_pct",
+                  "op": ">=",
+                  "value": 5.0
+                }
+              ]
+            },
+            "why": "说明价格进一步远离关键均线且波动加大，验证弱势延续而非修复。",
+            "expected_feedback_to_c": "watch -> avoid_review"
+          },
+          {
+            "trigger_type": "weak_rebound",
+            "severity": "medium",
+            "condition": {
+              "all": [
+                {
+                  "field": "price_vs_ma20_pct",
+                  "op": "<",
+                  "value": -2.0
+                },
+                {
+                  "field": "price_vs_ma5_pct",
+                  "op": ">",
+                  "value": 0.0
+                },
+                {
+                  "field": "recent_5d_change_pct",
+                  "op": ">",
+                  "value": 0.0
+                }
+              ],
+              "any": [
+                {
+                  "field": "amplitude_pct",
+                  "op": ">=",
+                  "value": 2.5
+                },
+                {
+                  "field": "volume_ratio_5d",
+                  "op": ">",
+                  "value": 1.0
+                }
+              ]
+            },
+            "why": "说明盘中出现反弹，但仍未回到20日线之上，更像技术性修复而非趋势确认。",
+            "expected_feedback_to_c": "watch -> hold_for_retest"
+          }
+        ],
+        "c_line_feedback_focus": "重点反馈C线的action=watch、direction=up、confidence=0.6是否成立，并检查其依据right_side_score=2.5在盘中是否被price_vs_ma20_pct与volume_ratio_5d共同验证或证伪。",
+        "falsify_if": "若盘中有效收复20日线并持续维持在短均线上方，且量能不呈明显衰减，则当前以弱势证伪为核心的观察权重需要被推翻并转向确认修复。"
+      }
+    },
+    {
+      "schema_version": 1,
+      "task_id": "20260703_20260706_600900_d_observe_llm_v1",
+      "line": "D",
+      "created_at": "2026-07-05T10:06:03",
+      "source": "codex_llm",
+      "plan_version": "d_observe_llm_v1",
+      "baseline_trade_date": "20260703",
+      "target_trade_date": "20260706",
+      "code": "600900",
+      "name": "长江电力",
+      "group": "holding",
+      "concepts": [
+        "水电",
+        "红利",
+        "公用事业"
+      ],
+      "status": "active",
+      "evidence_pack": {
+        "schema_version": 1,
+        "line": "D",
+        "purpose": "validate_c_line_with_intraday_observation",
+        "generated_at": "2026-07-05T10:02:13",
+        "baseline_trade_date": "20260703",
+        "target_trade_date": "20260706",
+        "stock": {
+          "code": "600900",
+          "name": "长江电力",
+          "group": "holding",
+          "concepts": [
+            "水电",
+            "红利",
+            "公用事业"
+          ]
+        },
+        "A_eod": {
+          "price": 27.05,
+          "metrics": {
+            "right_side_score": 1.0,
+            "right_side_grade": "观察等待",
+            "position_20d_pct": 42.05607476635523,
+            "position_52w_pct": 37.27678571428575,
+            "main_inflow_10d": -626025499.9999999,
+            "np_yoy": 30.5016,
+            "ma5": 26.79,
+            "ma10": 26.723000000000003,
+            "ma20": 27.113,
+            "ma60": 27.006500000000003,
+            "price_vs_ma5_pct": 0.9705113848450974,
+            "price_vs_ma20_pct": -0.23236086010400483,
+            "price_vs_ma60_pct": 0.1610723344379986,
+            "volume_ratio_5d": 0.9191330811974263,
+            "recent_5d_change_pct": 1.500938086303948,
+            "recent_20d_change_pct": -2.4170274170274104,
+            "macd_hist": -0.041,
+            "rsi_14": 35.32
+          },
+          "market": {
+            "market_regime": "value",
+            "macro_regime": "🟡 中性",
+            "trade_date": "20260703",
+            "breadth": {
+              "up_count": 3804,
+              "down_count": 1628,
+              "limit_up_count": 116,
+              "limit_down_count": 27
+            },
+            "ai_track": {
+              "track_name": "AI算力",
+              "available": true,
+              "position_ceiling": "减档 (单否决, 不加且高位减)",
+              "summary_lines": [
+                "【景气·NVDA capex】✅扩张加速  [已证实]",
+                "  营收YoY 85.2% | QoQ 19.8% | 加速度 0.3pp | 最新季营收 816.2亿美元",
+                "【海外闸门·SOX】❌关闭  收12626.2 / MA50 12323.5 / 近1月-9.3%",
+                "  触发: 近1月动量转负(-9.3%)",
+                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF 23.18 / 创业板 42.18",
+                "【篮子拥挤度】换手分位 62% / 篮子52周位置 70%  [已证实]"
+              ]
+            }
+          }
+        },
+        "B_factor_history": [
+          {
+            "trade_date": "20260630",
+            "ret": {
+              "1": 0.006422364941443215
+            },
+            "mkt_ret": {
+              "1": 0.004407999302070698
+            },
+            "excess": {
+              "1": 0.0020143656393725173
+            },
+            "complete": false
+          },
+          {
+            "trade_date": "20260630",
+            "ret": {
+              "2": 0.01813373630525117,
+              "3": 0.021911598035512014
+            },
+            "mkt_ret": {
+              "2": -0.01599585892643729,
+              "3": -0.012395963928462983
+            },
+            "excess": {
+              "2": 0.03412959523168846,
+              "3": 0.034307561963975
+            },
+            "complete": false
+          },
+          {
+            "trade_date": "20260701",
+            "ret": {
+              "1": 0.0116366366366365
+            },
+            "mkt_ret": {
+              "1": -0.020314312752074848
+            },
+            "excess": {
+              "1": 0.03195094938871135
+            },
+            "complete": false
+          },
+          {
+            "trade_date": "20260701",
+            "ret": {
+              "2": 0.015390390390390474
+            },
+            "mkt_ret": {
+              "2": -0.016730216448107016
+            },
+            "excess": {
+              "2": 0.03212060683849749
+            },
+            "complete": false
+          },
+          {
+            "trade_date": "20260702",
+            "ret": {
+              "1": 0.0037105751391466324
+            },
+            "mkt_ret": {
+              "1": 0.003658414479889016
+            },
+            "excess": {
+              "1": 5.216065925761626e-05
+            },
+            "complete": false
+          }
+        ],
+        "C_prediction": {
+          "schema_version": 1,
+          "prediction_id": "20260703_20260706_600900_zz800_seed_v1_live",
+          "generated_at": "2026-07-05T00:25:21",
+          "generation_mode": "live",
+          "baseline_trade_date": "20260703",
+          "target_trade_date": "20260706",
+          "code": "600900",
+          "name": "长江电力",
+          "group": "holding",
+          "concepts": [
+            "水电",
+            "红利",
+            "公用事业"
+          ],
+          "features_ref": {
+            "price_at_baseline": 27.05,
+            "right_side_score": 1.0,
+            "right_side_grade": "观察等待",
+            "main_inflow_10d": -626025499.9999999,
+            "np_yoy": 30.5016,
+            "holder_change_pct": null,
+            "position_20d_pct": 42.05607476635523,
+            "market_regime": "value",
+            "macro_regime": "🟡 中性",
+            "ai_position_ceiling": "减档 (单否决, 不加且高位减)"
+          },
+          "prediction": {
+            "action": "avoid",
+            "direction": "neutral",
+            "confidence": 0.55,
+            "horizon": "T+1",
+            "expected_excess_bucket": "non_positive",
+            "reason_codes": [
+              "score_lt_2",
+              "non_panic"
+            ],
+            "reason": "非 panic 且评分<2,默认回避/低优先级"
+          },
+          "rule_version": "zz800_seed_v1",
+          "model_version": "manual_rules_v1"
+        },
+        "D_contract": {
+          "allowed_trigger_fields": [
+            "amount_yi",
+            "amplitude_pct",
+            "change_pct",
+            "macd_hist",
+            "position_20d_pct",
+            "position_52w_pct",
+            "price",
+            "price_vs_ma10_pct",
+            "price_vs_ma20_pct",
+            "price_vs_ma5_pct",
+            "price_vs_ma60_pct",
+            "recent_20d_change_pct",
+            "recent_5d_change_pct",
+            "rsi_14",
+            "volume_ratio_5d"
+          ],
+          "allowed_ops": [
+            "!=",
+            "<",
+            "<=",
+            "==",
+            ">",
+            ">="
+          ],
+          "allowed_trigger_types": [
+            "breakdown_confirm",
+            "breakout_confirm",
+            "failed_breakout",
+            "noise_filter",
+            "panic_rebound_probe",
+            "reclaim_confirm",
+            "risk_off_confirm",
+            "weak_rebound"
+          ],
+          "forbidden_outputs": [
+            "intraday_new_score",
+            "buy_sell_price_instruction",
+            "fabricated_fund_flow"
+          ],
+          "notification_role": "objective_evaluation_for_user_decision"
+        }
+      },
+      "observation": {
+        "observe_intent": "验证长江电力次日是否仍停留在MA20附近弱势整理，还是出现放量回收并转为有效修复，从而检验C线的avoid判断。",
+        "primary_risk": "盘中若重新站上MA20并伴随量能扩张，说明回避依据可能被推翻，C线的低优先级判断需要重估。",
+        "watch_points": [
+          {
+            "name": "MA20回收",
+            "why": "该股EOD仅略低于MA20，次日是否能重新站稳均线是验证弱势是否结束的关键。",
+            "signals": [
+              "price_vs_ma20_pct",
+              "volume_ratio_5d",
+              "macd_hist"
+            ]
+          },
+          {
+            "name": "弱反弹质量",
+            "why": "如果只是小幅反弹但量能不足、波动有限，更符合回避逻辑；若反弹质量变强，则会削弱C线的avoid依据。",
+            "signals": [
+              "change_pct",
+              "amplitude_pct",
+              "rsi_14"
+            ]
+          },
+          {
+            "name": "趋势动量延续",
+            "why": "近期20日表现仍偏弱，需要观察盘中是否继续恶化或出现修复，判断是否只是技术性整理。",
+            "signals": [
+              "recent_20d_change_pct",
+              "position_20d_pct",
+              "price_vs_ma60_pct"
+            ]
+          }
+        ],
+        "trigger_blueprints": [
+          {
+            "trigger_type": "noise_filter",
+            "severity": "low",
+            "condition": {
+              "all": [
+                {
+                  "field": "price_vs_ma20_pct",
+                  "op": ">=",
+                  "value": -1.5
+                },
+                {
+                  "field": "price_vs_ma20_pct",
+                  "op": "<=",
+                  "value": 0.8
+                },
+                {
+                  "field": "volume_ratio_5d",
+                  "op": "<=",
+                  "value": 1.05
+                },
+                {
+                  "field": "amplitude_pct",
+                  "op": "<=",
+                  "value": 3.0
+                }
+              ],
+              "any": [
+                {
+                  "field": "rsi_14",
+                  "op": "<=",
+                  "value": 38.0
+                },
+                {
+                  "field": "macd_hist",
+                  "op": "<",
+                  "value": 0.0
+                }
+              ]
+            },
+            "why": "说明盘中仍是低波动、低量能的均线附近整理，属于噪声型波动，不足以改变C线的回避判断。",
+            "expected_feedback_to_c": "noise_filter -> keep_avoid"
+          },
+          {
+            "trigger_type": "reclaim_confirm",
+            "severity": "high",
+            "condition": {
+              "all": [
+                {
+                  "field": "price_vs_ma20_pct",
+                  "op": ">=",
+                  "value": 0.3
+                },
+                {
+                  "field": "volume_ratio_5d",
+                  "op": ">",
+                  "value": 1.05
+                },
+                {
+                  "field": "change_pct",
+                  "op": ">",
+                  "value": 0.0
+                }
+              ],
+              "any": [
+                {
+                  "field": "macd_hist",
+                  "op": ">=",
+                  "value": 0.0
+                },
+                {
+                  "field": "rsi_14",
+                  "op": ">=",
+                  "value": 40.0
+                }
+              ]
+            },
+            "why": "若盘中重新回到MA20上方且量能同步抬升，说明不是简单弱反弹，而是出现有效修复，C线的avoid理由会被削弱。",
+            "expected_feedback_to_c": "reclaim -> reconsider_avoid"
+          },
+          {
+            "trigger_type": "breakdown_confirm",
+            "severity": "medium",
+            "condition": {
+              "all": [
+                {
+                  "field": "price_vs_ma20_pct",
+                  "op": "<",
+                  "value": -1.5
+                },
+                {
+                  "field": "change_pct",
+                  "op": "<",
+                  "value": -0.8
+                },
+                {
+                  "field": "rsi_14",
+                  "op": "<",
+                  "value": 35.0
+                }
+              ],
+              "any": [
+                {
+                  "field": "volume_ratio_5d",
+                  "op": ">",
+                  "value": 1.0
+                },
+                {
+                  "field": "macd_hist",
+                  "op": "<",
+                  "value": 0.0
+                }
+              ]
+            },
+            "why": "若盘中继续走弱并跌离MA20，说明弱势结构延续，C线的回避判断得到验证。",
+            "expected_feedback_to_c": "breakdown -> confirm_avoid"
+          }
+        ],
+        "c_line_feedback_focus": "重点反馈C线的action=avoid与confidence=0.55是否合理，以及reason中的score_lt_2、non_panic是否仍能支撑次日盘中的低优先级结论。",
+        "falsify_if": "盘中有效站上MA20并维持，同时量能和动量指标同步改善，或出现明显的弱势延续下破，则说明原先的回避观察框架不再成立。"
+      }
+    }
+  ]
+}

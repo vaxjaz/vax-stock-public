@@ -2,7 +2,7 @@
   "schema_version": 1,
   "job_id": "20260703_20260706_d_observe_llm_v1_job",
   "line": "D",
-  "status": "queued",
+  "status": "done",
   "created_at": "2026-07-05T00:25:21",
   "plan_version": "d_observe_llm_v1",
   "baseline_trade_date": "20260703",
@@ -1746,5 +1746,31 @@
       "rule_version": "zz800_seed_v1",
       "model_version": "manual_rules_v1"
     }
-  ]
+  ],
+  "finished_at": "2026-07-05T10:06:03",
+  "task_codes": [
+    "601138",
+    "002475",
+    "601179",
+    "600875",
+    "600900",
+    "600276",
+    "002463",
+    "002384",
+    "600183",
+    "002371",
+    "600522",
+    "601689",
+    "002050",
+    "600580",
+    "603009",
+    "603667",
+    "603728"
+  ],
+  "stats": {
+    "generated": 5,
+    "written": 5,
+    "skipped": 0,
+    "current": 5
+  }
 }
