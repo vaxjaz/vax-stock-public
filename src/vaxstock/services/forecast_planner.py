@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import math
 import logging
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
@@ -28,6 +29,7 @@ logger = logging.getLogger(__name__)
 FORECAST_DIR = config.STATE_DIR / "forecast"
 OBSERVATION_TASKS_FILE = FORECAST_DIR / "observation_tasks.jsonl"
 CURRENT_TASKS_FILE = FORECAST_DIR / "current_tasks.json"
+CURRENT_TASKS_MD_FILE = FORECAST_DIR / "current_tasks.md"
 OBSERVATION_JOBS_FILE = FORECAST_DIR / "observation_jobs.jsonl"
 CURRENT_OBSERVATION_JOB_FILE = FORECAST_DIR / "current_job.json"
 PLAN_PROMPT_FILE = config.PROJECT_ROOT / "deploy" / "d_observation_plan_prompt.md"
@@ -192,8 +194,14 @@ def _prediction_index(c_predictions: Optional[Iterable[Dict[str, Any]]]) -> Dict
 
 
 def _factor_history_index(rows: Optional[Iterable[Dict[str, Any]]], limit: int = 5) -> Dict[str, List[Dict[str, Any]]]:
-    """Build compact B-line history by code from factor_results rows."""
-    by_code: Dict[str, List[Dict[str, Any]]] = {}
+    """Build compact B-line history by code from append-only factor_results rows.
+
+    ``factor_results.jsonl`` may append one horizon set first and later append
+    more horizons for the same ``(trade_date, code)``. Evidence should present
+    one merged row per date instead of exposing append mechanics to the LLM.
+    """
+    by_code_date: Dict[str, Dict[str, Dict[str, Any]]] = {}
+    complete_seen: Dict[Tuple[str, str], bool] = {}
     for row in rows or []:
         if not isinstance(row, dict):
             continue
@@ -201,18 +209,28 @@ def _factor_history_index(rows: Optional[Iterable[Dict[str, Any]]], limit: int =
         td = str(row.get("trade_date") or "").strip()
         if not (code and td):
             continue
-        by_code.setdefault(code, []).append({
+        dst = by_code_date.setdefault(code, {}).setdefault(td, {
             "trade_date": td,
-            "ret": row.get("ret") or {},
-            "mkt_ret": row.get("mkt_ret") or {},
-            "excess": row.get("excess") or {},
-            "complete": row.get("complete"),
+            "ret": {},
+            "mkt_ret": {},
+            "excess": {},
+            "complete": False,
         })
+        for key in ("ret", "mkt_ret", "excess"):
+            vals = row.get(key) or {}
+            if isinstance(vals, dict):
+                dst[key].update(vals)
+        if row.get("complete") is True:
+            complete_seen[(code, td)] = True
+            dst["complete"] = True
     out = {}
-    for code, vals in by_code.items():
-        out[code] = sorted(vals, key=lambda r: r["trade_date"])[-limit:]
+    for code, vals_by_date in by_code_date.items():
+        rows_out = []
+        for td, row in vals_by_date.items():
+            row["complete"] = bool(complete_seen.get((code, td), row.get("complete")))
+            rows_out.append(row)
+        out[code] = sorted(rows_out, key=lambda r: r["trade_date"])[-limit:]
     return out
-
 
 def _load_factor_results() -> List[dict]:
     try:
@@ -684,16 +702,226 @@ def _tasks_for_targets(history_path, target_dates: Optional[Iterable[str]] = Non
     )
 
 
+
+_FIELD_LABELS = {
+    "price": "现价",
+    "change_pct": "涨跌幅",
+    "amplitude_pct": "振幅",
+    "amount_yi": "成交额(亿)",
+    "price_vs_ma5_pct": "相对MA5",
+    "price_vs_ma10_pct": "相对MA10",
+    "price_vs_ma20_pct": "相对MA20",
+    "price_vs_ma60_pct": "相对MA60",
+    "volume_ratio_5d": "5日量比",
+    "position_20d_pct": "20日位置",
+    "position_52w_pct": "52周位置",
+    "recent_5d_change_pct": "近5日涨跌",
+    "recent_20d_change_pct": "近20日涨跌",
+    "macd_hist": "MACD柱",
+    "rsi_14": "RSI14",
+}
+
+_TRIGGER_LABELS = {
+    "breakdown_confirm": "破位确认",
+    "breakout_confirm": "突破确认",
+    "reclaim_confirm": "收复确认",
+    "weak_rebound": "弱反弹",
+    "failed_breakout": "突破失败",
+    "panic_rebound_probe": "恐慌反弹观察",
+    "risk_off_confirm": "风险回避确认",
+    "noise_filter": "噪音过滤",
+}
+
+_ACTION_LABELS = {
+    "candidate_buy": "候选买入验证",
+    "watch": "观察验证",
+    "avoid": "回避/低优先级验证",
+}
+
+
+def _finite_float(value) -> Optional[float]:
+    num = _to_float(value)
+    if num is None or not math.isfinite(num):
+        return None
+    return num
+
+
+def _fmt_number(value, digits: int = 2, signed: bool = False) -> str:
+    num = _finite_float(value)
+    if num is None:
+        return "N/A"
+    sign = "+" if signed and num > 0 else ""
+    return f"{sign}{num:.{digits}f}"
+
+
+def _fmt_pct(value, digits: int = 2, signed: bool = True) -> str:
+    num = _finite_float(value)
+    if num is None:
+        return "N/A"
+    sign = "+" if signed and num > 0 else ""
+    return f"{sign}{num:.{digits}f}%"
+
+
+def _fmt_confidence(value) -> str:
+    num = _finite_float(value)
+    if num is None:
+        return "N/A"
+    return f"{num * 100:.0f}%"
+
+
+def _short_text(value, limit: int = 140) -> str:
+    txt = str(value or "").strip().replace("\n", " ")
+    if len(txt) <= limit:
+        return txt
+    return txt[:limit - 1].rstrip() + "..."
+
+
+def _field_value_text(field: str, value) -> str:
+    if field.endswith("_pct") or field in {"change_pct", "amplitude_pct", "position_20d_pct", "position_52w_pct", "recent_5d_change_pct", "recent_20d_change_pct"}:
+        return _fmt_pct(value)
+    return _fmt_number(value)
+
+
+def _price_reference_for_clause(field: str, op: str, value, metrics: Dict[str, Any]) -> str:
+    ma_key_by_field = {
+        "price_vs_ma5_pct": "ma5",
+        "price_vs_ma10_pct": "ma10",
+        "price_vs_ma20_pct": "ma20",
+        "price_vs_ma60_pct": "ma60",
+    }
+    ma_key = ma_key_by_field.get(field)
+    pct = _finite_float(value)
+    ma = _finite_float((metrics or {}).get(ma_key)) if ma_key else None
+    if ma is None or pct is None:
+        return ""
+    price = ma * (1.0 + pct / 100.0)
+    return f" (约价 {op} {_fmt_number(price)}, {ma_key.upper()}={_fmt_number(ma)})"
+
+
+def _condition_clause_text(clause: Dict[str, Any], metrics: Dict[str, Any]) -> str:
+    field = str((clause or {}).get("field") or "").strip()
+    op = str((clause or {}).get("op") or "").strip()
+    value = (clause or {}).get("value")
+    label = _FIELD_LABELS.get(field, field or "?")
+    price_ref = _price_reference_for_clause(field, op, value, metrics)
+    return f"{label} {op} {_field_value_text(field, value)}{price_ref}"
+
+
+def _condition_text(condition: Dict[str, Any], metrics: Dict[str, Any]) -> str:
+    parts = []
+    for key, label in (("all", "同时"), ("any", "任一")):
+        clauses = (condition or {}).get(key) or []
+        if not clauses:
+            continue
+        rendered = "; ".join(_condition_clause_text(c, metrics) for c in clauses if isinstance(c, dict))
+        if rendered:
+            parts.append(f"{label}: {rendered}")
+    return " | ".join(parts) if parts else "N/A"
+
+
+def _task_sort_key(task: Dict[str, Any]) -> Tuple[int, int, str]:
+    group_rank = 0 if task.get("group") == "holding" else 1
+    prediction = (((task.get("evidence_pack") or {}).get("C_prediction") or {}).get("prediction") or {})
+    action_rank = {"candidate_buy": 0, "watch": 1, "avoid": 2}.get(prediction.get("action"), 9)
+    return (group_rank, action_rank, str(task.get("code") or ""))
+
+
+def render_current_tasks_markdown(snapshot: Dict[str, Any]) -> str:
+    """Render current D-line tasks into a human-readable markdown digest."""
+    tasks = [t for t in (snapshot or {}).get("tasks") or [] if isinstance(t, dict)]
+    target_dates = ", ".join(str(x) for x in (snapshot or {}).get("target_trade_dates") or []) or "N/A"
+    lines = [
+        "# D线盘中观察任务摘要",
+        "",
+        f"- updated_at: {(snapshot or {}).get('updated_at') or 'N/A'}",
+        f"- target_trade_dates: {target_dates}",
+        f"- tasks: {len(tasks)}",
+        "- 口径: 本文件只翻译 D线观察任务, 不给买卖建议; 价格来自 T-1 EOD 基准与任务触发条件。",
+        "",
+        "## 任务总览",
+        "",
+    ]
+    for group, title in (("holding", "持仓"), ("watchlist", "观察/任务池")):
+        group_tasks = sorted([t for t in tasks if t.get("group") == group], key=_task_sort_key)
+        if not group_tasks:
+            continue
+        lines += [f"### {title}", ""]
+        for task in group_tasks:
+            evidence = task.get("evidence_pack") or {}
+            metrics = (evidence.get("A_eod") or {}).get("metrics") or {}
+            price = (evidence.get("A_eod") or {}).get("price")
+            prediction = ((evidence.get("C_prediction") or {}).get("prediction") or {})
+            action = prediction.get("action")
+            direction = prediction.get("direction")
+            confidence = prediction.get("confidence")
+            trigger_types = [str(t.get("trigger_type") or "") for t in ((task.get("observation") or {}).get("trigger_blueprints") or [])]
+            trigger_names = ", ".join(_TRIGGER_LABELS.get(x, x) for x in trigger_types if x) or "N/A"
+            lines.append(
+                f"- **{task.get('code')} {task.get('name')}** | C线: {_ACTION_LABELS.get(action, action or 'N/A')} / {direction or 'N/A'} / 置信度 {_fmt_confidence(confidence)} | "
+                f"分析价 {_fmt_number(price)} | MA20偏离 {_fmt_pct(metrics.get('price_vs_ma20_pct'))} | 触发: {trigger_names}"
+            )
+        lines.append("")
+
+    lines += ["## 个股明细", ""]
+    for task in sorted(tasks, key=_task_sort_key):
+        evidence = task.get("evidence_pack") or {}
+        a_eod = evidence.get("A_eod") or {}
+        metrics = a_eod.get("metrics") or {}
+        prediction = (evidence.get("C_prediction") or {}).get("prediction") or {}
+        obs = task.get("observation") or {}
+        concepts = ", ".join(str(x) for x in task.get("concepts") or []) or "N/A"
+        action = prediction.get("action")
+        lines += [
+            f"### {task.get('code')} {task.get('name')} ({'持仓' if task.get('group') == 'holding' else '观察'})",
+            "",
+            f"- C线: {_ACTION_LABELS.get(action, action or 'N/A')} / direction={prediction.get('direction') or 'N/A'} / confidence={_fmt_confidence(prediction.get('confidence'))}",
+            f"- C线依据: {_short_text(prediction.get('reason'), 180) or 'N/A'}",
+            f"- 概念: {concepts}",
+            f"- 真实价量基准(T-1 EOD): 分析价={_fmt_number(a_eod.get('price'))}; MA5={_fmt_number(metrics.get('ma5'))}; MA10={_fmt_number(metrics.get('ma10'))}; MA20={_fmt_number(metrics.get('ma20'))}; MA60={_fmt_number(metrics.get('ma60'))}",
+            f"- 位置/动量: MA5偏离={_fmt_pct(metrics.get('price_vs_ma5_pct'))}; MA20偏离={_fmt_pct(metrics.get('price_vs_ma20_pct'))}; MA60偏离={_fmt_pct(metrics.get('price_vs_ma60_pct'))}; 20日位置={_fmt_pct(metrics.get('position_20d_pct'), signed=False)}; 52周位置={_fmt_pct(metrics.get('position_52w_pct'), signed=False)}",
+            f"- 量能/近期: 5日量比={_fmt_number(metrics.get('volume_ratio_5d'))}; 近5日={_fmt_pct(metrics.get('recent_5d_change_pct'))}; 近20日={_fmt_pct(metrics.get('recent_20d_change_pct'))}; MACD柱={_fmt_number(metrics.get('macd_hist'), 3)}; RSI14={_fmt_number(metrics.get('rsi_14'))}",
+            "- LLM客观评价:",
+            f"  - 观察意图: {_short_text(obs.get('observe_intent'), 220) or 'N/A'}",
+            f"  - 主要风险: {_short_text(obs.get('primary_risk'), 220) or 'N/A'}",
+            f"  - C线反馈焦点: {_short_text(obs.get('c_line_feedback_focus'), 220) or 'N/A'}",
+            f"  - 证伪/修正条件: {_short_text(obs.get('falsify_if'), 220) or 'N/A'}",
+            "- 触发条件:",
+        ]
+        triggers = obs.get("trigger_blueprints") or []
+        if not triggers:
+            lines.append("  - N/A")
+        for idx, trigger in enumerate(triggers, start=1):
+            ttype = str(trigger.get("trigger_type") or "")
+            lines.append(
+                f"  {idx}. {_TRIGGER_LABELS.get(ttype, ttype or 'N/A')} / severity={trigger.get('severity') or 'N/A'}: "
+                f"{_condition_text(trigger.get('condition') or {}, metrics)}"
+            )
+            why = _short_text(trigger.get("why"), 180)
+            feedback = _short_text(trigger.get("expected_feedback_to_c"), 120)
+            if why:
+                lines.append(f"     - 客观含义: {why}")
+            if feedback:
+                lines.append(f"     - 对C线反馈: {feedback}")
+        lines.append("")
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def _current_tasks_markdown_path(current_path) -> Path:
+    current = Path(current_path or CURRENT_TASKS_FILE)
+    return CURRENT_TASKS_MD_FILE if current == CURRENT_TASKS_FILE else current.with_suffix(".md")
+
 def _materialize_current_tasks(history_path, current_path, target_dates: Optional[Iterable[str]] = None) -> int:
     current = Path(current_path or CURRENT_TASKS_FILE)
     tasks = _tasks_for_targets(history_path, target_dates=target_dates)
     target_list = sorted({str(t.get("target_trade_date") or "") for t in tasks if t.get("target_trade_date")})
-    _write_json(current, {
+    snapshot = {
         "schema_version": SCHEMA_VERSION,
         "updated_at": _now_iso(),
         "target_trade_dates": target_list,
         "tasks": tasks,
-    })
+    }
+    _write_json(current, snapshot)
+    _current_tasks_markdown_path(current).write_text(render_current_tasks_markdown(snapshot), encoding="utf-8")
     return len(tasks)
 
 

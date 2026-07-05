@@ -34,6 +34,11 @@ def _payload():
                     "right_side_grade": "可考虑介入",
                     "position_20d_pct": 1.5,
                     "main_inflow_10d_yuan": -2275209400,
+                    "ma5": 63.0,
+                    "ma10": 66.0,
+                    "ma20": 68.12,
+                    "ma60": 70.0,
+                    "price_vs_ma5_pct": -3.33,
                     "price_vs_ma20_pct": -10.6,
                     "volume_ratio_5d": 0.9,
                     "rsi_14": 45.5,
@@ -331,6 +336,20 @@ def test_codex_plan_runtime_config_falls_back_to_shared_config():
     assert runtime["timeout"] == 30
 
 
+def test_factor_history_merges_append_only_horizons_by_trade_date():
+    rows = [
+        {"trade_date": "20260701", "code": "002475", "ret": {"1": 0.01}, "mkt_ret": {"1": 0.001}, "excess": {"1": 0.009}, "complete": False},
+        {"trade_date": "20260701", "code": "002475", "ret": {"2": 0.02}, "mkt_ret": {"2": 0.002}, "excess": {"2": 0.018}, "complete": True},
+        {"trade_date": "20260702", "code": "002475", "ret": {"1": -0.01}, "mkt_ret": {"1": 0.0}, "excess": {"1": -0.01}, "complete": False},
+    ]
+    idx = fp._factor_history_index(rows)
+    assert len(idx["002475"]) == 2
+    day1 = idx["002475"][0]
+    assert day1["trade_date"] == "20260701"
+    assert day1["ret"] == {"1": 0.01, "2": 0.02}
+    assert day1["mkt_ret"] == {"1": 0.001, "2": 0.002}
+    assert day1["excess"] == {"1": 0.009, "2": 0.018}
+    assert day1["complete"] is True
 def test_build_observation_evidence_includes_abc_contract():
     evs = fp.build_observation_evidence(
         _payload(),
@@ -410,6 +429,14 @@ def test_record_observation_tasks_idempotent_and_current_snapshot():
         cur = json.loads(current.read_text(encoding="utf-8"))
         assert cur["target_trade_dates"] == ["20260706"]
         assert cur["tasks"][0]["task_id"] == task["task_id"]
+        md = current.with_suffix(".md")
+        assert md.exists()
+        md_text = md.read_text(encoding="utf-8")
+        assert "D线盘中观察任务摘要" in md_text
+        assert "LLM客观评价" in md_text
+        assert "分析价=60.90" in md_text
+        assert "MA20=68.12" in md_text
+        assert "约价 < 66.76" in md_text
 
         stats2 = fp.record_observation_tasks([task], history_path=hist, current_path=current)
         assert stats2 == {"written": 0, "skipped": 1, "current": 1}
