@@ -1747,7 +1747,7 @@
       "model_version": "manual_rules_v1"
     }
   ],
-  "finished_at": "2026-07-05T10:52:54",
+  "finished_at": "2026-07-05T11:42:22",
   "task_codes": [
     "601138",
     "002475",
@@ -1768,13 +1768,13 @@
     "603728"
   ],
   "stats": {
-    "generated": 12,
-    "written": 12,
+    "generated": 0,
+    "written": 0,
     "skipped": 0,
     "current": 17,
     "existing": 17
   },
-  "updated_at": "2026-07-05T10:52:54",
+  "updated_at": "2026-07-05T11:42:22",
   "done_codes": [
     "601138",
     "002475",
