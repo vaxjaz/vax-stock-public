@@ -82,6 +82,9 @@ def test_prediction_from_snapshot_freezes_schema_and_features():
     assert pred["rule_version"] == "zz800_seed_v1"
     assert pred["model_version"] == "manual_rules_v1"
     assert pred["features_ref"]["price_at_baseline"] == 68.2
+    assert pred["context_ref"]["line"] == "E_context"
+    assert pred["context_ref"]["earnings"]["source_status"] == "pending_source"
+    assert pred["context_ref"]["industry_forward"]["source_status"] == "concept_tags_only"
     assert pred["features_ref"]["right_side_score"] == 2.3
     assert pred["features_ref"]["right_side_grade"] == "可考虑介入"
     assert pred["features_ref"]["main_inflow_10d"] == 123000000

@@ -354,6 +354,30 @@ Purpose: materialized active tasks for the target session. It is not append-only
 - 还没有主动盘面体检的落盘 schema。
 - 还没有 `/intraday/ask` 的查询输入/输出冻结规范。
 
+
+### E_context: earnings / company events / industry forward context
+
+Source: `services.company_context`
+
+Purpose: non-scoring context for C-line predictions and D-line LLM observation tasks. It is not a factor weight and does not change `right_side_score`.
+
+Write/read locations:
+
+- C-line `eod_predictions.jsonl`: top-level `context_ref`.
+- D-line `observation_tasks.jsonl` / `current_tasks.json`: `evidence_pack.E_context`.
+- D-line `current_tasks.md`: compact `E-context` summary line.
+
+Core schema:
+
+| Field | Meaning |
+|---|---|
+| `E_context.earnings` | Earnings calendar/report node. `source_status=pending_source` means no verified earnings-calendar source is present. |
+| `E_context.earnings.metric_snapshot` | Existing A-line EOD metrics such as `np_yoy`; this is not a verified announcement date. |
+| `E_context.company_events.events[]` | Sourced company events with `event_type/event_date/source/title/summary/impact_hint/confidence`. Empty list means no verified event source. |
+| `E_context.industry_forward.forward_points[]` | Sourced forward-looking industry points. Concept tags alone are routing context, not verified forward evidence. |
+| `usage` | Always `context_only_not_scoring` for this PR. |
+
+P0 rule: no source means no conclusion. Do not fabricate earnings dates, company events, or industry catalysts.
 ## 配置与操作状态
 
 | 文件 | 来源/写入者 | 作用 |

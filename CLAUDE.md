@@ -231,6 +231,14 @@ print('✅ import无副作用 + 纯函数验证通过')
    - result: `prediction_id/evaluated_at/baseline_trade_date/target_trade_date/code/horizon/actual/evaluation`。
    - `evaluation` 至少含 `direction_hit/positive_excess/action_hit/deviation/error_type`。
 
+
+   **E_context 财报/公司事件上下文(已立 schema)**:
+   - `services.company_context` 生成 `E_context`,仅作为 C线/D线 LLM 上下文,不参与当前 `right_side_score` 或 prediction 规则打分。
+   - C线 `eod_predictions.jsonl` 每条 prediction 冻结 `context_ref`。
+   - D线 `observation_tasks.jsonl/current_tasks.json` 每条 task 冻结 `evidence_pack.E_context`, `current_tasks.md` 显示简要 `E-context` 摘要。
+   - `earnings.source_status=pending_source` 表示尚无已验证财报日历/公告源;不得臆造公告日期。
+   - `company_events.events[]` 只接收带 `event_type/event_date/source/title/summary/impact_hint/confidence` 的有源事件;空列表不是中性事件,只是缺源。
+   - `industry_forward.forward_points[]` 只放有来源的行业前瞻;概念标签仅用于路由,不是前瞻结论。
    **硬边界**:
    - Prediction 线验证"动作是否正确";现有 `factor_snapshots/results` 验证"score 档未来收益",两者互补但不可混。
    - replay 是历史输入重放,只用于快速 bootstrap 当前规则,报告必须与 live 分开。

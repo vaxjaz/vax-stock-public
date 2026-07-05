@@ -168,6 +168,15 @@ flowchart TD
 - 目前尚未有独立 forecast result 回填文件。
 - C2d 待办包括盘中演变记忆、主动盘面体检、`/intraday/ask` 咨询端点。
 
+
+## Company Context Schema
+
+`services.company_context` defines the non-scoring `E_context` schema used by C-line and D-line:
+
+- C-line `services.eod_predictor` freezes it as `context_ref` in each prediction row.
+- D-line `services.forecast_planner` injects it as `evidence_pack.E_context` for Codex planning.
+- Missing earnings/event/industry data is represented as `source_status=pending_source` or `concept_tags_only`; no default neutral value is created.
+- Current deterministic scoring and rule versions do not use this context for factor weights.
 ## 状态写入模块
 
 | 模块 | 写入位置 | 写入性质 |

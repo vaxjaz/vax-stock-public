@@ -368,6 +368,8 @@ def test_build_observation_evidence_includes_abc_contract():
     assert ev["A_eod"]["market"]["market_regime"] == "value"
     assert ev["B_factor_history"][0]["excess"]["1"] == -0.015
     assert ev["C_prediction"]["prediction"]["action"] == "watch"
+    assert ev["E_context"]["line"] == "E_context"
+    assert ev["E_context"]["earnings"]["source_status"] == "pending_source"
     assert "price_vs_ma20_pct" in ev["D_contract"]["allowed_trigger_fields"]
     assert ev["D_contract"]["notification_role"] == "objective_evaluation_for_user_decision"
 
@@ -391,6 +393,7 @@ def test_generate_observation_tasks_validates_llm_plan():
     assert trigger["trigger_type"] == "breakdown_confirm"
     assert trigger["condition"]["all"][0] == {"field": "price_vs_ma20_pct", "op": "<", "value": -2.0}
     assert task["evidence_pack"]["C_prediction"]["prediction"]["confidence"] == 0.6
+    assert task["evidence_pack"]["E_context"]["company_events"]["source_status"] == "pending_source"
 
 
 def test_generate_observation_tasks_skips_invalid_trigger_field():
@@ -437,6 +440,7 @@ def test_record_observation_tasks_idempotent_and_current_snapshot():
         assert "分析价=60.90" in md_text
         assert "MA20=68.12" in md_text
         assert "约价 < 66.76" in md_text
+        assert "E-context:" in md_text
 
         stats2 = fp.record_observation_tasks([task], history_path=hist, current_path=current)
         assert stats2 == {"written": 0, "skipped": 1, "current": 1}

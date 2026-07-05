@@ -23,6 +23,7 @@ _SERVICES = {
     "stock-api.service": "vaxstock.services.api",
     "intraday-watch.service": "vaxstock.services.intraday",
     "vaxstock-eod.service": "vaxstock.services.eod",
+    "vaxstock-dline-plan.service": "vaxstock.services.dline_plan",
 }
 
 
@@ -63,6 +64,16 @@ def test_eod_is_oneshot_and_timer_persistent():
     assert "05:00" in oncal, f"EOD 调度时点应为凌晨05:00: {oncal}"
     assert "Tue-Sat" in oncal, f"EOD 应跑 Tue-Sat(周一~周五T日的次日凌晨): {oncal}"
 
+def test_autocommit_hooks_are_wired_after_jobs():
+    eod = (_DEPLOY / "vaxstock-eod.service").read_text(encoding="utf-8")
+    eod_autocommit = "vaxstock.services.git_autocommit --stage eod"
+    dline_start = "systemctl --no-block start vaxstock-dline-plan.service"
+    assert eod_autocommit in eod, "EOD autocommit hook missing"
+    assert dline_start in eod, "D-line async start hook missing"
+    assert eod.index(eod_autocommit) < eod.index(dline_start), "EOD autocommit must run before D-line start"
+
+    dline = (_DEPLOY / "vaxstock-dline-plan.service").read_text(encoding="utf-8")
+    assert "vaxstock.services.git_autocommit --stage dline" in dline, "D-line autocommit hook missing"
 
 def test_longrunning_services_restart_always():
     # api / intraday 长驻 -> Restart=always

@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
 from vaxstock import config
+from vaxstock.services.company_context import build_context_from_payload_item, summarize_context
 from vaxstock.sources.codex import CodexCallError
 
 logger = logging.getLogger(__name__)
@@ -349,6 +350,7 @@ def build_observation_evidence(payload: Dict[str, Any], target_trade_date: str, 
             },
             "B_factor_history": factor_idx.get(code, []),
             "C_prediction": pred_idx.get(code),
+            "E_context": build_context_from_payload_item(item, payload, target),
             "D_contract": {
                 "allowed_trigger_fields": sorted(ALLOWED_TRIGGER_FIELDS),
                 "allowed_ops": sorted(ALLOWED_OPS),
@@ -868,6 +870,7 @@ def render_current_tasks_markdown(snapshot: Dict[str, Any]) -> str:
         a_eod = evidence.get("A_eod") or {}
         metrics = a_eod.get("metrics") or {}
         prediction = (evidence.get("C_prediction") or {}).get("prediction") or {}
+        ctx_summary = summarize_context(evidence.get("E_context") or {})
         obs = task.get("observation") or {}
         concepts = ", ".join(str(x) for x in task.get("concepts") or []) or "N/A"
         action = prediction.get("action")
@@ -877,6 +880,7 @@ def render_current_tasks_markdown(snapshot: Dict[str, Any]) -> str:
             f"- C线: {_ACTION_LABELS.get(action, action or 'N/A')} / direction={prediction.get('direction') or 'N/A'} / confidence={_fmt_confidence(prediction.get('confidence'))}",
             f"- C线依据: {_short_text(prediction.get('reason'), 180) or 'N/A'}",
             f"- 概念: {concepts}",
+            f"- E-context: earnings={ctx_summary.get('earnings_status')}; next_report={ctx_summary.get('next_report_date') or 'N/A'}; events={ctx_summary.get('company_event_count')}; industry={ctx_summary.get('industry_status')}",
             f"- 真实价量基准(T-1 EOD): 分析价={_fmt_number(a_eod.get('price'))}; MA5={_fmt_number(metrics.get('ma5'))}; MA10={_fmt_number(metrics.get('ma10'))}; MA20={_fmt_number(metrics.get('ma20'))}; MA60={_fmt_number(metrics.get('ma60'))}",
             f"- 位置/动量: MA5偏离={_fmt_pct(metrics.get('price_vs_ma5_pct'))}; MA20偏离={_fmt_pct(metrics.get('price_vs_ma20_pct'))}; MA60偏离={_fmt_pct(metrics.get('price_vs_ma60_pct'))}; 20日位置={_fmt_pct(metrics.get('position_20d_pct'), signed=False)}; 52周位置={_fmt_pct(metrics.get('position_52w_pct'), signed=False)}",
             f"- 量能/近期: 5日量比={_fmt_number(metrics.get('volume_ratio_5d'))}; 近5日={_fmt_pct(metrics.get('recent_5d_change_pct'))}; 近20日={_fmt_pct(metrics.get('recent_20d_change_pct'))}; MACD柱={_fmt_number(metrics.get('macd_hist'), 3)}; RSI14={_fmt_number(metrics.get('rsi_14'))}",

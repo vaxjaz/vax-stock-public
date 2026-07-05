@@ -76,3 +76,16 @@ A线 EOD 原始地基 + B线因子表现 + C线 EOD Prediction
 
 `trigger_type` 只能从输入的 `D_contract.allowed_trigger_types` 中选择。
 `severity` 只能是 `low`、`medium`、`high`。
+
+## Non-scoring company context
+
+The input may contain `E_context`:
+
+- `E_context.earnings`: earnings calendar/report context. Use only when `source_status=provided` or explicit source fields are present.
+- `E_context.company_events`: sourced company events such as earnings, guidance, products, orders, policy, financing, shareholder changes, litigation, industry events.
+- `E_context.industry_forward`: sourced forward-looking industry context. Concept tags alone are routing context, not verified forward-looking evidence.
+
+Rules:
+
+- Treat `pending_source` as missing evidence. Do not infer or fabricate announcement dates, company events, or industry catalysts.
+- E_context is context-only. It can refine watch_points and primary_risk, but it must not create new scores or direct trade instructions.

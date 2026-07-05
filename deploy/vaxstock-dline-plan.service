@@ -11,3 +11,4 @@ WorkingDirectory=/opt/stock-reportv2/vax-stock-public
 EnvironmentFile=/etc/vaxstock/vaxstock.env
 Environment="PATH=/opt/stock-reportv2/venv/bin:/usr/local/bin:/usr/bin:/bin"
 ExecStart=/opt/stock-reportv2/venv/bin/python -m vaxstock.services.dline_plan
+ExecStartPost=-/opt/stock-reportv2/venv/bin/python -m vaxstock.services.git_autocommit --stage dline

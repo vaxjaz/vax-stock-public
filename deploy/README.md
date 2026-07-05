@@ -31,3 +31,27 @@ v2 一刀切顶替 v1(不并存)。本目录是三服务的 systemd 模板,env �
 - api/intraday:`cp /root/v1-unit-backup/*.service /etc/systemd/system/` ; `systemctl daemon-reload` ; `systemctl restart stock-api intraday-watch`
 - EOD:`systemctl disable --now vaxstock-eod.timer` ; `crontab -e` 恢复 16:00 那行
 - 说明:仅 unit 指向变化,v1 代码 `/opt/stock-report` 原样保留,回滚即恢复。
+
+---
+
+## Auto GitHub commit after EOD / D-line
+
+`vaxstock-eod.service` and `vaxstock-dline-plan.service` call `python -m vaxstock.services.git_autocommit` in `ExecStartPost`.
+
+Enable it explicitly in `/etc/vaxstock/vaxstock.env`:
+
+```bash
+GIT_AUTOCOMMIT_ENABLED=1
+GIT_AUTOCOMMIT_PUSH=1
+# optional
+GIT_AUTOCOMMIT_REMOTE=origin
+GIT_AUTOCOMMIT_BRANCH=main
+```
+
+Safety rules:
+
+- EOD stage only stages generated A/B/C data and the D-line job envelope: `var/reports`, `var/eval`, `var/prediction`, `var/forecast/current_job.json`, `var/forecast/observation_jobs.jsonl`.
+- D-line stage only stages generated D-line task files: `var/forecast/current_job.json`, `var/forecast/current_tasks.json`, `var/forecast/current_tasks.md`, `var/forecast/observation_tasks.jsonl`.
+- If any non-whitelisted file is dirty, the autocommit step skips and prints the blocking paths.
+- Push requires non-interactive GitHub credentials for root/systemd, such as SSH deploy key or a stored credential helper. The code never stores tokens.
+- Git prompts are disabled (`GIT_TERMINAL_PROMPT=0`, `GCM_INTERACTIVE=never`); missing credentials fail fast in journal logs.

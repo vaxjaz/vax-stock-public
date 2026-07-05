@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 
 from vaxstock import config
+from vaxstock.services.company_context import build_context_from_payload_item, build_context_from_snapshot
 
 logger = logging.getLogger(__name__)
 
@@ -247,6 +248,7 @@ def prediction_from_snapshot(snapshot: Dict[str, Any], target_trade_date: str, *
         "group": snapshot.get("group"),
         "concepts": list(snapshot.get("concepts") or []),
         "features_ref": _features_from_snapshot(snapshot),
+        "context_ref": build_context_from_snapshot(snapshot, str(target_trade_date)),
         "prediction": prediction,
         "rule_version": rule_version,
         "model_version": model_version,
@@ -297,6 +299,7 @@ def predictions_from_payload(payload: Dict[str, Any], target_trade_date: str, *,
         snap = _snapshot_from_payload_item(item, payload)
         if not snap:
             continue
+        snap["company_context"] = build_context_from_payload_item(item, payload, str(target_trade_date))
         pred = prediction_from_snapshot(
             snap,
             target_trade_date,
