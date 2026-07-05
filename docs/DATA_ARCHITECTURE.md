@@ -367,13 +367,27 @@ Write/read locations:
 - D-line `observation_tasks.jsonl` / `current_tasks.json`: `evidence_pack.E_context`.
 - D-line `current_tasks.md`: compact `E-context` summary line.
 
+Real sources currently connected:
+
+| Source | Consumed by | Meaning |
+|---|---|---|
+| `tushare.fina_indicator` | `E_context.earnings.latest_report` | Latest verified financial report period/announcement date and YoY fields already returned by A-line EOD. |
+| `tushare.forecast` | `E_context.company_events.events[]` with `event_type=guidance` | Performance guidance / forecast event. |
+| `tushare.express` | `E_context.company_events.events[]` with `event_type=earnings` | Performance express event. |
+
+Still pending verified source:
+
+- Future disclosure calendar (`E_context.earnings.next_report.expected_ann_date`) remains `status=pending_source` until a real source/field is verified.
+- Full announcement text / exchange公告 / news catalysts are not connected yet.
+- Industry forward-looking analysis still only has concept tags and track context unless explicit sourced `forward_points` are provided.
+
 Core schema:
 
 | Field | Meaning |
 |---|---|
-| `E_context.earnings` | Earnings calendar/report node. `source_status=pending_source` means no verified earnings-calendar source is present. |
+| `E_context.earnings` | Earnings/report node. `latest_report` may come from `tushare.fina_indicator`; future report date remains `pending_source` unless verified. |
 | `E_context.earnings.metric_snapshot` | Existing A-line EOD metrics such as `np_yoy`; this is not a verified announcement date. |
-| `E_context.company_events.events[]` | Sourced company events with `event_type/event_date/source/title/summary/impact_hint/confidence`. Empty list means no verified event source. |
+| `E_context.company_events.events[]` | Sourced company events with `event_type/event_date/source/title/summary/impact_hint/confidence/raw_fields`. Empty list means no verified event source. |
 | `E_context.industry_forward.forward_points[]` | Sourced forward-looking industry points. Concept tags alone are routing context, not verified forward evidence. |
 | `usage` | Always `context_only_not_scoring` for this PR. |
 

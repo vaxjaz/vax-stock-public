@@ -72,6 +72,7 @@ def build_stock_item(
         money_flow  = _res(source.get_moneyflow_summary, code) if has_ts else None
         fina_recs   = _res(source.get_fina_indicator, code, 4) if has_ts else None
         forecasts   = _res(source.get_forecast, code, 2) if has_ts else None
+        expresses   = _res(source.get_express, code, 2) if has_ts else None
         holders     = _res(source.get_holder_number, code, 2) if has_ts else None
         daily_basic = _res(source.get_daily_basic, code) if has_ts else None
         ts_concepts = _res(source.get_stock_concepts, code) if use_concepts else None
@@ -108,11 +109,13 @@ def build_stock_item(
 
     metrics = calc_derived_metrics(realtime, history, cost, shares, money_flow, quarterly)
 
-    # 业绩预告
+    # 业绩预告 / 业绩快报: source + raw_fields keep source traceability.
     forecast_info = None
     if forecasts:
         latest = forecasts[0]
         forecast_info = {
+            "source": "tushare.forecast",
+            "raw_fields": sorted(str(k) for k in latest.keys()),
             "end_date": latest.get("end_date"),
             "ann_date": latest.get("ann_date"),
             "type": latest.get("type"),
@@ -121,6 +124,27 @@ def build_stock_item(
             "net_profit_min_wan": to_float(latest.get("net_profit_min")),
             "net_profit_max_wan": to_float(latest.get("net_profit_max")),
             "summary": latest.get("summary"),
+        }
+
+    express_info = None
+    if expresses:
+        latest = expresses[0]
+        express_info = {
+            "source": "tushare.express",
+            "raw_fields": sorted(str(k) for k in latest.keys()),
+            "end_date": latest.get("end_date"),
+            "ann_date": latest.get("ann_date"),
+            "revenue": to_float(latest.get("revenue")),
+            "operate_profit": to_float(latest.get("operate_profit")),
+            "total_profit": to_float(latest.get("total_profit")),
+            "n_income": to_float(latest.get("n_income")),
+            "total_assets": to_float(latest.get("total_assets")),
+            "total_hldr_eqy_exc_min_int": to_float(latest.get("total_hldr_eqy_exc_min_int")),
+            "diluted_eps": to_float(latest.get("diluted_eps")),
+            "diluted_roe": to_float(latest.get("diluted_roe")),
+            "yoy_net_profit": to_float(latest.get("yoy_net_profit")),
+            "bps": to_float(latest.get("bps")),
+            "perf_summary": latest.get("perf_summary"),
         }
 
     # 股东户数变化(筹码集中度)
@@ -155,6 +179,9 @@ def build_stock_item(
                 }.get(mmdd, "?")
             fina_history.append({
                 "end_date": end_date,
+                "ann_date": r.get("ann_date"),
+                "source": "tushare.fina_indicator",
+                "raw_fields": sorted(str(k) for k in r.keys()),
                 "period_type": quarter_label,
                 "roe": to_float(r.get("roe")),
                 "gross_margin": to_float(r.get("grossprofit_margin")),
@@ -222,6 +249,7 @@ def build_stock_item(
         "realtime": realtime,
         "metrics": metrics,
         "forecast": forecast_info,
+        "express": express_info,
         "holder_change": holder_change,
         "fina_history": fina_history,
         "history_tail": history[-5:] if history else [],

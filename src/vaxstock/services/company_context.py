@@ -62,6 +62,16 @@ def _first_non_empty(*values: Any) -> Optional[str]:
     return None
 
 
+def _deep_merge(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]:
+    out = dict(base)
+    for key, value in override.items():
+        if isinstance(value, dict) and isinstance(out.get(key), dict):
+            out[key] = _deep_merge(out[key], value)
+        elif value not in (None, {}, []):
+            out[key] = value
+    return out
+
+
 def _metric_snapshot(metrics: Dict[str, Any]) -> Dict[str, Any]:
     out: Dict[str, Any] = {
         "source": "A_eod.metrics",
@@ -87,6 +97,8 @@ def _normalize_report_node(raw: Dict[str, Any]) -> Dict[str, Any]:
         "net_profit_yoy": node.get("net_profit_yoy"),
         "revenue_yoy": node.get("revenue_yoy"),
         "deducted_net_profit_yoy": node.get("deducted_net_profit_yoy"),
+        "raw_fields": list(node.get("raw_fields") or []),
+        "raw": _as_dict(node.get("raw")) or None,
     }
 
 
@@ -139,6 +151,8 @@ def normalize_company_events(raw: Any) -> Dict[str, Any]:
             "impact_hint": _clean_text(src.get("impact_hint")) or "unknown",
             "confidence": src.get("confidence"),
             "url": _clean_text(src.get("url")),
+            "raw_fields": list(src.get("raw_fields") or []),
+            "raw": _as_dict(src.get("raw")) or None,
         })
     return {
         "available": bool(events),
@@ -148,6 +162,114 @@ def normalize_company_events(raw: Any) -> Dict[str, Any]:
         "usage": "context_only_not_scoring",
     }
 
+
+def _impact_from_pct(*values: Any) -> str:
+    nums = []
+    for value in values:
+        try:
+            if value is not None:
+                nums.append(float(value))
+        except (TypeError, ValueError):
+            continue
+    if not nums:
+        return "unknown"
+    if min(nums) > 0:
+        return "positive"
+    if max(nums) < 0:
+        return "negative"
+    return "mixed"
+
+
+def _format_pct_range(min_value: Any, max_value: Any) -> Optional[str]:
+    lo = _clean_text(min_value)
+    hi = _clean_text(max_value)
+    if lo and hi:
+        return f"{lo}%~{hi}%"
+    if lo:
+        return f"{lo}%"
+    if hi:
+        return f"{hi}%"
+    return None
+
+
+def _raw_fields(node: Dict[str, Any]) -> List[str]:
+    fields = node.get("raw_fields")
+    if isinstance(fields, list):
+        return list(fields)
+    return list(node.keys())
+
+
+def _raw_context_from_item(item: Dict[str, Any]) -> Dict[str, Any]:
+    """Derive context from existing real Tushare fields assembled in stock_item."""
+    fina_history = _as_list(item.get("fina_history"))
+    forecast = _as_dict(item.get("forecast"))
+    express = _as_dict(item.get("express"))
+    events: List[Dict[str, Any]] = []
+
+    latest_report: Dict[str, Any] = {}
+    if fina_history:
+        latest = _as_dict(fina_history[0])
+        latest_report = {
+            "period": latest.get("end_date"),
+            "report_type": latest.get("period_type"),
+            "ann_date": latest.get("ann_date"),
+            "source": latest.get("source") or "tushare.fina_indicator",
+            "net_profit_yoy": latest.get("np_yoy"),
+            "revenue_yoy": latest.get("or_yoy"),
+            "raw_fields": _raw_fields(latest),
+            "raw": latest,
+        }
+
+    if forecast:
+        pct_range = _format_pct_range(forecast.get("p_change_min"), forecast.get("p_change_max"))
+        summary = _first_non_empty(forecast.get("summary"), pct_range)
+        title_parts = ["performance forecast"]
+        if forecast.get("end_date"):
+            title_parts.append(str(forecast.get("end_date")))
+        if forecast.get("type"):
+            title_parts.append(str(forecast.get("type")))
+        events.append({
+            "event_id": f"tushare_forecast_{forecast.get('end_date') or 'unknown'}",
+            "event_type": "guidance",
+            "event_date": forecast.get("ann_date"),
+            "source": forecast.get("source") or "tushare.forecast",
+            "title": " ".join(title_parts),
+            "summary": summary,
+            "impact_hint": _impact_from_pct(forecast.get("p_change_min"), forecast.get("p_change_max")),
+            "confidence": None,
+            "raw_fields": _raw_fields(forecast),
+            "raw": forecast,
+        })
+
+    if express:
+        yoy = _first_non_empty(express.get("yoy_net_profit"), express.get("net_profit_yoy"))
+        summary = _first_non_empty(express.get("perf_summary"), f"net profit yoy {yoy}%" if yoy else None)
+        events.append({
+            "event_id": f"tushare_express_{express.get('end_date') or 'unknown'}",
+            "event_type": "earnings",
+            "event_date": express.get("ann_date"),
+            "source": express.get("source") or "tushare.express",
+            "title": f"performance express {express.get('end_date') or ''}".strip(),
+            "summary": summary,
+            "impact_hint": _impact_from_pct(yoy),
+            "confidence": None,
+            "raw_fields": _raw_fields(express),
+            "raw": express,
+        })
+
+    raw: Dict[str, Any] = {}
+    if latest_report:
+        raw["earnings"] = {
+            "source": "tushare.fina_indicator",
+            "latest_report": latest_report,
+            "next_report": {
+                "status": "pending_source",
+                "note": "next report disclosure date source not connected yet",
+            },
+        }
+    if events:
+        raw["company_events"] = events
+    return raw
 
 def normalize_industry_forward(raw: Any, *, concepts: Optional[Iterable[str]] = None,
                                tracks: Optional[Iterable[Dict[str, Any]]] = None) -> Dict[str, Any]:
@@ -187,7 +309,10 @@ def build_context_from_payload_item(item: Dict[str, Any], payload: Dict[str, Any
                                     target_trade_date: str) -> Dict[str, Any]:
     item = _as_dict(item)
     payload = _as_dict(payload)
-    raw = _as_dict(item.get("company_context") or item.get("event_context"))
+    raw = _deep_merge(
+        _raw_context_from_item(item),
+        _as_dict(item.get("company_context") or item.get("event_context")),
+    )
     rt = _as_dict(item.get("realtime"))
     metrics = _as_dict(item.get("metrics"))
     baseline = _clean_text(_as_dict(payload.get("market_overview")).get("trade_date"))

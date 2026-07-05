@@ -175,7 +175,8 @@ flowchart TD
 
 - C-line `services.eod_predictor` freezes it as `context_ref` in each prediction row.
 - D-line `services.forecast_planner` injects it as `evidence_pack.E_context` for Codex planning.
-- Missing earnings/event/industry data is represented as `source_status=pending_source` or `concept_tags_only`; no default neutral value is created.
+- Real A-line EOD sources currently connected: `tushare.fina_indicator` -> `earnings.latest_report`, `tushare.forecast` -> `company_events` guidance, `tushare.express` -> `company_events` earnings.
+- Missing future disclosure calendar / full announcement / news source data is represented as `source_status=pending_source` or `concept_tags_only`; no default neutral value is created.
 - Current deterministic scoring and rule versions do not use this context for factor weights.
 ## 状态写入模块
 

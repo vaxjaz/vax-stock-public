@@ -92,6 +92,59 @@ def test_explicit_earnings_events_and_industry_points_are_preserved():
     }
 
 
+def test_context_uses_real_tushare_fields_from_payload_item():
+    item = {
+        "code": "002475",
+        "configured_name": "Luxshare",
+        "concepts": ["AI hardware"],
+        "metrics": {"np_yoy": 12.3},
+        "fina_history": [
+            {
+                "end_date": "20260331",
+                "ann_date": "20260425",
+                "source": "tushare.fina_indicator",
+                "raw_fields": ["ts_code", "end_date", "ann_date", "netprofit_yoy", "or_yoy"],
+                "period_type": "Q1",
+                "np_yoy": 30.5,
+                "or_yoy": 18.2,
+            }
+        ],
+        "forecast": {
+            "source": "tushare.forecast",
+            "raw_fields": ["ts_code", "ann_date", "end_date", "type", "p_change_min", "p_change_max"],
+            "end_date": "20260630",
+            "ann_date": "20260710",
+            "type": "preincrease",
+            "p_change_min": 50,
+            "p_change_max": 80,
+            "summary": "profit forecast",
+        },
+        "express": {
+            "source": "tushare.express",
+            "raw_fields": ["ts_code", "ann_date", "end_date", "yoy_net_profit", "perf_summary"],
+            "end_date": "20260331",
+            "ann_date": "20260420",
+            "yoy_net_profit": -5.0,
+            "perf_summary": "express summary",
+        },
+    }
+
+    ctx = cc.build_context_from_payload_item(item, _payload(), "20260706")
+
+    assert ctx["earnings"]["available"] is True
+    assert ctx["earnings"]["source"] == "tushare.fina_indicator"
+    latest = ctx["earnings"]["latest_report"]
+    assert latest["period"] == "20260331"
+    assert latest["ann_date"] == "20260425"
+    assert latest["raw_fields"] == ["ts_code", "end_date", "ann_date", "netprofit_yoy", "or_yoy"]
+    assert ctx["earnings"]["next_report"]["status"] == "pending_source"
+
+    events = ctx["company_events"]["events"]
+    assert [event["source"] for event in events] == ["tushare.forecast", "tushare.express"]
+    assert [event["event_type"] for event in events] == ["guidance", "earnings"]
+    assert events[0]["impact_hint"] == "positive"
+    assert events[1]["impact_hint"] == "negative"
+    assert events[0]["raw_fields"] == ["ts_code", "ann_date", "end_date", "type", "p_change_min", "p_change_max"]
 def test_normalized_context_round_trips_from_snapshot():
     item = {"code": "002475", "configured_name": "Luxshare", "metrics": {}}
     ctx = cc.build_context_from_payload_item(item, _payload(), "20260706")
