@@ -63,6 +63,29 @@ def test_stage_specific_intraday_filter_allows_forecasts_row():
 
     assert ga.blocking_status_entries_for_stage("intraday", entries) == []
 
+
+
+def test_run_autocommit_intraday_dry_run_does_not_block_forecasts(monkeypatch=None):
+    class FakeStatus:
+        returncode = 0
+        stdout = " M var/forecast/forecasts.jsonl\n"
+        stderr = ""
+
+    old_run_git = ga._run_git
+    old_enabled = ga.os.environ.get("GIT_AUTOCOMMIT_ENABLED")
+    try:
+        ga.os.environ["GIT_AUTOCOMMIT_ENABLED"] = "1"
+        ga._run_git = lambda *a, **k: FakeStatus()
+        result = ga.run_autocommit("intraday", root=ga.Path("."), dry_run=True)
+        assert result["status"] == "dry_run"
+        assert result["changed"] == [" M var/forecast/forecasts.jsonl"]
+    finally:
+        ga._run_git = old_run_git
+        if old_enabled is None:
+            ga.os.environ.pop("GIT_AUTOCOMMIT_ENABLED", None)
+        else:
+            ga.os.environ["GIT_AUTOCOMMIT_ENABLED"] = old_enabled
+
 if __name__ == "__main__":
     import sys
 
@@ -74,5 +97,5 @@ if __name__ == "__main__":
         except AssertionError as exc:
             failed += 1
             print(f"  [FAIL] {name}: {exc}")
-    print(f"\n{5 - failed}/5 passed")
+    print(f"\n{6 - failed}/6 passed")
     sys.exit(1 if failed else 0)
