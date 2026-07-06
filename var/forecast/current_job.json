@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "job_id": "20260703_20260706_d_observe_llm_v1_job",
+  "job_id": "20260703_20260706_d_observe_llm_v2_job",
   "line": "D",
   "status": "done",
-  "created_at": "2026-07-06T08:36:25",
-  "plan_version": "d_observe_llm_v1",
+  "created_at": "2026-07-06T09:56:44",
+  "plan_version": "d_observe_llm_v2",
   "baseline_trade_date": "20260703",
   "target_trade_date": "20260706",
   "payload_path": "/opt/stock-reportv2/vax-stock-public/var/reports/2026-07-03/payload.json",
@@ -10920,7 +10920,7 @@
       "model_version": "manual_rules_v1"
     }
   ],
-  "updated_at": "2026-07-06T08:36:27",
+  "updated_at": "2026-07-06T10:10:06",
   "task_codes": [
     "601138",
     "002475",
@@ -10961,11 +10961,11 @@
   ],
   "remaining_codes": [],
   "stats": {
-    "generated": 0,
-    "written": 0,
+    "generated": 17,
+    "written": 17,
     "skipped": 0,
     "current": 17,
     "existing": 17
   },
-  "finished_at": "2026-07-06T08:36:27"
+  "finished_at": "2026-07-06T10:10:06"
 }
