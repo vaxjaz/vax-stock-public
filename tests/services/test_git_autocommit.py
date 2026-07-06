@@ -68,7 +68,7 @@ def test_stage_specific_intraday_filter_allows_forecasts_row():
 def test_run_autocommit_intraday_dry_run_does_not_block_forecasts(monkeypatch=None):
     class FakeStatus:
         returncode = 0
-        stdout = " M var/forecast/forecasts.jsonl\n"
+        stdout = " M var/forecast/forecasts.jsonl\n M src/vaxstock/services/tmp_debug.py\n"
         stderr = ""
 
     old_run_git = ga._run_git
@@ -78,7 +78,7 @@ def test_run_autocommit_intraday_dry_run_does_not_block_forecasts(monkeypatch=No
         ga._run_git = lambda *a, **k: FakeStatus()
         result = ga.run_autocommit("intraday", root=ga.Path("."), dry_run=True)
         assert result["status"] == "dry_run"
-        assert result["changed"] == [" M var/forecast/forecasts.jsonl"]
+        assert result["changed"] == [" M var/forecast/forecasts.jsonl", " M src/vaxstock/services/tmp_debug.py"]
     finally:
         ga._run_git = old_run_git
         if old_enabled is None:

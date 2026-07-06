@@ -272,9 +272,9 @@ def run_autocommit(stage: str, root: Optional[Path] = None, dry_run: bool = Fals
         return {"status": "error", "stage": stage, "error": "status_failed"}
 
     entries = parse_status_porcelain(status_res.stdout)
-    blockers = blocking_status_entries(entries, allowed_paths)
-    if stage == "intraday":
-        blockers = [entry for entry in blockers if not _is_intraday_generated_path(entry.path)]
+    # Intraday is a live append-only data path. Do not let an unstaged generated
+    # forecast row block itself; we stage only STAGE_PATHS["intraday"] below.
+    blockers = [] if stage == "intraday" else blocking_status_entries(entries, allowed_paths)
     if blockers:
         preview = "; ".join(entry.raw for entry in blockers[:8])
         _log(f"skip: non-whitelisted dirty files present: {preview}")
