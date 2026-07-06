@@ -1,6 +1,6 @@
 # D线盘中观察任务摘要
 
-- updated_at: 2026-07-05T11:42:22
+- updated_at: 2026-07-06T08:36:27
 - target_trade_dates: 20260706
 - tasks: 17
 - 口径: 本文件只翻译 D线观察任务, 不给买卖建议; 价格来自 T-1 EOD 基准与任务触发条件。
@@ -37,6 +37,7 @@
 - C线: 候选买入验证 / direction=up / confidence=75%
 - C线依据: 评分≥3.5且非 panic,列为候选买入验证
 - 概念: AI算力, 服务器
+- E-context: earnings=pending_source; next_report=N/A; events=0; industry=pending_source
 - 真实价量基准(T-1 EOD): 分析价=64.72; MA5=68.10; MA10=71.75; MA20=72.23; MA60=68.06
 - 位置/动量: MA5偏离=-4.96%; MA20偏离=-10.39%; MA60偏离=-4.91%; 20日位置=10.23%; 52周位置=65.48%
 - 量能/近期: 5日量比=0.77; 近5日=-7.83%; 近20日=-17.61%; MACD柱=-2.893; RSI14=42.63
@@ -61,6 +62,7 @@
 - C线: 观察验证 / direction=up / confidence=60%
 - C线依据: 评分≥2,列为高优先观察,需盘中行为确认
 - 概念: AI算力, AI硬件, 消费电子, 苹果链
+- E-context: earnings=pending_source; next_report=N/A; events=0; industry=pending_source
 - 真实价量基准(T-1 EOD): 分析价=64.44; MA5=65.46; MA10=68.25; MA20=67.66; MA60=68.00
 - 位置/动量: MA5偏离=-1.55%; MA20偏离=-4.76%; MA60偏离=-5.23%; 20日位置=24.17%; 52周位置=62.29%
 - 量能/近期: 5日量比=0.94; 近5日=-5.24%; 近20日=-13.61%; MACD柱=-1.420; RSI14=50.77
@@ -85,6 +87,7 @@
 - C线: 观察验证 / direction=up / confidence=60%
 - C线依据: 评分≥2,列为高优先观察,需盘中行为确认
 - 概念: 创新药, 医药
+- E-context: earnings=pending_source; next_report=N/A; events=0; industry=pending_source
 - 真实价量基准(T-1 EOD): 分析价=54.45; MA5=53.34; MA10=51.40; MA20=49.33; MA60=52.09
 - 位置/动量: MA5偏离=+2.08%; MA20偏离=+10.39%; MA60偏离=+4.53%; 20日位置=90.19%; 52周位置=31.93%
 - 量能/近期: 5日量比=0.80; 近5日=+11.88%; 近20日=+16.77%; MACD柱=1.729; RSI14=69.55
@@ -109,6 +112,7 @@
 - C线: 观察验证 / direction=up / confidence=60%
 - C线依据: 评分≥2,列为高优先观察,需盘中行为确认
 - 概念: AI算力, 配电, 电力设备
+- E-context: earnings=pending_source; next_report=N/A; events=0; industry=pending_source
 - 真实价量基准(T-1 EOD): 分析价=28.89; MA5=28.69; MA10=29.63; MA20=30.43; MA60=35.82
 - 位置/动量: MA5偏离=+0.70%; MA20偏离=-5.05%; MA60偏离=-19.35%; 20日位置=16.10%; 52周位置=39.13%
 - 量能/近期: 5日量比=1.05; 近5日=+1.48%; 近20日=-14.60%; MACD柱=-0.033; RSI14=43.25
@@ -133,6 +137,7 @@
 - C线: 回避/低优先级验证 / direction=neutral / confidence=55%
 - C线依据: 非 panic 且评分<2,默认回避/低优先级
 - 概念: 水电, 红利, 公用事业
+- E-context: earnings=pending_source; next_report=N/A; events=0; industry=pending_source
 - 真实价量基准(T-1 EOD): 分析价=27.05; MA5=26.79; MA10=26.72; MA20=27.11; MA60=27.01
 - 位置/动量: MA5偏离=+0.97%; MA20偏离=-0.23%; MA60偏离=+0.16%; 20日位置=42.06%; 52周位置=37.28%
 - 量能/近期: 5日量比=0.92; 近5日=+1.50%; 近20日=-2.42%; MACD柱=-0.041; RSI14=35.32
@@ -157,6 +162,7 @@
 - C线: 回避/低优先级验证 / direction=neutral / confidence=55%
 - C线依据: 非 panic 且评分<2,默认回避/低优先级
 - 概念: 特高压, 电网设备, AIDC
+- E-context: earnings=pending_source; next_report=N/A; events=0; industry=pending_source
 - 真实价量基准(T-1 EOD): 分析价=14.29; MA5=14.55; MA10=15.30; MA20=14.95; MA60=16.32
 - 位置/动量: MA5偏离=-1.81%; MA20偏离=-4.43%; MA60偏离=-12.44%; 20日位置=25.14%; 52周位置=55.74%
 - 量能/近期: 5日量比=0.79; 近5日=-3.97%; 近20日=-8.46%; MACD柱=-0.164; RSI14=54.69
@@ -181,6 +187,7 @@
 - C线: 观察验证 / direction=up / confidence=60%
 - C线依据: 评分≥2,列为高优先观察,需盘中行为确认
 - 概念: 半导体设备, AI算力
+- E-context: earnings=pending_source; next_report=N/A; events=0; industry=pending_source
 - 真实价量基准(T-1 EOD): 分析价=816.00; MA5=867.59; MA10=821.19; MA20=736.08; MA60=614.05
 - 位置/动量: MA5偏离=-5.95%; MA20偏离=+10.86%; MA60偏离=+32.89%; 20日位置=61.98%; 52周位置=76.70%
 - 量能/近期: 5日量比=1.17; 近5日=+0.32%; 近20日=+30.14%; MACD柱=17.984; RSI14=68.25
@@ -205,6 +212,7 @@
 - C线: 观察验证 / direction=up / confidence=60%
 - C线依据: 评分≥2,列为高优先观察,需盘中行为确认
 - 概念: AI算力, PCB
+- E-context: earnings=pending_source; next_report=N/A; events=0; industry=pending_source
 - 真实价量基准(T-1 EOD): 分析价=232.73; MA5=242.53; MA10=253.15; MA20=242.47; MA60=207.92
 - 位置/动量: MA5偏离=-4.04%; MA20偏离=-4.02%; MA60偏离=+11.93%; 20日位置=39.04%; 52周位置=80.40%
 - 量能/近期: 5日量比=1.51; 近5日=-10.60%; 近20日=-2.13%; MACD柱=-9.031; RSI14=54.10
@@ -229,6 +237,7 @@
 - C线: 观察验证 / direction=up / confidence=60%
 - C线依据: 评分≥2,列为高优先观察,需盘中行为确认
 - 概念: AI算力, PCB, 服务器
+- E-context: earnings=pending_source; next_report=N/A; events=0; industry=pending_source
 - 真实价量基准(T-1 EOD): 分析价=135.35; MA5=140.95; MA10=143.41; MA20=139.85; MA60=118.12
 - 位置/动量: MA5偏离=-3.97%; MA20偏离=-3.22%; MA60偏离=+14.59%; 20日位置=36.49%; 52周位置=79.09%
 - 量能/近期: 5日量比=1.02; 近5日=-8.10%; 近20日=-3.88%; MACD柱=-4.143; RSI14=55.01
@@ -253,6 +262,7 @@
 - C线: 观察验证 / direction=up / confidence=60%
 - C线依据: 评分≥2,列为高优先观察,需盘中行为确认
 - 概念: AI算力, CCL覆铜板, PCB
+- E-context: earnings=pending_source; next_report=N/A; events=0; industry=pending_source
 - 真实价量基准(T-1 EOD): 分析价=160.78; MA5=164.42; MA10=171.75; MA20=164.70; MA60=115.81
 - 位置/动量: MA5偏离=-2.21%; MA20偏离=-2.38%; MA60偏离=+38.82%; 20日位置=52.79%; 52周位置=80.02%
 - 量能/近期: 5日量比=1.08; 近5日=-9.93%; 近20日=+11.68%; MACD柱=-9.097; RSI14=54.03
@@ -277,6 +287,7 @@
 - C线: 观察验证 / direction=up / confidence=60%
 - C线依据: 评分≥2,列为高优先观察,需盘中行为确认
 - 概念: AI算力, HVLP铜箔, 光模块
+- E-context: earnings=pending_source; next_report=N/A; events=0; industry=pending_source
 - 真实价量基准(T-1 EOD): 分析价=50.22; MA5=55.35; MA10=58.94; MA20=55.23; MA60=43.33
 - 位置/动量: MA5偏离=-9.27%; MA20偏离=-9.06%; MA60偏离=+15.89%; 20日位置=25.81%; 52周位置=67.09%
 - 量能/近期: 5日量比=0.81; 近5日=-18.06%; 近20日=+9.03%; MACD柱=-2.691; RSI14=51.97
@@ -304,6 +315,7 @@
 - C线: 回避/低优先级验证 / direction=neutral / confidence=55%
 - C线依据: 非 panic 且评分<2,默认回避/低优先级
 - 概念: 人形机器人, 执行器, 热管理, 特斯拉链
+- E-context: earnings=pending_source; next_report=N/A; events=0; industry=pending_source
 - 真实价量基准(T-1 EOD): 分析价=48.99; MA5=44.64; MA10=44.10; MA20=45.02; MA60=46.93
 - 位置/动量: MA5偏离=+9.73%; MA20偏离=+8.81%; MA60偏离=+4.39%; 20日位置=95.36%; 52周位置=66.07%
 - 量能/近期: 5日量比=1.89; 近5日=+18.05%; 近20日=+4.21%; MACD柱=0.856; RSI14=62.35
@@ -331,6 +343,7 @@
 - C线: 回避/低优先级验证 / direction=neutral / confidence=55%
 - C线依据: 非 panic 且评分<2,默认回避/低优先级
 - 概念: 人形机器人, 力矩电机
+- E-context: earnings=pending_source; next_report=N/A; events=0; industry=pending_source
 - 真实价量基准(T-1 EOD): 分析价=37.35; MA5=33.89; MA10=34.03; MA20=35.23; MA60=37.98
 - 位置/动量: MA5偏离=+10.21%; MA20偏离=+6.01%; MA60偏离=-1.67%; 20日位置=63.41%; 52周位置=44.21%
 - 量能/近期: 5日量比=1.54; 近5日=+17.12%; 近20日=-3.84%; MACD柱=0.439; RSI14=62.16
@@ -352,6 +365,7 @@
 - C线: 回避/低优先级验证 / direction=neutral / confidence=55%
 - C线依据: 非 panic 且评分<2,默认回避/低优先级
 - 概念: 人形机器人, 执行器, 特斯拉链
+- E-context: earnings=pending_source; next_report=N/A; events=0; industry=pending_source
 - 真实价量基准(T-1 EOD): 分析价=62.43; MA5=56.99; MA10=57.04; MA20=60.21; MA60=62.46
 - 位置/动量: MA5偏离=+9.55%; MA20偏离=+3.68%; MA60偏离=-0.05%; 20日位置=58.67%; 52周位置=41.34%
 - 量能/近期: 5日量比=1.43; 近5日=+18.35%; 近20日=-7.65%; MACD柱=0.297; RSI14=53.52
@@ -376,6 +390,7 @@
 - C线: 回避/低优先级验证 / direction=neutral / confidence=55%
 - C线依据: 非 panic 且评分<2,默认回避/低优先级
 - 概念: 人形机器人, 丝杠
+- E-context: earnings=pending_source; next_report=N/A; events=0; industry=pending_source
 - 真实价量基准(T-1 EOD): 分析价=53.34; MA5=49.67; MA10=46.43; MA20=45.79; MA60=48.91
 - 位置/动量: MA5偏离=+7.38%; MA20偏离=+16.50%; MA60偏离=+9.06%; 20日位置=94.98%; 52周位置=66.09%
 - 量能/近期: 5日量比=1.12; 近5日=+22.37%; 近20日=+5.73%; MACD柱=2.427; RSI14=76.22
@@ -400,6 +415,7 @@
 - C线: 回避/低优先级验证 / direction=neutral / confidence=55%
 - C线依据: 非 panic 且评分<2,默认回避/低优先级
 - 概念: 人形机器人, 丝杠, 灵巧手
+- E-context: earnings=pending_source; next_report=N/A; events=0; industry=pending_source
 - 真实价量基准(T-1 EOD): 分析价=76.15; MA5=68.23; MA10=66.12; MA20=67.35; MA60=71.65
 - 位置/动量: MA5偏离=+11.61%; MA20偏离=+13.07%; MA60偏离=+6.29%; 20日位置=90.13%; 52周位置=67.45%
 - 量能/近期: 5日量比=1.50; 近5日=+25.54%; 近20日=+6.00%; MACD柱=2.357; RSI14=68.64
@@ -424,6 +440,7 @@
 - C线: 回避/低优先级验证 / direction=neutral / confidence=55%
 - C线依据: 非 panic 且评分<2,默认回避/低优先级
 - 概念: 人形机器人, 空心杯电机, 灵巧手
+- E-context: earnings=pending_source; next_report=N/A; events=0; industry=pending_source
 - 真实价量基准(T-1 EOD): 分析价=68.02; MA5=62.17; MA10=60.49; MA20=61.93; MA60=61.75
 - 位置/动量: MA5偏离=+9.42%; MA20偏离=+9.84%; MA60偏离=+10.15%; 20日位置=89.79%; 52周位置=42.67%
 - 量能/近期: 5日量比=1.65; 近5日=+21.81%; 近20日=+7.08%; MACD柱=1.271; RSI14=63.71
