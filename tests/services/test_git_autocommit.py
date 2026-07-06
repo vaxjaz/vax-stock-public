@@ -56,6 +56,13 @@ def test_intraday_stage_allows_forecasts_and_task_context_only():
 
     assert [entry.path for entry in blockers] == ["src/vaxstock/services/tmp_debug.py"]
 
+
+
+def test_stage_specific_intraday_filter_allows_forecasts_row():
+    entries = ga.parse_status_porcelain(" M var/forecast/forecasts.jsonl\n")
+
+    assert ga.blocking_status_entries_for_stage("intraday", entries) == []
+
 if __name__ == "__main__":
     import sys
 
@@ -67,5 +74,5 @@ if __name__ == "__main__":
         except AssertionError as exc:
             failed += 1
             print(f"  [FAIL] {name}: {exc}")
-    print(f"\n{4 - failed}/4 passed")
+    print(f"\n{5 - failed}/5 passed")
     sys.exit(1 if failed else 0)

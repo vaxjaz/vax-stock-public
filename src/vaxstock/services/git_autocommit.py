@@ -133,6 +133,30 @@ def blocking_status_entries(entries: Iterable[GitStatusEntry],
     return [entry for entry in entries if not is_allowed_path(entry.path, allowed_paths)]
 
 
+def _is_intraday_generated_path(path: str) -> bool:
+    """Defensive allow-list for live intraday artifacts.
+
+    VPS alerts write these files while the watcher is running.  Keep this narrow
+    and explicit so an intraday autocommit cannot sweep source/config changes.
+    """
+    normalized = _norm_path(path)
+    return normalized in {
+        "var/forecast/current_job.json",
+        "var/forecast/current_tasks.json",
+        "var/forecast/current_tasks.md",
+        "var/forecast/observation_tasks.jsonl",
+        "var/forecast/forecasts.jsonl",
+    }
+
+
+def blocking_status_entries_for_stage(stage: str, entries: Iterable[GitStatusEntry]) -> List[GitStatusEntry]:
+    allowed_paths = STAGE_PATHS[stage]
+    blockers = blocking_status_entries(entries, allowed_paths)
+    if stage == "intraday":
+        blockers = [entry for entry in blockers if not _is_intraday_generated_path(entry.path)]
+    return blockers
+
+
 def _run_git(args: Sequence[str], cwd: Path, timeout: int = 120) -> GitCommandResult:
     env = os.environ.copy()
     env.setdefault("GIT_TERMINAL_PROMPT", "0")
@@ -248,7 +272,7 @@ def run_autocommit(stage: str, root: Optional[Path] = None, dry_run: bool = Fals
         return {"status": "error", "stage": stage, "error": "status_failed"}
 
     entries = parse_status_porcelain(status_res.stdout)
-    blockers = blocking_status_entries(entries, allowed_paths)
+    blockers = blocking_status_entries_for_stage(stage, entries)
     if blockers:
         preview = "; ".join(entry.raw for entry in blockers[:8])
         _log(f"skip: non-whitelisted dirty files present: {preview}")
