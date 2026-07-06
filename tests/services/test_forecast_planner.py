@@ -385,7 +385,7 @@ def test_generate_observation_tasks_validates_llm_plan():
     )
     assert len(tasks) == 1
     task = tasks[0]
-    assert task["task_id"] == "20260703_20260706_002475_d_observe_llm_v1"
+    assert task["task_id"] == "20260703_20260706_002475_d_observe_llm_v2"
     assert task["line"] == "D"
     assert task["source"] == "codex_llm"
     assert task["observation"]["observe_intent"].startswith("验证 C线")
@@ -449,6 +449,40 @@ def test_record_observation_tasks_idempotent_and_current_snapshot():
         shutil.rmtree(d, ignore_errors=True)
 
 
+
+def test_current_tasks_prefers_latest_plan_version_per_target_code():
+    d = tempfile.mkdtemp(prefix="vax_dline_current_latest_")
+    try:
+        hist = pathlib.Path(d) / "observation_tasks.jsonl"
+        current = pathlib.Path(d) / "current_tasks.json"
+        old_task = fp.generate_observation_tasks(
+            _payload(),
+            "20260706",
+            c_predictions=[_c_prediction()],
+            factor_results=[],
+            planner_func=lambda evidence: _plan(),
+            plan_version="d_observe_llm_v1",
+            generated_at="2026-07-04T05:00:00",
+        )[0]
+        new_task = fp.generate_observation_tasks(
+            _payload(),
+            "20260706",
+            c_predictions=[_c_prediction()],
+            factor_results=[],
+            planner_func=lambda evidence: _plan(),
+            plan_version="d_observe_llm_v2",
+            generated_at="2026-07-04T05:10:00",
+        )[0]
+        fp.record_observation_tasks([old_task], history_path=hist, current_path=current)
+        stats = fp.record_observation_tasks([new_task], history_path=hist, current_path=current)
+        assert stats["written"] == 1
+        assert len(_rows(hist)) == 2
+        snap = json.loads(current.read_text(encoding="utf-8"))
+        assert len(snap["tasks"]) == 1
+        assert snap["tasks"][0]["plan_version"] == "d_observe_llm_v2"
+        assert snap["tasks"][0]["task_id"].endswith("d_observe_llm_v2")
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
 if __name__ == "__main__":
     import sys
     fns = sorted((n, f) for n, f in globals().items() if n.startswith("test_") and callable(f))

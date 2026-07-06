@@ -18,7 +18,7 @@ import json
 import logging
 import os
 import time
-from typing import Optional
+from typing import Any, Dict, List, Optional, Tuple
 from urllib import parse, request
 
 from vaxstock import config
@@ -44,6 +44,7 @@ _CODEX_TIMEOUT = int(_S.get("codex_timeout", 30))
 _PUSHPLUS_TOKEN = _S.get("pushplus_token", "")
 
 WATCH_RULES_FILE = os.environ.get("WATCH_RULES_FILE") or str(config.STATE_DIR / "watch_rules.json")
+DLINE_TASKS_FILE = os.environ.get("DLINE_TASKS_FILE") or str(config.STATE_DIR / "forecast" / "current_tasks.json")
 RULES_PROMPT_FILE = _S.get("intraday_rules_file") or str(config.PROJECT_ROOT / "deploy" / "intraday_rules.md")
 
 _VALID_TYPES = {"price_above", "price_below", "pct_above", "pct_below"}
@@ -51,12 +52,7 @@ _VALID_TYPES = {"price_above", "price_below", "pct_above", "pct_below"}
 # watchlist 概念标签惰性缓存(进程级, 本 PR 不热重载): None=未加载, {}=加载失败/空池(不臆造)
 _concepts_map = None
 
-DEFAULT_RULES = [
-    {"code": "002475", "name": "立讯精密", "type": "price_above", "level": 69.0,
-     "note": "📈 立讯站上69! 检查量能是否放大(放量才算真突破), 确认则买入3%, 止损66"},
-    {"code": "002475", "name": "立讯精密", "type": "price_below", "level": 66.0,
-     "note": "🛑 立讯跌破66! 若已持仓→当日无条件止损出局"},
-]
+DEFAULT_RULES = []
 
 
 def _smtp_conf() -> Optional[dict]:
@@ -76,29 +72,40 @@ def _smtp_conf() -> Optional[dict]:
 # ==================== 规则加载 ====================
 
 def load_rules():
-    """从 WATCH_RULES_FILE 读规则; 失败/无效则用 DEFAULT_RULES。"""
+    """Load optional legacy watch rules.
+
+    Missing or invalid watch_rules.json returns an empty list.  D-line tasks are
+    loaded separately from current_tasks.json; legacy rules must never fall back
+    to hard-coded buy/sell instructions.
+    """
     try:
         with open(WATCH_RULES_FILE, encoding="utf-8") as f:
             rules = json.load(f)
-        clean = []
-        for i, r in enumerate(rules):
-            if not all(k in r for k in ("code", "name", "type", "level", "note")):
-                logger.warning(f"[规则{i}] 字段缺失, 跳过: {r}")
-                continue
-            if r["type"] not in _VALID_TYPES:
-                logger.warning(f"[规则{i}] type非法({r['type']}), 跳过")
-                continue
-            clean.append(r)
-        if clean:
-            logger.info(f"已从 {WATCH_RULES_FILE} 载入 {len(clean)} 条规则")
-            return clean
-        logger.warning(f"{WATCH_RULES_FILE} 无有效规则, 用默认规则")
     except FileNotFoundError:
-        logger.warning(f"未找到 {WATCH_RULES_FILE}, 用默认规则")
+        logger.info("legacy watch rules missing: %s; disabled", WATCH_RULES_FILE)
+        return []
     except Exception as e:
-        logger.warning(f"读取 {WATCH_RULES_FILE} 失败({e}), 用默认规则")
-    return list(DEFAULT_RULES)
+        logger.warning("legacy watch rules invalid: %s; disabled: %s", WATCH_RULES_FILE, e)
+        return []
 
+    if not isinstance(rules, list):
+        logger.warning("legacy watch rules must be a list: %s; disabled", WATCH_RULES_FILE)
+        return []
+
+    clean = []
+    for i, r in enumerate(rules):
+        if not isinstance(r, dict) or not all(k in r for k in ("code", "name", "type", "level", "note")):
+            logger.warning("legacy rule[%s] missing fields, skipped: %s", i, r)
+            continue
+        if r["type"] not in _VALID_TYPES:
+            logger.warning("legacy rule[%s] invalid type=%s, skipped", i, r.get("type"))
+            continue
+        clean.append(r)
+    if clean:
+        logger.info("legacy watch rules loaded: %s from %s", len(clean), WATCH_RULES_FILE)
+    else:
+        logger.info("legacy watch rules empty: %s; disabled", WATCH_RULES_FILE)
+    return clean
 
 # ==================== 工具 ====================
 
@@ -268,6 +275,231 @@ def check_rule(rule, quote):
     return False
 
 
+# ==================== D-line task execution ====================
+
+def _today_trade_date() -> str:
+    """Calendar-day target used only to select already materialized D-line tasks."""
+    return dt.date.today().strftime("%Y%m%d")
+
+
+def _as_float(v):
+    try:
+        if v is None or v == "":
+            return None
+        return float(v)
+    except (TypeError, ValueError):
+        return None
+
+
+def _fmt(v, digits=2):
+    n = _as_float(v)
+    if n is None:
+        return "待获取"
+    return f"{n:.{digits}f}"
+
+
+def _short(v, limit=160):
+    s = str(v or "").strip()
+    if len(s) <= limit:
+        return s
+    return s[:limit].rstrip() + "..."
+
+
+def load_dline_tasks(target_trade_date: Optional[str] = None) -> List[Dict[str, Any]]:
+    """Load today's D-line observation tasks from current_tasks.json.
+
+    Missing file means no D-line alerts.  It must never fall back to legacy
+    hard-coded watch rules.
+    """
+    target = str(target_trade_date or _today_trade_date()).strip()
+    try:
+        with open(DLINE_TASKS_FILE, encoding="utf-8") as f:
+            raw = json.load(f)
+    except FileNotFoundError:
+        logger.info("D-line task file missing: %s; no D-line alerts", DLINE_TASKS_FILE)
+        return []
+    except Exception as e:
+        logger.warning("D-line task file invalid: %s; no D-line alerts: %s", DLINE_TASKS_FILE, e)
+        return []
+
+    rows = raw.get("tasks") if isinstance(raw, dict) else raw
+    if not isinstance(rows, list):
+        logger.warning("D-line task file has no task list: %s", DLINE_TASKS_FILE)
+        return []
+
+    tasks = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        if str(row.get("target_trade_date") or "").strip() != target:
+            continue
+        obs = row.get("observation") or {}
+        blueprints = obs.get("trigger_blueprints") or []
+        if not isinstance(blueprints, list) or not blueprints:
+            continue
+        tasks.append(row)
+    if tasks:
+        logger.info("D-line tasks loaded: target=%s count=%s source=%s", target, len(tasks), DLINE_TASKS_FILE)
+    return tasks
+
+
+def _quote_feature_values(task: Dict[str, Any], quote: Dict[str, Any]) -> Dict[str, Any]:
+    """Merge baseline EOD metrics with live quote fields for D-line DSL checks.
+
+    Price-related moving-average deviations are recomputed from the live quote
+    and the frozen EOD MA values.  Non-recomputable fields stay as frozen EOD
+    context and are preserved for traceability.
+    """
+    evidence = task.get("evidence_pack") or {}
+    a_eod = evidence.get("A_eod") or {}
+    metrics = dict(a_eod.get("metrics") or {})
+    values: Dict[str, Any] = {}
+    values.update(metrics)
+
+    price = _as_float((quote or {}).get("price"))
+    if price is not None:
+        values["price"] = price
+    change_pct = _as_float((quote or {}).get("change_pct"))
+    if change_pct is not None:
+        values["change_pct"] = change_pct
+    amplitude_pct = _as_float((quote or {}).get("amplitude_pct"))
+    if amplitude_pct is not None:
+        values["amplitude_pct"] = amplitude_pct
+    amount = _as_float((quote or {}).get("amount"))
+    if amount is not None:
+        values["amount_yi"] = amount / 1e8
+
+    if price is not None:
+        for ma_key in ("ma5", "ma10", "ma20", "ma60"):
+            ma = _as_float(metrics.get(ma_key))
+            if ma and ma != 0:
+                field = f"price_vs_{ma_key}_pct"
+                values[field] = round((price - ma) / ma * 100, 4)
+    return values
+
+
+def _condition_atom_matches(atom: Dict[str, Any], values: Dict[str, Any]) -> bool:
+    field = str(atom.get("field") or "").strip()
+    op = str(atom.get("op") or "").strip()
+    expected = atom.get("value")
+    if not field or op not in {"<", "<=", ">", ">=", "==", "!="}:
+        return False
+    if field not in values:
+        return False
+    actual = values.get(field)
+    if op in {"==", "!="}:
+        ok = str(actual) == str(expected)
+        return ok if op == "==" else not ok
+    actual_n = _as_float(actual)
+    expected_n = _as_float(expected)
+    if actual_n is None or expected_n is None:
+        return False
+    if op == "<":
+        return actual_n < expected_n
+    if op == "<=":
+        return actual_n <= expected_n
+    if op == ">":
+        return actual_n > expected_n
+    if op == ">=":
+        return actual_n >= expected_n
+    return False
+
+
+def _condition_matches(condition: Dict[str, Any], values: Dict[str, Any]) -> bool:
+    if not isinstance(condition, dict):
+        return False
+    all_atoms = condition.get("all") or []
+    any_atoms = condition.get("any") or []
+    if not isinstance(all_atoms, list) or not isinstance(any_atoms, list):
+        return False
+    all_ok = all(_condition_atom_matches(a, values) for a in all_atoms) if all_atoms else True
+    any_ok = any(_condition_atom_matches(a, values) for a in any_atoms) if any_atoms else True
+    return all_ok and any_ok
+
+
+def check_dline_task(task: Dict[str, Any], quote: Dict[str, Any]) -> Tuple[Optional[int], Optional[Dict[str, Any]], Dict[str, Any]]:
+    values = _quote_feature_values(task, quote)
+    blueprints = ((task.get("observation") or {}).get("trigger_blueprints") or [])
+    for idx, bp in enumerate(blueprints):
+        if not isinstance(bp, dict):
+            continue
+        if _condition_matches(bp.get("condition") or {}, values):
+            return idx, bp, values
+    return None, None, values
+
+
+def _dline_reasoning(task: Dict[str, Any], blueprint: Dict[str, Any]) -> str:
+    obs = task.get("observation") or {}
+    parts = [
+        f"D线触发: {_short(blueprint.get('why'), 180)}",
+        f"观察目的: {_short(obs.get('observe_intent'), 180)}",
+        f"主要风险: {_short(obs.get('primary_risk'), 180)}",
+        f"对C线反馈: {_short(blueprint.get('expected_feedback_to_c') or obs.get('c_line_feedback_focus'), 180)}",
+        "这是客观观察，不是交易指令；盘中未定论，评分和资金以EOD定稿数据为准。",
+    ]
+    return enforce_intraday_rules("\n".join(p for p in parts if p.strip()))
+
+
+def notify_dline(task: Dict[str, Any], quote: Dict[str, Any], blueprint: Dict[str, Any],
+                 values: Dict[str, Any], fire_count=None):
+    """Send a D-line alert and freeze the trigger as a forecast row."""
+    code = str(task.get("code") or quote.get("code") or "").strip()
+    name = task.get("name") or quote.get("name") or code
+    obs = task.get("observation") or {}
+    evidence = task.get("evidence_pack") or {}
+    c_pred = ((evidence.get("C_prediction") or {}).get("prediction") or {})
+    trigger_type = blueprint.get("trigger_type") or "dline_trigger"
+    severity = blueprint.get("severity") or "medium"
+    price = quote.get("price")
+    pct = quote.get("change_pct")
+    amount_yi = _as_float(values.get("amount_yi"))
+    amount_text = "待获取" if amount_yi is None else f"{amount_yi:.2f}亿"
+    title = f"[D线] {name} {trigger_type} 触发"
+    reasoning = _dline_reasoning(task, blueprint)
+
+    body = (
+        f"{code} {name} | severity={severity}\n"
+        f"现价: {_fmt(price)}  涨跌: {_fmt(pct)}%  振幅: {_fmt(quote.get('amplitude_pct'))}%  成交额: {amount_text}\n"
+        f"时间: {quote.get('trade_time', now_str())}  源: {quote.get('source', '?')}\n"
+        f"baseline={task.get('baseline_trade_date')}  target={task.get('target_trade_date')}  task_id={task.get('task_id')}\n"
+        "------------\n"
+        f"C线: action={c_pred.get('action', '待获取')} direction={c_pred.get('direction', '待获取')} confidence={c_pred.get('confidence', '待获取')}\n"
+        f"触发依据: {_short(blueprint.get('why'), 220)}\n"
+        f"客观评价:\n{reasoning}\n"
+        "------------\n"
+        f"price_vs_ma5={_fmt(values.get('price_vs_ma5_pct'))}%  "
+        f"price_vs_ma20={_fmt(values.get('price_vs_ma20_pct'))}%  "
+        f"price_vs_ma60={_fmt(values.get('price_vs_ma60_pct'))}%\n"
+        f"volume_ratio_5d={_fmt(values.get('volume_ratio_5d'))}  "
+        f"rsi_14={_fmt(values.get('rsi_14'))}  macd_hist={_fmt(values.get('macd_hist'), 4)}\n"
+        "说明: 价格、涨跌、振幅、成交额来自盘中quote；均线偏离由盘中价和EOD均线重算；其他字段为EOD冻结上下文。"
+    )
+
+    structured = {
+        "verdict": trigger_type,
+        "direction": c_pred.get("direction") or "observe",
+        "confidence": c_pred.get("confidence"),
+        "horizon": "intraday",
+        "thesis_tags": ["dline", trigger_type, severity],
+        "falsify_if": obs.get("falsify_if") or "",
+        "source": "dline_task_blueprint",
+        "task_id": task.get("task_id"),
+        "fire_count": fire_count,
+    }
+    inputs_ref = {
+        "baseline_date": task.get("baseline_trade_date"),
+        "dline_task_id": task.get("task_id"),
+        "dline_plan_version": task.get("plan_version"),
+        "trigger_blueprint": blueprint,
+        "trigger_values": values,
+        "quote_snapshot": quote,
+        "evidence_pack": evidence,
+    }
+    record_forecast(code, quote.get("trade_date"), f"D-line {trigger_type}: {blueprint.get('why', '')}",
+                    inputs_ref, structured, reasoning, structured.get("falsify_if", ""))
+    logger.info("\n%s\n%s\n%s\n%s", "=" * 40, title, body, "=" * 40)
+    push_wechat(title, body, pushplus_token=_PUSHPLUS_TOKEN)
+    push_email(title, body, smtp_conf=_smtp_conf())
 def notify(rule, quote, fire_count=None):
     """触发: 控制台+微信+邮箱; 命中后拉快照+T-1基准+大盘背景喂 codex → JSON 预测 → 渲染推送 + 冻结 forecast。
 
@@ -348,35 +580,40 @@ def notify(rule, quote, fire_count=None):
 
 def run(once=False, force=False):
     rules = load_rules()
-    for r in rules:
-        r.setdefault("fired", False)
-    fired_keys = set()  # 按 (code,type,level) 跨热重载记忆已触发
-    today_fire_count = {}   # {code: 今日已触发次数}(喂 codex 的"今日第N次触发")
-    fire_count_day = None    # 跨午夜归零的日期哨兵
+    dline_tasks = load_dline_tasks()
+    fired_keys = set()
+    today_fire_count = {}
+    fire_count_day = None
 
     def _rule_key(r):
-        return (r.get("code"), r.get("type"), r.get("level"))
+        return ("legacy", r.get("code"), r.get("type"), r.get("level"))
 
-    codes = sorted(set(r["code"] for r in rules))
-    logger.info(f"盯盘启动. 监控 {len(codes)} 只: {codes}")
+    def _dline_key(task):
+        return ("dline", task.get("task_id") or task.get("code"))
+
+    def _active_codes():
+        legacy_codes = {r.get("code") for r in rules if r.get("code")}
+        dline_codes = {t.get("code") for t in dline_tasks if t.get("code")}
+        return sorted(legacy_codes | dline_codes)
+
+    codes = _active_codes()
+    logger.info("intraday watch started. legacy_rules=%s dline_tasks=%s codes=%s", len(rules), len(dline_tasks), codes)
     chans = []
     if _PUSHPLUS_TOKEN:
-        chans.append("微信")
+        chans.append("wechat")
     if _smtp_conf():
-        chans.append("邮箱")
-    logger.info(f"规则 {len(rules)} 条, 轮询 {POLL_SECONDS}s, "
-                f"推送通道: {'+'.join(chans) if chans else '无(仅控制台)'}")
+        chans.append("email")
+    logger.info("poll=%ss push_channels=%s dline_file=%s watch_rules=%s",
+                POLL_SECONDS, "+".join(chans) if chans else "console-only", DLINE_TASKS_FILE, WATCH_RULES_FILE)
 
-    # 启动自检: 探活
     try:
         with request.urlopen(f"{API_BASE}/health", timeout=10) as r:
             h = json.loads(r.read().decode("utf-8"))
             logger.info(f"/health ok: regime={h.get('regime')} tushare={h.get('tushare_points')}")
     except Exception as e:
-        logger.warning(f"服务探活失败: {e} (继续尝试盯盘)")
+        logger.warning(f"service health probe failed: {e} (continue intraday polling)")
 
     while True:
-        # 跨午夜归零: 新交易日清空今日触发计数(每轮循环起始检测)
         _today = dt.date.today()
         if _today != fire_count_day:
             today_fire_count.clear()
@@ -385,20 +622,26 @@ def run(once=False, force=False):
         if not is_trading_time(force):
             n = dt.datetime.now()
             if n.time() > dt.time(15, 2):
-                logger.info("收盘, 盯盘结束.")
+                logger.info("market closed, intraday watch finished.")
                 break
-            logger.info("非交易时段, 等待...")
+            logger.info("outside trading window, waiting...")
             if once:
                 break
             time.sleep(POLL_SECONDS)
             continue
 
-        # 热重读: 每轮重载规则(API 写接口改了文件即自动生效, 无需重启)
         new_rules = load_rules()
         for r in new_rules:
-            r["fired"] = _rule_key(r) in fired_keys  # 保留已触发的静默状态
+            r["fired"] = _rule_key(r) in fired_keys
         rules = new_rules
-        codes = sorted(set(r["code"] for r in rules))
+        dline_tasks = load_dline_tasks()
+        codes = _active_codes()
+        if not codes:
+            logger.info("no legacy rules and no D-line tasks for today; no-op")
+            if once:
+                break
+            time.sleep(POLL_SECONDS)
+            continue
 
         data = fetch_quotes(codes)
         if data:
@@ -407,12 +650,13 @@ def run(once=False, force=False):
                 qd = data.get(c, {})
                 if qd:
                     line.append(f"{qd.get('name', c)} {qd.get('price')}({qd.get('change_pct', 0):+.1f}%)")
-            logger.info(" | ".join(line))
+            if line:
+                logger.info(" | ".join(line))
 
             for rule in rules:
-                if rule["fired"]:
+                if rule.get("fired"):
                     continue
-                qd = data.get(rule["code"])
+                qd = data.get(rule.get("code"))
                 if not qd:
                     continue
                 if check_rule(rule, qd):
@@ -420,12 +664,28 @@ def run(once=False, force=False):
                     today_fire_count[code] = today_fire_count.get(code, 0) + 1
                     notify(rule, qd, fire_count=today_fire_count.get(code, 1))
                     rule["fired"] = True
-                    fired_keys.add(_rule_key(rule))  # 跨热重载记忆
+                    fired_keys.add(_rule_key(rule))
+
+            for task in dline_tasks:
+                key = _dline_key(task)
+                if key in fired_keys:
+                    continue
+                code = task.get("code")
+                qd = data.get(code)
+                if not qd:
+                    continue
+                idx, bp, values = check_dline_task(task, qd)
+                if bp is None:
+                    continue
+                today_fire_count[code] = today_fire_count.get(code, 0) + 1
+                logger.info("D-line trigger matched: code=%s task_id=%s blueprint_index=%s trigger_type=%s",
+                            code, task.get("task_id"), idx, bp.get("trigger_type"))
+                notify_dline(task, qd, bp, values, fire_count=today_fire_count.get(code, 1))
+                fired_keys.add(key)
 
         if once:
             break
         time.sleep(POLL_SECONDS)
-
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description="盘中盯盘 + 触发推送")

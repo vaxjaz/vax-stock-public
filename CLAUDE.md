@@ -110,7 +110,7 @@ tracks/__init__.py 严禁 import ai 或任何会触网/加载重依赖(akshare/p
     - [x] E2 research 分桶/前瞻IC/超额评估报告(不按样本数屏蔽,N 直接展示)
     - [x] Regime Audit: `services.regime_auditor` 落盘 raw/final/input/source,报告展示 market_regime 判定证据
     - [x] E3 人工依据报告反哺因子权重: `research.factor_weight_review` 生成人工调权复盘,只给证据不自动调参
-    - [x] D线盘中预测告警线已立(T-1基准注入 + JSON结构化预测冻结 var/forecast/forecasts.jsonl); EOD Codex 观察任务生成已接入 var/forecast/observation_tasks.jsonl; 盘中消费者与结果回填留后续 PR  # PR-A(PR#30)
+    - [x] D线盘中预测告警线已立(T-1基准注入 + JSON结构化预测冻结 var/forecast/forecasts.jsonl); EOD Codex 观察任务生成已接入 var/forecast/observation_tasks.jsonl; 盘中消费者已读取 current_tasks.json 执行 trigger DSL; 结果回填留后续 PR
     - [x] E4 EOD Prediction 线:基于 T-1 EOD 真数据生成 T 日 9:30 后走势/动作预测,次日 EOD 核验,长期 day-by-day 修复用户 universe 择股框架(详见 §9.10)
         - [x] E4-1 Schema + writer: `services/eod_predictor.py` + `tests/services/test_eod_predictor.py`
         - [x] E4-2 Replay bootstrap: 从既有 `factor_snapshots.jsonl` / `var/reports/*/payload.json` 重放生成 `generation_mode=replay`
@@ -209,7 +209,7 @@ print('✅ import无副作用 + 纯函数验证通过')
    | `var/forecast/observation_jobs.jsonl` | `services.forecast_planner.enqueue_observation_job` | D线观察任务异步job | EOD只入队,不阻塞主流程;systemd异步启动 worker | append-only;job_id 幂等 |
    | `var/forecast/current_job.json` | `services.forecast_planner.enqueue_observation_job` | D线当前job | `vaxstock-dline-plan.service` 消费的当前待处理job | 可覆盖;指向最新job |
    | `var/forecast/observation_tasks.jsonl` | `services.forecast_planner.record_observation_tasks` | D线EOD观察任务 | EOD后把 A/B/C evidence_pack 喂 Codex 生成次日观察任务 | append-only;task_id 幂等 |
-   | `var/forecast/current_tasks.json` | `services.forecast_planner.record_observation_tasks` | D线当前任务快照 | 当前目标交易日任务物化,供后续盘中消费者读取 | 可覆盖;由 observation_tasks 重建 |
+   | `var/forecast/current_tasks.json` | `services.forecast_planner.record_observation_tasks` | D线当前任务快照 | 当前目标交易日任务物化,供 services.intraday 盘中消费者读取 | 可覆盖;由 observation_tasks 重建 |
    | `var/forecast/forecasts.jsonl` | `services.forecast_recorder.record_forecast` | D线盘中触发评价 | 盘中触发时冻结 codex 结构化预测+T-1基准+lite快照+regime | append-only;触发样本,不可冒充全样本 |
    | `var/prediction/eod_predictions.jsonl` | `services.eod_predictor` | EOD Prediction 输入/动作 | 基于 `baseline_trade_date=T-1` EOD 真数据,预测 `target_trade_date=T` 的动作/方向/置信度 | append-only;同 `(baseline_trade_date,target_trade_date,code,rule_version,generation_mode)` 幂等 |
    | `var/prediction/eod_prediction_results.jsonl` | `services.prediction_evaluator` | EOD Prediction 核验结果 | T+1 EOD 后核验 target 日真实收益、benchmark、excess、方向命中、动作命中、偏离 | append-only;同 `prediction_id+horizon` 幂等 |

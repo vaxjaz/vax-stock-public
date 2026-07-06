@@ -5,7 +5,16 @@ import ast
 import datetime as dt
 import json
 import pathlib
+import sys
+import tempfile
 import types
+
+# The bundled test Python may not have project runtime deps installed.  The
+# intraday tests monkeypatch push functions and never call real HTTP, so provide
+# a tiny requests module before importing report.notify through intraday.
+sys.modules.setdefault("requests", types.SimpleNamespace(
+    post=lambda *a, **k: types.SimpleNamespace(json=lambda: {"code": 200})
+))
 
 import vaxstock.services.intraday as intra
 from vaxstock.services._intraday_rules import enforce_intraday_rules
@@ -395,9 +404,118 @@ def test_get_concepts_degrades_to_empty_on_error():
         intra._concepts_map, cfg.load_watchlist, cfg.load_holdings = saved_map, saved_load, saved_holdings
 
 
+
+# ---- D-line current_tasks consumer ----
+
+def _sample_dline_task(target="20260706"):
+    return {
+        "task_id": f"20260703_{target}_002475_d_observe_llm_v2",
+        "line": "D",
+        "code": "002475",
+        "name": "立讯精密",
+        "baseline_trade_date": "20260703",
+        "target_trade_date": target,
+        "plan_version": "d_observe_llm_v2",
+        "observation": {
+            "observe_intent": "验证C线watch是否被盘中价格修复证实",
+            "primary_risk": "继续弱于MA20",
+            "trigger_blueprints": [
+                {
+                    "trigger_type": "breakdown_confirm",
+                    "severity": "high",
+                    "condition": {"all": [{"field": "price_vs_ma20_pct", "op": "<", "value": -2.0}], "any": []},
+                    "why": "盘中价格继续低于MA20超过2%",
+                    "expected_feedback_to_c": "watch -> avoid_review",
+                }
+            ],
+            "c_line_feedback_focus": "action/confidence",
+            "falsify_if": "重新站回MA20",
+        },
+        "evidence_pack": {
+            "A_eod": {"metrics": {"ma5": 98.0, "ma20": 100.0, "ma60": 110.0, "volume_ratio_5d": 1.1, "rsi_14": 45.0}},
+            "C_prediction": {"prediction": {"action": "watch", "direction": "up", "confidence": 0.6}},
+        },
+    }
+
+
+def test_load_rules_missing_file_disables_legacy_defaults():
+    saved = intra.WATCH_RULES_FILE
+    with tempfile.TemporaryDirectory(prefix="vax_intra_rules_") as d:
+        try:
+            intra.WATCH_RULES_FILE = str(pathlib.Path(d) / "missing_watch_rules.json")
+            assert intra.load_rules() == []
+        finally:
+            intra.WATCH_RULES_FILE = saved
+
+
+def test_load_dline_tasks_filters_target_and_requires_blueprints():
+    saved = intra.DLINE_TASKS_FILE
+    with tempfile.TemporaryDirectory(prefix="vax_dline_tasks_") as d:
+        p = pathlib.Path(d) / "current_tasks.json"
+        p.write_text(json.dumps({"tasks": [
+            _sample_dline_task("20260706"),
+            _sample_dline_task("20260707"),
+            {"code": "600000", "target_trade_date": "20260706", "observation": {"trigger_blueprints": []}},
+        ]}, ensure_ascii=False), encoding="utf-8")
+        try:
+            intra.DLINE_TASKS_FILE = str(p)
+            rows = intra.load_dline_tasks("20260706")
+            assert [r["code"] for r in rows] == ["002475"]
+        finally:
+            intra.DLINE_TASKS_FILE = saved
+
+
+def test_check_dline_task_recomputes_live_ma_deviation():
+    task = _sample_dline_task()
+    idx, bp, values = intra.check_dline_task(task, {"price": 96.0, "change_pct": -1.5, "amplitude_pct": 3.2, "amount": 2e8})
+    assert idx == 0
+    assert bp["trigger_type"] == "breakdown_confirm"
+    assert round(values["price_vs_ma20_pct"], 2) == -4.0
+    assert values["change_pct"] == -1.5
+    assert values["amount_yi"] == 2.0
+
+
+def test_notify_dline_freezes_forecast_and_pushes():
+    saved = (intra.record_forecast, intra.push_wechat, intra.push_email)
+    out = {}
+    try:
+        intra.record_forecast = lambda *a, **k: out.update(forecast=a) or True
+        intra.push_wechat = lambda title, body, pushplus_token=None: out.update(wx=(title, body)) or True
+        intra.push_email = lambda title, body, smtp_conf=None: out.update(email=(title, body)) or True
+        task = _sample_dline_task()
+        quote = {"code": "002475", "name": "立讯精密", "price": 96.0, "change_pct": -1.5,
+                 "amplitude_pct": 3.2, "amount": 2e8, "trade_date": "20260706", "trade_time": "10:00:00"}
+        idx, bp, values = intra.check_dline_task(task, quote)
+        intra.notify_dline(task, quote, bp, values, fire_count=1)
+        assert "wx" in out and "email" in out
+        assert "[D线]" in out["wx"][0]
+        assert "price_vs_ma20" in out["wx"][1]
+        args = out["forecast"]
+        assert args[0] == "002475"
+        assert args[1] == "20260706"
+        assert args[3]["dline_task_id"] == task["task_id"]
+        assert args[4]["source"] == "dline_task_blueprint"
+    finally:
+        intra.record_forecast, intra.push_wechat, intra.push_email = saved
+
+
+def test_run_consumes_dline_current_tasks():
+    saved = (intra.load_rules, intra.load_dline_tasks, intra.fetch_quotes, intra.notify_dline, intra.request)
+    calls = []
+    try:
+        intra.load_rules = lambda: []
+        intra.load_dline_tasks = lambda: [_sample_dline_task()]
+        intra.fetch_quotes = lambda codes: {"002475": {"code": "002475", "name": "立讯精密", "price": 96.0,
+            "change_pct": -1.5, "amplitude_pct": 3.2, "amount": 2e8, "trade_date": "20260706"}}
+        intra.notify_dline = lambda task, quote, bp, values, fire_count=None: calls.append((task["code"], bp["trigger_type"], fire_count))
+        intra.request = types.SimpleNamespace(urlopen=lambda *a, **k: _FakeResp({"regime": "x"}))
+        intra.run(once=True, force=True)
+        assert calls == [("002475", "breakdown_confirm", 1)]
+    finally:
+        intra.load_rules, intra.load_dline_tasks, intra.fetch_quotes, intra.notify_dline, intra.request = saved
 # ── C2b: run() 今日触发计数 —— 同 code 多规则递增; 跨日清零 ──
 def test_run_fire_count_increments_per_code():
-    saved = (intra.load_rules, intra.fetch_quotes, intra.notify, intra.request)
+    saved = (intra.load_rules, intra.load_dline_tasks, intra.fetch_quotes, intra.notify, intra.request)
     calls = []
     try:
         intra.load_rules = lambda: [
@@ -411,12 +529,12 @@ def test_run_fire_count_increments_per_code():
         # 同 code 两条规则同轮均触发 -> 计数 1,2
         assert sorted(fc for _, fc in calls) == [1, 2]
     finally:
-        intra.load_rules, intra.fetch_quotes, intra.notify, intra.request = saved
+        intra.load_rules, intra.load_dline_tasks, intra.fetch_quotes, intra.notify, intra.request = saved
 
 
 def test_run_fire_count_resets_on_new_day():
     _Stop = type("_Stop", (Exception,), {})
-    saved = (intra.load_rules, intra.fetch_quotes, intra.notify, intra.request,
+    saved = (intra.load_rules, intra.load_dline_tasks, intra.fetch_quotes, intra.notify, intra.request,
              intra.dt, intra.time)
     calls = []
     rule_a = {"code": "002475", "name": "立讯", "type": "price_above", "level": 69.0, "note": "a"}
@@ -444,6 +562,7 @@ def test_run_fire_count_resets_on_new_day():
 
     try:
         intra.load_rules = _load
+        intra.load_dline_tasks = lambda: []
         intra.fetch_quotes = lambda codes: {"002475": {"name": "立讯", "price": 70.0, "change_pct": 2.0}}
         intra.notify = lambda rule, quote, fire_count=None: calls.append((rule["type"], fire_count))
         intra.request = types.SimpleNamespace(urlopen=lambda *a, **k: _FakeResp({"regime": "x"}))
@@ -459,7 +578,7 @@ def test_run_fire_count_resets_on_new_day():
         assert ("price_above", 1) in calls
         assert ("pct_above", 1) in calls, f"跨日未清零计数, 实际: {calls}"
     finally:
-        (intra.load_rules, intra.fetch_quotes, intra.notify, intra.request,
+        (intra.load_rules, intra.load_dline_tasks, intra.fetch_quotes, intra.notify, intra.request,
          intra.dt, intra.time) = saved
 
 

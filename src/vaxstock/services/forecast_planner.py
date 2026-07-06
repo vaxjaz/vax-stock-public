@@ -37,7 +37,7 @@ PLAN_PROMPT_FILE = config.PROJECT_ROOT / "deploy" / "d_observation_plan_prompt.m
 
 SCHEMA_VERSION = 1
 EVIDENCE_SCHEMA_VERSION = 1
-DEFAULT_PLAN_VERSION = "d_observe_llm_v1"
+DEFAULT_PLAN_VERSION = "d_observe_llm_v2"
 DEFAULT_SOURCE = "codex_llm"
 
 ALLOWED_TRIGGER_FIELDS = {
@@ -682,7 +682,7 @@ def _existing_task_codes(history_path, baseline_trade_date: str, target_trade_da
 
 def _tasks_for_targets(history_path, target_dates: Optional[Iterable[str]] = None) -> List[Dict[str, Any]]:
     target_set = {str(d).strip() for d in target_dates or [] if str(d).strip()}
-    rows_by_id: Dict[str, Dict[str, Any]] = {}
+    rows_by_key: Dict[Tuple[str, str], Dict[str, Any]] = {}
     for row in _read_jsonl(history_path):
         if not isinstance(row, dict):
             continue
@@ -690,11 +690,16 @@ def _tasks_for_targets(history_path, target_dates: Optional[Iterable[str]] = Non
         if target_set and target not in target_set:
             continue
         tid = str(row.get("task_id") or "").strip()
+        code = str(row.get("code") or "").strip()
         if not tid:
             continue
-        rows_by_id[tid] = row
+        key = (target, code or tid)
+        # History is append-only, but current_tasks is an active snapshot.  If a
+        # same-day task is regenerated under a newer plan_version, the latest row
+        # should replace the older one for intraday consumption.
+        rows_by_key[key] = row
     return sorted(
-        rows_by_id.values(),
+        rows_by_key.values(),
         key=lambda r: (
             str(r.get("target_trade_date") or ""),
             str(r.get("baseline_trade_date") or ""),
@@ -702,7 +707,6 @@ def _tasks_for_targets(history_path, target_dates: Optional[Iterable[str]] = Non
             str(r.get("task_id") or ""),
         ),
     )
-
 
 
 _FIELD_LABELS = {

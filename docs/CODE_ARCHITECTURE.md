@@ -148,7 +148,8 @@ sequenceDiagram
 
 ```mermaid
 flowchart TD
-  rules["load_rules\nvar/watch_rules.json 或 DEFAULT_RULES"] --> quote["/quote 批量实时报价"]
+  dline["load_dline_tasks\nvar/forecast/current_tasks.json"] --> quote["/quote 批量实时报价"]
+  legacy["optional load_rules\nvar/watch_rules.json"] --> quote
   quote --> check["check_rule"]
   check --> lite["/analyze/{code}?lite=1"]
   lite --> t1["load_t1_baseline\nvar/reports/latest/claude.json"]
@@ -161,7 +162,7 @@ flowchart TD
 
 当前盘中数据层状态:
 
-- 已有 D 线触发评价冻结: `var/forecast/forecasts.jsonl`。
+- 已有 D 线盘中消费者: `services.intraday` 读取 `current_tasks.json` 执行 trigger DSL,触发后冻结 `var/forecast/forecasts.jsonl`。
 - 已有 D 线 EOD 观察任务生成器: `services.forecast_planner`, 输出 `var/forecast/observation_tasks.jsonl` 与 `current_tasks.json`。
 - 每条 D 线 observation task 保存给 Codex 的 `evidence_pack(A/B/C/D_contract)`。
 - 每条 forecast 保存 `T-1 baseline + lite_snapshot + regime + structured verdict`。
@@ -218,9 +219,8 @@ flowchart TD
 
 D 线已经具备 EOD 观察任务生成器;下一步不应把 D 线样本混入 B 线全样本。建议继续补齐:
 
-1. 盘中消费者读取 `current_tasks.json` 并执行 D 线触发 DSL。
-2. 盘中触发后把 observation task + lite 快照 + T-1 基准喂给 Codex 做客观评价。
-3. D 线结果如何在 EOD 后核验的文件位置和 horizon 定义。
-4. `/intraday/ask` 是否只读 A/B/C/D 已冻结 evidence、T-1 基准、lite 快照和已冻结 forecast。
-5. 主动盘面体检的输入来源, 以及哪些字段必须标记为盘中未定稿。
+1. D 线结果如何在 EOD 后核验的文件位置和 horizon 定义。
+2. 盘中演变记忆如何记录连续触发/未触发过程。
+3. `/intraday/ask` 是否只读 A/B/C/D 已冻结 evidence、T-1 基准、lite 快照和已冻结 forecast。
+4. 主动盘面体检的输入来源, 以及哪些字段必须标记为盘中未定稿。
 
