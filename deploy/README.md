@@ -34,9 +34,9 @@ v2 一刀切顶替 v1(不并存)。本目录是三服务的 systemd 模板,env �
 
 ---
 
-## Auto GitHub commit after EOD / D-line
+## Auto GitHub commit after EOD / D-line / intraday triggers
 
-`vaxstock-eod.service` and `vaxstock-dline-plan.service` call `python -m vaxstock.services.git_autocommit` in `ExecStartPost`.
+`vaxstock-eod.service` and `vaxstock-dline-plan.service` call `python -m vaxstock.services.git_autocommit` in `ExecStartPost`. `intraday-watch.service` is long-running, so `services.intraday` calls `git_autocommit --stage intraday` immediately after a trigger forecast row is written.
 
 Enable it explicitly in `/etc/vaxstock/vaxstock.env`:
 
@@ -52,6 +52,7 @@ Safety rules:
 
 - EOD stage only stages generated A/B/C data and the D-line job envelope: `var/reports`, `var/eval`, `var/prediction`, `var/forecast/current_job.json`, `var/forecast/observation_jobs.jsonl`.
 - D-line stage only stages generated D-line task files: `var/forecast/current_job.json`, `var/forecast/current_tasks.json`, `var/forecast/current_tasks.md`, `var/forecast/observation_tasks.jsonl`.
+- Intraday stage only stages live D-line/forecast trigger artifacts: `var/forecast/forecasts.jsonl` plus the current D-line task context files needed to read the alert.
 - If any non-whitelisted file is dirty, the autocommit step skips and prints the blocking paths.
 - Push requires non-interactive GitHub credentials for root/systemd, such as SSH deploy key or a stored credential helper. The code never stores tokens.
 - Git prompts are disabled (`GIT_TERMINAL_PROMPT=0`, `GCM_INTERACTIVE=never`); missing credentials fail fast in journal logs.

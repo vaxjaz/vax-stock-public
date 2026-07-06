@@ -43,6 +43,19 @@ def test_dline_stage_allows_current_markdown_and_task_history():
     assert ga.blocking_status_entries(entries, ga.STAGE_PATHS["dline"]) == []
 
 
+
+
+def test_intraday_stage_allows_forecasts_and_task_context_only():
+    entries = ga.parse_status_porcelain(
+        " M var/forecast/forecasts.jsonl\n"
+        " M var/forecast/current_tasks.json\n"
+        "?? src/vaxstock/services/tmp_debug.py\n"
+    )
+
+    blockers = ga.blocking_status_entries(entries, ga.STAGE_PATHS["intraday"])
+
+    assert [entry.path for entry in blockers] == ["src/vaxstock/services/tmp_debug.py"]
+
 if __name__ == "__main__":
     import sys
 
@@ -54,5 +67,5 @@ if __name__ == "__main__":
         except AssertionError as exc:
             failed += 1
             print(f"  [FAIL] {name}: {exc}")
-    print(f"\n{3 - failed}/3 passed")
+    print(f"\n{4 - failed}/4 passed")
     sys.exit(1 if failed else 0)

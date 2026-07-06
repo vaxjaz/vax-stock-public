@@ -127,7 +127,8 @@ def test_is_trading_time_boundaries():
 
 # ── notify 链路(C线): codex JSON -> reasoning 过铁律校验 -> 渲染推送 + 冻结 forecast ──
 _NOTIFY_SEAMS = ("fetch_lite", "fetch_market_ctx", "_get_concepts", "_codex_verdict",
-                 "load_t1_baseline", "record_forecast", "push_wechat", "push_email")
+                 "load_t1_baseline", "record_forecast", "push_wechat", "push_email",
+                 "_maybe_autocommit_intraday_forecast")
 
 
 def _save_notify():
@@ -154,6 +155,7 @@ def test_notify_json_verdict_render_and_freeze():
             '"thesis_tags":["放量突破"],"falsify_if":"跌破MA20","news_refs":[],'
             '"reasoning":"主力大幅流入, 趋势转强"}')
         intra.record_forecast = lambda *a, **k: fc.update(called=True, args=a) or True
+        intra._maybe_autocommit_intraday_forecast = lambda: fc.update(autocommit=True) or {"status": "test"}
         intra.push_wechat = lambda title, body, pushplus_token=None: pushed.update(wx=(title, body)) or True
         intra.push_email = lambda title, body, smtp_conf=None: pushed.update(em=(title, body)) or True
 
@@ -176,6 +178,7 @@ def test_notify_json_verdict_render_and_freeze():
         assert inputs_ref["lite_snapshot"]["code"] == "002475"
         assert inputs_ref["regime"] == "momentum"
         assert structured["verdict"] == "确认" and falsify == "跌破MA20"
+        assert fc.get("autocommit") is True
     finally:
         _restore_notify(saved)
 
@@ -476,10 +479,12 @@ def test_check_dline_task_recomputes_live_ma_deviation():
 
 
 def test_notify_dline_freezes_forecast_and_pushes():
-    saved = (intra.record_forecast, intra.push_wechat, intra.push_email)
+    saved = (intra.record_forecast, intra.push_wechat, intra.push_email,
+             intra._maybe_autocommit_intraday_forecast)
     out = {}
     try:
         intra.record_forecast = lambda *a, **k: out.update(forecast=a) or True
+        intra._maybe_autocommit_intraday_forecast = lambda: out.update(autocommit=True) or {"status": "test"}
         intra.push_wechat = lambda title, body, pushplus_token=None: out.update(wx=(title, body)) or True
         intra.push_email = lambda title, body, smtp_conf=None: out.update(email=(title, body)) or True
         task = _sample_dline_task()
@@ -495,8 +500,9 @@ def test_notify_dline_freezes_forecast_and_pushes():
         assert args[1] == "20260706"
         assert args[3]["dline_task_id"] == task["task_id"]
         assert args[4]["source"] == "dline_task_blueprint"
+        assert out.get("autocommit") is True
     finally:
-        intra.record_forecast, intra.push_wechat, intra.push_email = saved
+        intra.record_forecast, intra.push_wechat, intra.push_email, intra._maybe_autocommit_intraday_forecast = saved
 
 
 def test_run_consumes_dline_current_tasks():

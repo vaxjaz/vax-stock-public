@@ -55,6 +55,34 @@ _concepts_map = None
 DEFAULT_RULES = []
 
 
+def _env_truthy(value: Optional[str], default: bool = False) -> bool:
+    if value is None or value == "":
+        return default
+    return str(value).strip().lower() in ("1", "true", "yes", "on")
+
+
+def _maybe_autocommit_intraday_forecast():
+    """Commit/push intraday forecast rows after a live trigger.
+
+    EOD and D-line planning are oneshot services and can use systemd
+    ExecStartPost. Intraday is long-running, so forecast rows written during
+    the session need an explicit hook here. Failures are logged and never block
+    alert delivery.
+    """
+    if not _env_truthy(os.getenv("GIT_AUTOCOMMIT_INTRADAY"), default=True):
+        logger.info("intraday git autocommit disabled by GIT_AUTOCOMMIT_INTRADAY")
+        return None
+    try:
+        from vaxstock.services.git_autocommit import run_autocommit
+
+        result = run_autocommit("intraday")
+        logger.info("intraday git autocommit done: %s", result)
+        return result
+    except Exception as exc:
+        logger.warning("intraday git autocommit failed: %s: %s", type(exc).__name__, exc)
+        return None
+
+
 def _smtp_conf() -> Optional[dict]:
     """从 config.SECRETS 适配 report.notify.push_email 的 smtp_conf; 未启用/缺凭据返 None。"""
     s = config.SECRETS
@@ -495,11 +523,14 @@ def notify_dline(task: Dict[str, Any], quote: Dict[str, Any], blueprint: Dict[st
         "quote_snapshot": quote,
         "evidence_pack": evidence,
     }
-    record_forecast(code, quote.get("trade_date"), f"D-line {trigger_type}: {blueprint.get('why', '')}",
-                    inputs_ref, structured, reasoning, structured.get("falsify_if", ""))
+    written = record_forecast(code, quote.get("trade_date"), f"D-line {trigger_type}: {blueprint.get('why', '')}",
+                              inputs_ref, structured, reasoning, structured.get("falsify_if", ""))
     logger.info("\n%s\n%s\n%s\n%s", "=" * 40, title, body, "=" * 40)
     push_wechat(title, body, pushplus_token=_PUSHPLUS_TOKEN)
     push_email(title, body, smtp_conf=_smtp_conf())
+    if written:
+        _maybe_autocommit_intraday_forecast()
+
 def notify(rule, quote, fire_count=None):
     """触发: 控制台+微信+邮箱; 命中后拉快照+T-1基准+大盘背景喂 codex → JSON 预测 → 渲染推送 + 冻结 forecast。
 
@@ -532,6 +563,7 @@ def notify(rule, quote, fire_count=None):
                              concepts=concepts, fire_count=fire_count, t1_baseline=t1)
 
     structured = _parse_codex_json(raw)
+    forecast_written = False
     if structured:
         # reasoning 过铁律硬校验(昨日限定词白名单); 回写校验后文本
         reasoning = enforce_intraday_rules(str(structured.get("reasoning", "")))
@@ -554,9 +586,11 @@ def notify(rule, quote, fire_count=None):
                 "lite_snapshot": snap,
                 "regime": (ctx or {}).get("regime"),
             }
-            record_forecast(code, quote.get("trade_date"), rule.get("note", ""),
-                            inputs_ref, structured, reasoning,
-                            structured.get("falsify_if", ""))
+            written = record_forecast(code, quote.get("trade_date"), rule.get("note", ""),
+                                      inputs_ref, structured, reasoning,
+                                      structured.get("falsify_if", ""))
+            if written:
+                forecast_written = True
         else:
             logger.info(f"{code} 池外临时票(无T-1基准且不在概念池): 出研判, 不写 forecast(防回测污染)")
     elif raw:
@@ -574,6 +608,9 @@ def notify(rule, quote, fire_count=None):
     logger.info(f"\n{'='*40}\n🚨 {title}\n{body}\n{'='*40}")
     push_wechat(title, body, pushplus_token=_PUSHPLUS_TOKEN)
     push_email(title, body, smtp_conf=_smtp_conf())
+    if forecast_written:
+        _maybe_autocommit_intraday_forecast()
+
 
 
 # ==================== 主循环 ====================

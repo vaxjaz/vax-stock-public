@@ -9,6 +9,8 @@ This module is intentionally narrow:
 Production usage is via systemd ExecStartPost:
     python -m vaxstock.services.git_autocommit --stage eod
     python -m vaxstock.services.git_autocommit --stage dline
+Intraday triggers call the same module from the long-running watcher:
+    python -m vaxstock.services.git_autocommit --stage intraday
 """
 
 from __future__ import annotations
@@ -44,6 +46,15 @@ STAGE_PATHS: Dict[str, Tuple[str, ...]] = {
         "var/forecast/current_tasks.json",
         "var/forecast/current_tasks.md",
         "var/forecast/observation_tasks.jsonl",
+    ),
+    # Intraday watcher owns live trigger forecast rows. It is a long-running
+    # service, so it cannot rely on systemd ExecStartPost after each alert.
+    "intraday": (
+        "var/forecast/current_job.json",
+        "var/forecast/current_tasks.json",
+        "var/forecast/current_tasks.md",
+        "var/forecast/observation_tasks.jsonl",
+        "var/forecast/forecasts.jsonl",
     ),
     "all": (
         "var/reports",

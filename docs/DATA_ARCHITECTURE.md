@@ -349,6 +349,7 @@ Purpose: materialized active tasks for the target session. It is not append-only
 当前缺口:
 
 - 盘中消费者已由 `services.intraday` 读取 `current_tasks.json` 执行 D线触发 DSL,触发后写 `forecasts.jsonl`。
+- When `GIT_AUTOCOMMIT_ENABLED=1`, `services.intraday` also calls `git_autocommit --stage intraday` after a forecast row is written, because the watcher is long-running and has no per-alert systemd `ExecStartPost`.
 - 还没有 `forecast_results.jsonl`。
 - 还没有盘中演变记忆的独立状态文件。
 - 还没有主动盘面体检的落盘 schema。
