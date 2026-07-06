@@ -346,6 +346,15 @@ Purpose: materialized active tasks for the target session. It is not append-only
 | `structured.verdict/direction/confidence` | Codex 结构化判断 |
 | `structured.falsify_if` | 证伪条件 |
 
+派生 Markdown:
+
+| 文件 | 来源 | 作用 | 写入性质 |
+|---|---|---|---|
+| `var/forecast/current_triggers.md` | `services.forecast_recorder.refresh_trigger_markdown` | 当前/最近交易日 D线 v2 触发的人读汇总 | 可覆盖, 可由 `forecasts.jsonl` 重生成 |
+| `var/forecast/trigger_summary_<trade_date>.md` | `services.forecast_recorder.refresh_trigger_markdown` | 指定触发交易日的 D线 v2 汇总快照 | 可覆盖, 可由 `forecasts.jsonl` 重生成 |
+
+口径:上述 Markdown 只过滤 `structured.source=dline_task_blueprint` 且 `dline_plan_version=d_observe_llm_v2` 的触发行;它展示触发时 quote、MA 偏离、C线原始 action/direction/confidence、LLM 客观评价和 C线反哺线索,不写未来结果,不自动调参。
+
 当前缺口:
 
 - 盘中消费者已由 `services.intraday` 读取 `current_tasks.json` 执行 D线触发 DSL,触发后写 `forecasts.jsonl`。
@@ -436,6 +445,7 @@ turnover_history.parquet
 | `observation_tasks.jsonl` | 否 | 是 | D线任务历史,按 `task_id` 幂等 |
 | `current_tasks.json` | 是 | 否 | D线当前任务快照,可由历史任务重建 |
 | `forecasts.jsonl` | 否 | 是 | 同日同票多触发是正常事件 |
+| `current_triggers.md` / `trigger_summary_<trade_date>.md` | 是 | 否 | D线触发派生视图,以 `forecasts.jsonl` 为事实源 |
 | `layer2/factor/prediction/rule *.md` | 是 | 否 | 报告可重生成, 不是原始事实源 |
 
 ## 下一步盘中数据层施工原则

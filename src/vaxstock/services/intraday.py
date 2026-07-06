@@ -468,6 +468,66 @@ def _dline_reasoning(task: Dict[str, Any], blueprint: Dict[str, Any]) -> str:
     return enforce_intraday_rules("\n".join(p for p in parts if p.strip()))
 
 
+def _fmt_pct_text(v, digits=2, signed=True):
+    n = _as_float(v)
+    if n is None:
+        return "待获取"
+    sign = "+" if signed and n > 0 else ""
+    return f"{sign}{n:.{digits}f}%"
+
+
+def _fmt_confidence(v):
+    n = _as_float(v)
+    if n is None:
+        return "待获取"
+    if abs(n) <= 1:
+        n *= 100
+    return f"{n:.0f}%"
+
+
+def _fmt_amount_yi(values: Dict[str, Any], quote: Dict[str, Any]) -> str:
+    amount_yi = _as_float((values or {}).get("amount_yi"))
+    if amount_yi is None:
+        amount = _as_float((quote or {}).get("amount"))
+        amount_yi = None if amount is None else amount / 1e8
+    return "待获取" if amount_yi is None else f"{amount_yi:.2f}亿"
+
+
+def _format_dline_alert_body(code: str, name: str, task: Dict[str, Any], quote: Dict[str, Any],
+                             blueprint: Dict[str, Any], values: Dict[str, Any], c_pred: Dict[str, Any],
+                             reasoning: str, trigger_type: str, severity: str, fire_count=None) -> str:
+    values = values or {}
+    quote = quote or {}
+    expected_feedback = blueprint.get("expected_feedback_to_c") or (task.get("observation") or {}).get("c_line_feedback_focus")
+    c_reason = _short(c_pred.get("reason"), 220) or "待获取"
+    return "\n".join([
+        f"{code} {name} | {trigger_type} | severity={severity}",
+        "",
+        "【触发摘要】",
+        f"- 触发依据: {_short(blueprint.get('why'), 260) or '待获取'}",
+        f"- 任务: baseline={task.get('baseline_trade_date') or '待获取'} target={task.get('target_trade_date') or '待获取'} task_id={task.get('task_id') or '待获取'} fire_count={fire_count or '待获取'}",
+        "",
+        "【实时行情】",
+        f"- 现价: {_fmt(quote.get('price'))}  涨跌幅: {_fmt_pct_text(quote.get('change_pct'))}  振幅: {_fmt_pct_text(quote.get('amplitude_pct'), signed=False)}  成交额: {_fmt_amount_yi(values, quote)}",
+        f"- MA偏离: MA5 {_fmt_pct_text(values.get('price_vs_ma5_pct'))}  MA20 {_fmt_pct_text(values.get('price_vs_ma20_pct'))}  MA60 {_fmt_pct_text(values.get('price_vs_ma60_pct'))}",
+        f"- 量能/指标: 5日量比 {_fmt(values.get('volume_ratio_5d'))}  RSI14 {_fmt(values.get('rsi_14'))}  MACD柱 {_fmt(values.get('macd_hist'), 4)}",
+        f"- 时间: {quote.get('trade_time', now_str())}  源: {quote.get('source', '?')}",
+        "",
+        "【C线原始动作/方向/置信度】",
+        f"- action={c_pred.get('action') or '待获取'}  direction={c_pred.get('direction') or '待获取'}  confidence={_fmt_confidence(c_pred.get('confidence'))}",
+        f"- reason={c_reason}",
+        "",
+        "【LLM客观评价】",
+        reasoning or "待获取",
+        "",
+        "【C线反哺线索】",
+        f"- trigger_type={trigger_type}; expected_feedback_to_c={_short(expected_feedback, 220) or '待获取'}",
+        f"- 价格位置: MA20偏离 {_fmt_pct_text(values.get('price_vs_ma20_pct'))}; MA5偏离 {_fmt_pct_text(values.get('price_vs_ma5_pct'))}; MA60偏离 {_fmt_pct_text(values.get('price_vs_ma60_pct'))}",
+        "",
+        "说明: 价格、涨跌幅、振幅、成交额来自盘中 quote；MA偏离由盘中价和EOD均线重算；C线预测与观察任务来自EOD冻结上下文。",
+    ])
+
+
 def notify_dline(task: Dict[str, Any], quote: Dict[str, Any], blueprint: Dict[str, Any],
                  values: Dict[str, Any], fire_count=None):
     """Send a D-line alert and freeze the trigger as a forecast row."""
@@ -478,30 +538,10 @@ def notify_dline(task: Dict[str, Any], quote: Dict[str, Any], blueprint: Dict[st
     c_pred = ((evidence.get("C_prediction") or {}).get("prediction") or {})
     trigger_type = blueprint.get("trigger_type") or "dline_trigger"
     severity = blueprint.get("severity") or "medium"
-    price = quote.get("price")
-    pct = quote.get("change_pct")
-    amount_yi = _as_float(values.get("amount_yi"))
-    amount_text = "待获取" if amount_yi is None else f"{amount_yi:.2f}亿"
     title = f"[D线] {name} {trigger_type} 触发"
     reasoning = _dline_reasoning(task, blueprint)
-
-    body = (
-        f"{code} {name} | severity={severity}\n"
-        f"现价: {_fmt(price)}  涨跌: {_fmt(pct)}%  振幅: {_fmt(quote.get('amplitude_pct'))}%  成交额: {amount_text}\n"
-        f"时间: {quote.get('trade_time', now_str())}  源: {quote.get('source', '?')}\n"
-        f"baseline={task.get('baseline_trade_date')}  target={task.get('target_trade_date')}  task_id={task.get('task_id')}\n"
-        "------------\n"
-        f"C线: action={c_pred.get('action', '待获取')} direction={c_pred.get('direction', '待获取')} confidence={c_pred.get('confidence', '待获取')}\n"
-        f"触发依据: {_short(blueprint.get('why'), 220)}\n"
-        f"客观评价:\n{reasoning}\n"
-        "------------\n"
-        f"price_vs_ma5={_fmt(values.get('price_vs_ma5_pct'))}%  "
-        f"price_vs_ma20={_fmt(values.get('price_vs_ma20_pct'))}%  "
-        f"price_vs_ma60={_fmt(values.get('price_vs_ma60_pct'))}%\n"
-        f"volume_ratio_5d={_fmt(values.get('volume_ratio_5d'))}  "
-        f"rsi_14={_fmt(values.get('rsi_14'))}  macd_hist={_fmt(values.get('macd_hist'), 4)}\n"
-        "说明: 价格、涨跌、振幅、成交额来自盘中quote；均线偏离由盘中价和EOD均线重算；其他字段为EOD冻结上下文。"
-    )
+    body = _format_dline_alert_body(code, name, task, quote, blueprint, values, c_pred,
+                                    reasoning, trigger_type, severity, fire_count=fire_count)
 
     structured = {
         "verdict": trigger_type,
@@ -513,6 +553,11 @@ def notify_dline(task: Dict[str, Any], quote: Dict[str, Any], blueprint: Dict[st
         "source": "dline_task_blueprint",
         "task_id": task.get("task_id"),
         "fire_count": fire_count,
+        "trigger_type": trigger_type,
+        "severity": severity,
+        "c_line_action": c_pred.get("action"),
+        "c_line_direction": c_pred.get("direction"),
+        "c_line_confidence": c_pred.get("confidence"),
     }
     inputs_ref = {
         "baseline_date": task.get("baseline_trade_date"),
@@ -530,6 +575,7 @@ def notify_dline(task: Dict[str, Any], quote: Dict[str, Any], blueprint: Dict[st
     push_email(title, body, smtp_conf=_smtp_conf())
     if written:
         _maybe_autocommit_intraday_forecast()
+
 
 def notify(rule, quote, fire_count=None):
     """触发: 控制台+微信+邮箱; 命中后拉快照+T-1基准+大盘背景喂 codex → JSON 预测 → 渲染推送 + 冻结 forecast。

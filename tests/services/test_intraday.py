@@ -494,7 +494,21 @@ def test_notify_dline_freezes_forecast_and_pushes():
         intra.notify_dline(task, quote, bp, values, fire_count=1)
         assert "wx" in out and "email" in out
         assert "[D线]" in out["wx"][0]
-        assert "price_vs_ma20" in out["wx"][1]
+        body = out["wx"][1]
+        assert "【实时行情】" in body
+        assert "现价: 96.00" in body
+        assert "涨跌幅: -1.50%" in body
+        assert "振幅: 3.20%" in body
+        assert "成交额: 2.00亿" in body
+        assert "MA偏离: MA5 -2.04%" in body
+        assert "MA20 -4.00%" in body
+        assert "MA60 -12.73%" in body
+        assert "【C线原始动作/方向/置信度】" in body
+        assert "action=watch" in body
+        assert "direction=up" in body
+        assert "confidence=60%" in body
+        assert "【LLM客观评价】" in body
+        assert "【C线反哺线索】" in body
         args = out["forecast"]
         assert args[0] == "002475"
         assert args[1] == "20260706"

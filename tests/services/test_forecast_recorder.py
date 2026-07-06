@@ -52,6 +52,66 @@ def test_record_forecast_appends_frozen_row():
         shutil.rmtree(d, ignore_errors=True)
 
 
+def test_record_dline_forecast_refreshes_markdown_summary():
+    d = tempfile.mkdtemp(prefix="vaxfc_md_")
+    saved = _set_tmp(d)
+    try:
+        inputs_ref = {
+            "baseline_date": "20260703",
+            "dline_task_id": "20260703_20260706_002475_d_observe_llm_v2",
+            "dline_plan_version": fr.DLINE_PLAN_VERSION,
+            "trigger_blueprint": {
+                "trigger_type": "breakdown_confirm",
+                "severity": "high",
+                "why": "盘中价格继续低于MA20超过2%",
+                "expected_feedback_to_c": "watch -> avoid_review",
+            },
+            "trigger_values": {
+                "amount_yi": 2.0,
+                "price_vs_ma5_pct": -2.04,
+                "price_vs_ma20_pct": -4.0,
+                "price_vs_ma60_pct": -12.73,
+            },
+            "quote_snapshot": {
+                "code": "002475",
+                "name": "立讯精密",
+                "price": 96.0,
+                "change_pct": -1.5,
+                "amplitude_pct": 3.2,
+                "trade_time": "10:00:00",
+            },
+            "evidence_pack": {
+                "C_prediction": {"prediction": {"action": "watch", "direction": "up", "confidence": 0.6}}
+            },
+        }
+        structured = {
+            "verdict": "breakdown_confirm",
+            "direction": "up",
+            "confidence": 0.6,
+            "horizon": "intraday",
+            "source": "dline_task_blueprint",
+        }
+        ok = fr.record_forecast("002475", "20260706", "D-line breakdown_confirm", inputs_ref,
+                                structured, "这是客观观察, 盘中未定论", "重新站回MA20")
+        assert ok is True
+
+        current = pathlib.Path(d) / "current_triggers.md"
+        summary = pathlib.Path(d) / "trigger_summary_20260706.md"
+        assert current.exists() and summary.exists()
+        md = current.read_text(encoding="utf-8")
+        assert "# D线盘中触发汇总" in md
+        assert "现价=96.00" in md
+        assert "涨跌幅=-1.50%" in md
+        assert "MA20=-4.00%" in md
+        assert "C线原始预测" in md
+        assert "LLM客观评价" in md
+        assert "expected_feedback_to_c=watch -> avoid_review" in md
+        assert fr.refresh_trigger_markdown("20260706")["count"] == 1
+    finally:
+        fr.FORECASTS_FILE = saved
+        shutil.rmtree(d, ignore_errors=True)
+
+
 def test_record_forecast_skips_without_trade_date():
     d = tempfile.mkdtemp(prefix="vaxfc_")
     saved = _set_tmp(d)
