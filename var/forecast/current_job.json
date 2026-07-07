@@ -2,7 +2,7 @@
   "schema_version": 1,
   "job_id": "20260706_20260707_d_observe_llm_v2_job",
   "line": "D",
-  "status": "running",
+  "status": "done",
   "created_at": "2026-07-07T08:27:37",
   "plan_version": "d_observe_llm_v2",
   "baseline_trade_date": "20260706",
@@ -10975,7 +10975,7 @@
       "model_version": "manual_rules_v1"
     }
   ],
-  "updated_at": "2026-07-07T08:27:42",
+  "updated_at": "2026-07-07T08:40:25",
   "task_codes": [
     "601138",
     "002475",
@@ -10995,8 +10995,7 @@
     "603667",
     "603728"
   ],
-  "done_codes": [],
-  "remaining_codes": [
+  "done_codes": [
     "601138",
     "002475",
     "601179",
@@ -11015,13 +11014,13 @@
     "603667",
     "603728"
   ],
+  "remaining_codes": [],
   "stats": {
-    "generated": 0,
-    "written": 0,
+    "generated": 17,
+    "written": 17,
     "skipped": 0,
-    "current": 0,
-    "existing": 0
+    "current": 17,
+    "existing": 17
   },
-  "started_at": "2026-07-07T08:27:42",
-  "last_run_started_at": "2026-07-07T08:27:42"
+  "finished_at": "2026-07-07T08:40:25"
 }
