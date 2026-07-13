@@ -59,3 +59,13 @@ Safety rules:
 ## Private daily action artifact
 
 After `vaxstock-dline-plan.service` reaches a terminal status, it refreshes `var/strategy/daily_action_latest.md` and sends the idempotent `[每日操作]` pre-market plan. During the session, the watcher atomically records per-task quote coverage in gitignored `var/forecast/current_observation_status.json`. After 15:02 it reads same-day D-line v2 facts plus that coverage evidence, writes separate `var/strategy/close_review_<target>.md` / `close_review_latest.md` artifacts without overwriting the pre-market plan, and sends a separately idempotent `[收盘复盘]` email. A D-line trigger is never treated as an executed order; execution remains pending until confirmed holdings are updated. `status=done` sends the normal plan; `partial_done` / `partial_failed` / `missing_payload` sends an explicit degraded plan with all conditional adds disabled. These files contain private account amounts, are gitignored, and are never committed. Missing account data degrades to pending rather than fabricated amounts. The EOD process still writes A/B/C reports and queues D, but no longer sends the legacy digest email itself.
+## Confirmed execution import
+
+Create private `script/config/execution_confirmation.json` from a user-confirmed broker execution-detail screenshot plus a complete same-trade-date holdings screenshot, then validate before applying:
+
+```bash
+PYTHONPATH=src python -m vaxstock.services.execution_confirmation --input script/config/execution_confirmation.json --dry-run
+PYTHONPATH=src python -m vaxstock.services.execution_confirmation --input script/config/execution_confirmation.json
+```
+
+The first command performs no writes. The second appends the confirmation event, reconciles it against `close_review_<trade_date>.json`, and atomically refreshes private `holdings_state.json`, `portfolio_state.json`, and `execution_review_*`. The tracked `holdings.json` remains the initial baseline. Re-running the identical confirmation is idempotent; a reused confirmation or execution id with different data is rejected.

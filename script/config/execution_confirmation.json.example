@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "confirmation_id": "confirm-YYYYMMDD-001",
+  "trade_date": "YYYYMMDD",
+  "confirmed_at": "2026-01-01T15:30:00+08:00",
+  "source": "broker_screenshot_user_confirmed",
+  "user_confirmed": true,
+  "no_trade_confirmed": false,
+  "replace_prior_state_confirmed": false,
+  "trades": [
+    {
+      "execution_id": "broker-fill-or-stable-confirmed-key-001",
+      "code": "600001",
+      "name": "Example A",
+      "side": "sell",
+      "shares": 100,
+      "executed_price": 10.0,
+      "executed_at": "2026-01-01T10:00:00+08:00",
+      "status": "filled"
+    }
+  ],
+  "post_trade_snapshot": {
+    "captured_at": "2026-01-01T15:20:00+08:00",
+    "holdings_snapshot_complete": true,
+    "total_assets": 20000.0,
+    "market_value": 10000.0,
+    "available_cash": 10000.0,
+    "position_pct": 50.0,
+    "reference_prices": {"600001": 10.0},
+    "holdings": {
+      "600001": {
+        "name": "Example A",
+        "shares": 1000,
+        "available_shares": 1000,
+        "cost": 11.0
+      }
+    }
+  }
+}

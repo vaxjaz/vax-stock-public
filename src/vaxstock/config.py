@@ -40,6 +40,8 @@ SECRETS_FILE: Path = CONFIG_DIR / "secrets.json"
 
 # 私有账户快照可由环境变量指向 VPS 本地文件；默认文件已 gitignore。
 PORTFOLIO_STATE_FILE: Path = Path(os.getenv("PORTFOLIO_STATE_FILE") or (CONFIG_DIR / "portfolio_state.json"))
+HOLDINGS_BASE_FILE: Path = CONFIG_DIR / "holdings.json"
+HOLDINGS_STATE_FILE: Path = Path(os.getenv("HOLDINGS_STATE_FILE") or (CONFIG_DIR / "holdings_state.json"))
 STRATEGY_POLICY_FILE: Path = CONFIG_DIR / "strategy_policy.json"
 
 
@@ -233,23 +235,25 @@ def load_watchlist() -> Tuple[Dict[str, str], Dict[str, List[str]]]:
         return {}, {}
 
 
-def load_holdings() -> Dict[str, Dict[str, Any]]:
-    """从 CONFIG_DIR/holdings.json 加载独立持仓池。
+def load_holdings(path=None) -> Dict[str, Dict[str, Any]]:
+    """加载独立持仓池；私有成交后状态优先，仓库基线仅在其不存在时使用。
 
     返回 {code: {"name", "cost", "shares", "concepts"}}; 文件缺失/损坏 -> {}。
     holdings 与 watchlist 解耦:D线任务池会强制纳入 holdings,不要求持仓重复写入 watchlist。
+    私有状态一旦存在但损坏，不回退到旧基线，避免过期持仓进入决策。
     """
-    path = CONFIG_DIR / "holdings.json"
-    if not path.exists():
+    selected = Path(path) if path is not None else (
+        HOLDINGS_STATE_FILE if HOLDINGS_STATE_FILE.exists() else HOLDINGS_BASE_FILE
+    )
+    if not selected.exists():
         return {}
     try:
-        with open(path, "r", encoding="utf-8") as f:
+        with open(selected, "r", encoding="utf-8") as f:
             cfg = json.load(f)
         return {code: (info or {}) for code, info in (cfg.get("holdings") or {}).items()}
     except Exception as e:
-        logger.warning(f"holdings.json 解析失败,返回空持仓: {str(e)[:80]}")
+        logger.warning(f"{selected.name} 解析失败,返回空持仓: {str(e)[:80]}")
         return {}
-
 
 def load_task_pool() -> Dict[str, Dict[str, Any]]:
     """从 CONFIG_DIR/task_pool.json 加载 D线任务候选池。

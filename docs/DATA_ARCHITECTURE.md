@@ -421,7 +421,8 @@ P0 rule: no source means no conclusion. Do not fabricate earnings dates, company
 | 文件 | 来源/写入者 | 作用 |
 |---|---|---|
 | `script/config/watchlist.json` | manual/API/CLI | Wide observation pool and concepts; A/B/C data foundation, not D-line task pool |
-| `script/config/holdings.json` | manual / broker screenshot | Independent real holdings pool; always included in D-line task candidates |
+| `script/config/holdings.json` | manual / broker screenshot | Independent real holdings baseline; always included in D-line task candidates until a confirmed private state exists |
+| `script/config/holdings_state.json` | confirmed execution projection (private) | Latest complete broker-confirmed holdings; preferred over `holdings.json`, never tracked |
 | `script/config/task_pool.json` | manual / code review | D-line LLM task candidate pool; active subset selected from the wide observation pool |
 | `var/watch_rules.json` | API watch 端点或手工配置 | 盘中盯盘规则, `WATCH_RULES_FILE` 可覆盖 |
 | `var/pool_audit.jsonl` | `services.pool_admin` | 观察池增删改审计 |
@@ -490,8 +491,12 @@ turnover_history.parquet
 - `var/strategy/daily_action_latest.md`: 最新凌晨预案。
 - `var/strategy/close_review_<target_trade_date>.md`: 指定交易日的收盘触发复盘。
 - `var/strategy/close_review_latest.md`: 最新收盘触发复盘；不覆盖凌晨预案。
+- `var/strategy/execution_records.jsonl`: 用户明确确认后的成交/无交易事件，append-only；按 `confirmation_id` 和 `execution_id` 双重幂等。
+- `var/strategy/execution_review_<trade_date>.md/.json`: 凌晨预案、D线触发与真实成交的对账结果。
 
 `var/strategy/` 已 gitignore,因为清单包含账户金额。D线任务 worker 到达终态后发送 `[每日操作]` 凌晨预案；盘中服务在交易日 15:02 后读取当天 `forecasts.jsonl`，另写 `close_review_*` 并发送 `[收盘复盘]`，绝不覆盖凌晨预案。两类邮件使用独立状态文件，分别按目标交易日幂等；收盘复盘成功后重复轮询只做快速跳过。`done` 为正常预案，`partial_done` / `partial_failed` / `missing_payload` 为降级预案且禁止所有条件加仓。系统不自动下单；D线触发不等于成交，成交必须由后续真实持仓确认。EOD价格可与已确认股数/现金机械重估账户,但任一持仓缺价格时不得产出金额和股数。
+
+实际成交确认由 `services.execution_confirmation` 处理。输入必须带 `user_confirmed=true`、用户确认的券商成交明细和同交易日完整持仓快照；程序不做 OCR 推断，也不自行计算券商成本。确认事件先写 `execution_records.jsonl`，随后把完整快照投影到私有 `holdings_state.json` 和 `portfolio_state.json`；仓库内 `holdings.json` 只作为首次运行基线。若进程在两份投影之间中断，使用同一输入重跑会从日志恢复且不会重复成交。股数与此前状态不一致时默认阻断；只有显式 `replace_prior_state_confirmed=true` 才允许完整券商快照替换过期本地状态。
 ### 邮件证据摘要
 
 每日操作邮件与D线盘中邮件共用以下口径：
