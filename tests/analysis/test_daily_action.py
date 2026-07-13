@@ -25,8 +25,8 @@ def _task(code, action, direction):
                 }
             },
             "B_prediction_history_summary": {
-                "available": True, "evaluated": 6, "avg_excess": 0.0076,
-                "positive_excess_count": 4,
+                "available": True, "evaluated": 6, "avg_ret": 0.0076,
+                "positive_ret_count": 4,
             },
             "E_context": {"earnings": {
                 "latest_report": {"period": "20260331", "net_profit_yoy": 30.5},
@@ -98,8 +98,8 @@ def test_daily_action_requires_d_confirmation_and_keeps_avoid_as_no_add():
         "tasks": [_task("600001", "watch", "up"), _task("600002", "avoid", "neutral")]
     }
     holdings = {
-        "600001": {"name": "A", "shares": 1000},
-        "600002": {"name": "B", "shares": 500}
+        "600001": {"name": "A", "shares": 1000, "cost": 12.0},
+        "600002": {"name": "B", "shares": 500, "cost": 8.0}
     }
     plan = build_daily_action_plan(snapshot, holdings, _capacity(), _policy())
     assert plan["available"] is True
@@ -107,6 +107,8 @@ def test_daily_action_requires_d_confirmation_and_keeps_avoid_as_no_add():
     assert by_code["600001"]["action"] == "持有，等待加仓确认"
     assert by_code["600001"]["conditional_add"]["estimated_shares"] == 200
     assert by_code["600001"]["risk_reduce"]["estimated_shares"] == 500
+    assert by_code["600001"]["pnl_pct"] == -16.6667
+    assert by_code["600001"]["pnl_amount_estimate"] == -2000.0
     assert by_code["600002"]["action"] == "持有观察，不加仓"
     assert by_code["600002"]["conditional_add"] is None
 
@@ -115,7 +117,8 @@ def test_daily_action_requires_d_confirmation_and_keeps_avoid_as_no_add():
     assert "破位确认" in markdown
     assert "20日均线下方5%阈值" in markdown
     assert "今日不开新仓" in markdown
-    assert "live已核验6次，平均超额+0.76%，4/6次跑赢指数" in markdown
+    assert "持仓收益: -16.67%（估算-2,000.00元；成本12.000/参考价10.000）" in markdown
+    assert "live已核验6次，平均收益+0.76%，4/6次收益为正" in markdown
     assert "预计披露 2026-08-12" in markdown
 
 
@@ -127,8 +130,8 @@ def test_matching_c_history_conflict_blocks_add_but_not_risk_reduce():
         "horizons": {
             "1": {
                 "evaluated": 6,
-                "avg_excess": -0.005,
-                "positive_excess_rate": 2 / 6,
+                "avg_ret": -0.005,
+                "positive_ret_rate": 2 / 6,
             }
         },
     }
@@ -153,9 +156,9 @@ def test_t5_conflict_blocks_add_and_stable_t10_requests_position_review():
         "available": True,
         "scope": "matching_current_signal",
         "horizons": {
-            "1": {"evaluated": 6, "avg_excess": 0.01, "positive_excess_rate": 4 / 6},
-            "5": {"evaluated": 6, "avg_excess": -0.02, "positive_excess_rate": 2 / 6},
-            "10": {"evaluated": 20, "avg_excess": -0.03, "positive_excess_rate": 0.30},
+            "1": {"evaluated": 6, "avg_ret": 0.01, "positive_ret_rate": 4 / 6},
+            "5": {"evaluated": 6, "avg_ret": -0.02, "positive_ret_rate": 2 / 6},
+            "10": {"evaluated": 20, "avg_ret": -0.03, "positive_ret_rate": 0.30},
         },
     }
     snapshot = {"target_trade_dates": ["20260713"], "tasks": [task]}
@@ -177,7 +180,7 @@ def test_t5_conflict_blocks_add_and_stable_t10_requests_position_review():
 def test_long_horizon_conflict_requests_review_without_blocking_add():
     summary = {
         "horizons": {
-            "10": {"evaluated": 20, "avg_excess": -0.03, "positive_excess_rate": 0.30},
+            "10": {"evaluated": 20, "avg_ret": -0.03, "positive_ret_rate": 0.30},
         }
     }
     verdict = _history_evidence_verdict(summary, _policy()["action_rules"])
@@ -205,3 +208,19 @@ def test_degraded_plan_disables_all_conditional_adds():
     assert row["action"] == "持有，不加仓"
     assert row["conditional_add"] is None
     assert "降级模式" in render_daily_action_markdown(plan)
+
+def test_history_verdict_uses_absolute_return_not_benchmark_excess():
+    summary = {
+        "horizons": {
+            "1": {
+                "evaluated": 6,
+                "avg_ret": -0.01,
+                "positive_ret_rate": 2 / 6,
+                "avg_excess": 0.10,
+                "positive_excess_rate": 1.0,
+            },
+        }
+    }
+    verdict = _history_evidence_verdict(summary, _policy()["action_rules"])
+    assert verdict["verdict"] == "preliminary_conflict"
+    assert verdict["blocks_add"] is True

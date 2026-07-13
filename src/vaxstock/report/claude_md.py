@@ -230,10 +230,9 @@ def render_prediction_summary(summary: Optional[Dict[str, Any]]) -> str:
         f"已核验 {summary.get('evaluated', 0)} 条 / pending {summary.get('pending', 0)} 条"
     )
     lines.append(
-        f"- 平均超额 {_fmt_ratio_pct(summary.get('avg_excess'), signed=True)} | "
-        f"正超额率 {_fmt_ratio_pct(summary.get('positive_excess_rate'), digits=0)} | "
-        f"action命中 {_fmt_ratio_pct(summary.get('action_hit_rate'), digits=0)} | "
-        f"direction命中 {_fmt_ratio_pct(summary.get('direction_hit_rate'), digits=0)}"
+        f"- 平均收益 {_fmt_ratio_pct(summary.get('avg_ret'), signed=True)} | "
+        f"正收益率 {_fmt_ratio_pct(summary.get('positive_ret_rate'), digits=0)} | "
+        f"方向命中 {_fmt_ratio_pct(summary.get('direction_hit_rate'), digits=0)}"
     )
 
     modes = summary.get("generation_modes") or {}
@@ -249,14 +248,14 @@ def render_prediction_summary(summary: Optional[Dict[str, Any]]) -> str:
     actions = summary.get("actions") or []
     if actions:
         lines.append("")
-        lines.append("| action | N | 核验 | pending | 平均超额 | 正超额率 | action命中 |")
+        lines.append("| action | N | 核验 | pending | 平均收益 | 正收益率 | 方向命中 |")
         lines.append("|---|---:|---:|---:|---:|---:|---:|")
         for row in actions:
             lines.append(
                 f"| {row.get('action')} | {row.get('predictions', 0)} | {row.get('evaluated', 0)} | "
-                f"{row.get('pending', 0)} | {_fmt_ratio_pct(row.get('avg_excess'), signed=True)} | "
-                f"{_fmt_ratio_pct(row.get('positive_excess_rate'), digits=0)} | "
-                f"{_fmt_ratio_pct(row.get('action_hit_rate'), digits=0)} |"
+                f"{row.get('pending', 0)} | {_fmt_ratio_pct(row.get('avg_ret'), signed=True)} | "
+                f"{_fmt_ratio_pct(row.get('positive_ret_rate'), digits=0)} | "
+                f"{_fmt_ratio_pct(row.get('direction_hit_rate'), digits=0)} |"
             )
     return "\n".join(lines)
 
@@ -269,9 +268,9 @@ def render_prediction_digest_line(summary: Optional[Dict[str, Any]]) -> str:
     target = _fmt_trade_date_yyyymmdd(summary.get("target_trade_date"))
     return (
         f"target {target} | 预测{summary.get('predictions', 0)}/核验{summary.get('evaluated', 0)}/"
-        f"pending{summary.get('pending', 0)} | 平均超额{_fmt_ratio_pct(summary.get('avg_excess'), signed=True)} | "
-        f"正超额{_fmt_ratio_pct(summary.get('positive_excess_rate'), digits=0)} | "
-        f"action命中{_fmt_ratio_pct(summary.get('action_hit_rate'), digits=0)}"
+        f"pending{summary.get('pending', 0)} | 平均收益{_fmt_ratio_pct(summary.get('avg_ret'), signed=True)} | "
+        f"正收益率{_fmt_ratio_pct(summary.get('positive_ret_rate'), digits=0)} | "
+        f"方向命中{_fmt_ratio_pct(summary.get('direction_hit_rate'), digits=0)}"
     )
 
 

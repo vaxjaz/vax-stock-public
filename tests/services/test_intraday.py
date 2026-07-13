@@ -438,8 +438,8 @@ def _sample_dline_task(target="20260706"):
             "A_eod": {"metrics": {"ma5": 98.0, "ma20": 100.0, "ma60": 110.0, "volume_ratio_5d": 1.1, "rsi_14": 45.0}},
             "C_prediction": {"prediction": {"action": "watch", "direction": "up", "confidence": 0.6}},
             "B_prediction_history_summary": {
-                "available": True, "evaluated": 6, "avg_excess": 0.0052,
-                "positive_excess_count": 3,
+                "available": True, "evaluated": 6, "avg_ret": 0.0039,
+                "positive_ret_count": 3,
             },
             "E_context": {"earnings": {
                 "latest_report": {"period": "20260331", "net_profit_yoy": 20.24},
@@ -504,7 +504,7 @@ def test_notify_dline_freezes_forecast_and_pushes():
         assert "[D线]" in out["wx"][0]
         body = out["wx"][1]
         assert "【真实历史结果】" in body
-        assert "live已核验6次，平均超额+0.52%，3/6次跑赢指数" in body
+        assert "live已核验6次，平均收益+0.39%，3/6次收益为正" in body
         assert "【公司财报】" in body
         assert "预计披露 2026-08-20" in body
         assert "【今日策略】" in body

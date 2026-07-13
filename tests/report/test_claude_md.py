@@ -223,6 +223,7 @@ def _prediction_summary():
         "evaluated": 2,
         "pending": 1,
         "avg_ret": 0.01,
+        "positive_ret_rate": 0.5,
         "avg_excess": 0.02,
         "positive_excess_rate": 0.5,
         "action_hit_rate": 1.0,
@@ -232,8 +233,10 @@ def _prediction_summary():
         },
         "actions": [
             {"action": "watch", "predictions": 2, "evaluated": 1, "pending": 1,
+             "avg_ret": 0.02, "positive_ret_rate": 1.0, "direction_hit_rate": 1.0,
              "avg_excess": 0.03, "positive_excess_rate": 1.0, "action_hit_rate": 1.0},
             {"action": "avoid", "predictions": 1, "evaluated": 1, "pending": 0,
+             "avg_ret": -0.01, "positive_ret_rate": 0.0, "direction_hit_rate": 0.0,
              "avg_excess": -0.01, "positive_excess_rate": 0.0, "action_hit_rate": 1.0},
         ],
     }
@@ -245,10 +248,11 @@ def test_markdown_prediction_summary_section():
     md = build_claude_markdown(cd, track_results=None)
     assert "## 二、昨日预测核验(EOD Prediction)" in md
     assert "target: 2026-06-25 | 预测 3 条 / 已核验 2 条 / pending 1 条" in md
-    assert "平均超额 +2.00%" in md
-    assert "正超额率 50%" in md
-    assert "action命中 100%" in md
-    assert "| watch | 2 | 1 | 1 | +3.00% | 100% | 100% |" in md
+    assert "平均收益 +1.00%" in md
+    assert "平均超额" not in md
+    assert "正收益率 50%" in md
+    assert "方向命中 50%" in md
+    assert "| watch | 2 | 1 | 1 | +2.00% | 100% | 100% |" in md
 
 
 def test_prediction_summary_missing_is_honest():
@@ -266,8 +270,9 @@ def test_email_digest_prediction_summary_line():
     digest = build_email_digest(cd, track_results=None)
     assert "## 昨日预测核验: target 2026-06-25" in digest
     assert "预测3/核验2/pending1" in digest
-    assert "平均超额+2.00%" in digest
-    assert "action命中100%" in digest
+    assert "平均收益+1.00%" in digest
+    assert "平均超额" not in digest
+    assert "方向命中50%" in digest
 
 # report 层不得 import sources / analysis(分层守卫)
 # 用 ast 静态解析 report/ 各模块的 import 目标, 确定性、不受其它测试文件 import 顺序影响

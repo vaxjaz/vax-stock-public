@@ -7,29 +7,29 @@ from vaxstock.report.stock_evidence import (
 
 def test_formats_real_live_history_without_relabeling_rate():
     text = format_live_history({
-        "available": True, "evaluated": 6, "avg_excess": 0.0076,
-        "positive_excess_count": 4,
+        "available": True, "evaluated": 6, "avg_ret": 0.0063,
+        "positive_ret_count": 4,
     })
-    assert text == "live已核验6次，平均超额+0.76%，4/6次跑赢指数"
+    assert text == "live已核验6次，平均收益+0.63%，4/6次收益为正"
 
 
 def test_formats_key_c_line_path_horizons():
     text = format_live_history({
         "available": True,
         "evaluated": 6,
-        "avg_excess": 0.0076,
-        "positive_excess_count": 4,
+        "avg_ret": 0.0063,
+        "positive_ret_count": 4,
         "key_horizons": ["1", "5", "10", "30"],
         "horizons": {
-            "1": {"evaluated": 6, "avg_excess": 0.0076, "positive_excess_count": 4},
-            "2": {"evaluated": 5, "avg_excess": 0.0100, "positive_excess_count": 3},
-            "5": {"evaluated": 2, "avg_excess": -0.0050, "positive_excess_count": 1},
+            "1": {"evaluated": 6, "avg_ret": 0.0063, "positive_ret_count": 4},
+            "2": {"evaluated": 5, "avg_ret": 0.0080, "positive_ret_count": 3},
+            "5": {"evaluated": 2, "avg_ret": -0.0080, "positive_ret_count": 0},
         },
     })
 
     assert text == (
-        "T+1 6\u6b21\uff0c\u5e73\u5747\u8d85\u989d+0.76%\uff0c4/6\u6b21\u8dd1\u8d62\u6307\u6570"
-        "\uff1bT+5 2\u6b21\uff0c\u5e73\u5747\u8d85\u989d-0.50%\uff0c1/2\u6b21\u8dd1\u8d62\u6307\u6570"
+        "T+1 6次，平均收益+0.63%，4/6次收益为正"
+        "；T+5 2次，平均收益-0.80%，0/2次收益为正"
     )
 
 
@@ -40,9 +40,9 @@ def test_formats_latest_t_now_even_beyond_t30():
         "latest_horizon": "47",
         "key_horizons": ["1", "5", "10", "30"],
         "horizons": {
-            "1": {"evaluated": 6, "avg_excess": 0.01, "positive_excess_count": 4},
-            "30": {"evaluated": 2, "avg_excess": 0.03, "positive_excess_count": 2},
-            "47": {"evaluated": 1, "avg_excess": -0.02, "positive_excess_count": 0},
+            "1": {"evaluated": 6, "avg_ret": 0.01, "positive_ret_count": 4},
+            "30": {"evaluated": 2, "avg_ret": 0.03, "positive_ret_count": 2},
+            "47": {"evaluated": 1, "avg_ret": -0.02, "positive_ret_count": 0},
         },
     })
     assert "T+30 2次" in text
@@ -53,11 +53,11 @@ def test_formats_matching_history_verdict_plainly():
     text = format_history_verdict({
         "horizon": "1",
         "evaluated": 6,
-        "avg_excess": -0.005,
-        "positive_excess_rate": 2 / 6,
+        "avg_ret": -0.005,
+        "positive_ret_rate": 2 / 6,
         "verdict": "preliminary_conflict",
     })
-    assert text == "同类C线T+1 6次/平均超额-0.50%/跑赢率33.33%；初步反对，禁止加仓"
+    assert text == "同类C线T+1 6次/平均收益-0.50%/正收益率33.33%；初步反对，禁止加仓"
 
 
 def test_formats_financials_and_scheduled_disclosure():
@@ -76,3 +76,10 @@ def test_formats_financials_and_scheduled_disclosure():
 
 def test_missing_disclosure_is_explicit():
     assert format_earnings({}) == "财报待验证；预计披露待公布"
+
+def test_old_summary_does_not_invent_positive_return_count():
+    text = format_live_history({
+        "available": True, "evaluated": 2, "avg_ret": -0.01,
+    })
+    assert text == "live已核验2次，平均收益-1.00%"
+    assert "0/2" not in text

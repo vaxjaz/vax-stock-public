@@ -58,6 +58,11 @@ def render_daily_action_markdown(plan: Mapping[str, Any]) -> str:
             f"{idx}. **{row.get('name') or row.get('code')}**：{row.get('action')}"
             f"（{tier}仓 {_pct(row.get('current_weight_pct'))}/{_pct(row.get('cap_pct'))}）"
         )
+        if row.get("pnl_pct") is not None:
+            lines.append(
+                f"   - 持仓收益: {float(row['pnl_pct']):+.2f}%（估算{float(row['pnl_amount_estimate']):+,.2f}元；"
+                f"成本{float(row['cost_price']):.3f}/参考价{float(row['reference_price']):.3f}）"
+            )
         lines.append(f"   - 真实历史: {format_live_history(row.get('history_summary') or {})}")
         lines.append(f"   - 策略校正: {format_history_verdict(row.get('history_verdict') or {})}")
         lines.append(f"   - 公司财报: {format_earnings(row.get('earnings') or {})}")

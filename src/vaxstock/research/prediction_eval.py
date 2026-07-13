@@ -138,6 +138,10 @@ def _metric_cell(total: int, pending: int, evaluated: List[Dict[str, Any]]) -> D
         "pending": pending,
         "avg_ret": (sum(rets) / len(rets)) if rets else None,
         "avg_excess": (sum(excesses) / len(excesses)) if excesses else None,
+        "positive_ret_rate": (
+            sum(1 for v in rets if v > 0) / len(rets)
+            if rets else None
+        ),
         "positive_excess_rate": (
             sum(1 for v in excesses if v > 0) / len(excesses)
             if excesses else None
@@ -271,6 +275,7 @@ def summarize_prediction_check(*, target_trade_date: Optional[str] = None,
         "pending": summary["pending"],
         "avg_ret": summary["avg_ret"],
         "avg_excess": summary["avg_excess"],
+        "positive_ret_rate": summary["positive_ret_rate"],
         "positive_excess_rate": summary["positive_excess_rate"],
         "action_hit_rate": summary["action_hit_rate"],
         "direction_hit_rate": summary["direction_hit_rate"],

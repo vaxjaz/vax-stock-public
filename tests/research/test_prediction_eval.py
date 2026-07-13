@@ -107,6 +107,7 @@ def test_analyze_buckets_and_pending_without_sample_gate():
     assert replay["evaluated"] == 2
     assert replay["pending"] == 0
     assert abs(replay["avg_excess"] - 0.005) < 1e-12
+    assert replay["positive_ret_rate"] == 1.0
     assert replay["positive_excess_rate"] == 0.5
     assert replay["action_hit_rate"] == 1.0
     assert replay["direction_hit_rate"] == 0.5
@@ -155,6 +156,7 @@ def test_summarize_prediction_check_filters_target_trade_date():
     assert summary["evaluated"] == 2
     assert summary["pending"] == 1
     assert abs(summary["avg_excess"] - 0.005) < 1e-12
+    assert summary["positive_ret_rate"] == 0.5
     assert summary["positive_excess_rate"] == 0.5
     assert summary["action_hit_rate"] == 1.0
     assert summary["direction_hit_rate"] == 0.5

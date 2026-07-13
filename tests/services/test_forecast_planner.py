@@ -356,7 +356,7 @@ def test_build_observation_evidence_includes_abc_contract():
         "20260706",
         c_predictions=[_c_prediction()],
         factor_results=_factor_results(),
-        prediction_history={"002475": {"available": True, "evaluated": 6, "avg_excess": 0.0052, "positive_excess_count": 3}},
+        prediction_history={"002475": {"available": True, "evaluated": 6, "avg_ret": 0.0039, "positive_ret_count": 3, "avg_excess": 0.0052, "positive_excess_count": 3}},
         generated_at="2026-07-04T05:00:00",
     )
     assert len(evs) == 1

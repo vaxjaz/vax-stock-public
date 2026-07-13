@@ -143,14 +143,17 @@ def summarize_live_history(predictions: Iterable[Dict[str, Any]],
         for path_horizon in sorted(rows_by_horizon, key=int):
             rows = rows_by_horizon[path_horizon]
             count = len(rows)
-            positive = sum(1 for row in rows if row["excess"] > 0)
+            positive_ret = sum(1 for row in rows if row["ret"] > 0)
+            positive_excess = sum(1 for row in rows if row["excess"] > 0)
             horizon_summaries[path_horizon] = {
                 "horizon": path_horizon,
                 "evaluated": count,
                 "avg_ret": sum(row["ret"] for row in rows) / count,
                 "avg_excess": sum(row["excess"] for row in rows) / count,
-                "positive_excess_count": positive,
-                "positive_excess_rate": positive / count,
+                "positive_ret_count": positive_ret,
+                "positive_ret_rate": positive_ret / count,
+                "positive_excess_count": positive_excess,
+                "positive_excess_rate": positive_excess / count,
             }
         primary_horizon = selected_horizon or "1"
         primary = horizon_summaries.get(primary_horizon)

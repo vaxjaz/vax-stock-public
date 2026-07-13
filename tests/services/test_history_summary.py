@@ -24,12 +24,16 @@ def test_history_summary_uses_only_evaluated_live_rows_before_cutoff():
     summary = summarize_live_history(predictions, results, cutoff_trade_date="20260703")["601138"]
     assert summary["evaluated"] == 2
     assert summary["avg_ret"] == 0.005
+    assert summary["positive_ret_count"] == 1
+    assert summary["positive_ret_rate"] == 0.5
     assert summary["avg_excess"] == -0.005
     assert summary["positive_excess_count"] == 1
     assert summary["prediction_count"] == 3
     assert summary["max_horizon"] == 5
     assert summary["horizons"]["5"]["evaluated"] == 2
     assert summary["horizons"]["5"]["avg_ret"] == 0.05
+    assert summary["horizons"]["5"]["positive_ret_count"] == 2
+    assert summary["horizons"]["5"]["positive_ret_rate"] == 1.0
     assert summary["horizons"]["5"]["avg_excess"] == 0.02
     assert summary["horizons"]["5"]["positive_excess_count"] == 1
 

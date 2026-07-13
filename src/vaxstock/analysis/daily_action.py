@@ -49,8 +49,8 @@ def _history_evidence_verdict(summary: Mapping[str, Any],
     ))
     minimum = int(policy.get("minimum_preliminary_samples") or 5)
     stable_minimum = int(policy.get("minimum_stable_samples") or 20)
-    support_rate = _number(policy.get("support_min_positive_excess_rate"))
-    conflict_rate = _number(policy.get("conflict_max_positive_excess_rate"))
+    support_rate = _number(policy.get("support_min_positive_ret_rate"))
+    conflict_rate = _number(policy.get("conflict_max_positive_ret_rate"))
     support_rate = 0.60 if support_rate is None else support_rate
     conflict_rate = 0.40 if conflict_rate is None else conflict_rate
 
@@ -58,14 +58,14 @@ def _history_evidence_verdict(summary: Mapping[str, Any],
     for horizon in tracked_horizons:
         cell = ((summary or {}).get("horizons") or {}).get(horizon) or {}
         evaluated = int(cell.get("evaluated") or 0)
-        avg_excess = _number(cell.get("avg_excess"))
-        positive_rate = _number(cell.get("positive_excess_rate"))
+        avg_ret = _number(cell.get("avg_ret"))
+        positive_rate = _number(cell.get("positive_ret_rate"))
         verdict = "insufficient"
-        if evaluated >= minimum and avg_excess is not None and positive_rate is not None:
+        if evaluated >= minimum and avg_ret is not None and positive_rate is not None:
             strength = "stable" if evaluated >= stable_minimum else "preliminary"
-            if avg_excess > 0 and positive_rate >= support_rate:
+            if avg_ret > 0 and positive_rate >= support_rate:
                 verdict = f"{strength}_support"
-            elif avg_excess < 0 and positive_rate <= conflict_rate:
+            elif avg_ret < 0 and positive_rate <= conflict_rate:
                 verdict = f"{strength}_conflict"
             else:
                 verdict = "mixed"
@@ -73,8 +73,8 @@ def _history_evidence_verdict(summary: Mapping[str, Any],
             "verdict": verdict,
             "horizon": horizon,
             "evaluated": evaluated,
-            "avg_excess": avg_excess,
-            "positive_excess_rate": positive_rate,
+            "avg_ret": avg_ret,
+            "positive_ret_rate": positive_rate,
         }
 
     priority = (
@@ -101,8 +101,8 @@ def _history_evidence_verdict(summary: Mapping[str, Any],
         "verdict": verdict,
         "horizon": primary_horizon,
         "evaluated": primary.get("evaluated", 0),
-        "avg_excess": primary.get("avg_excess"),
-        "positive_excess_rate": primary.get("positive_excess_rate"),
+        "avg_ret": primary.get("avg_ret"),
+        "positive_ret_rate": primary.get("positive_ret_rate"),
         "horizon_verdicts": horizon_verdicts,
         "add_veto_horizons": add_veto_horizons,
         "blocked_horizons": blocked_horizons,
@@ -308,11 +308,24 @@ def build_daily_action_plan(task_snapshot: Mapping[str, Any], holdings: Mapping[
                 ),
             }
 
+        cost_price = _number(holding.get("cost"))
+        reference_price = _number(cap.get("reference_price"))
+        current_shares = cap.get("shares")
+        pnl_pct = None
+        pnl_amount_estimate = None
+        if cost_price is not None and cost_price > 0 and reference_price is not None and current_shares is not None:
+            pnl_pct = (reference_price / cost_price - 1.0) * 100.0
+            pnl_amount_estimate = (reference_price - cost_price) * int(current_shares)
+
         rows.append({
             "code": code,
             "name": holding.get("name") or (task or {}).get("name"),
             "tier": cap.get("tier"),
             "current_weight_pct": cap.get("current_weight_pct"),
+            "cost_price": cost_price,
+            "reference_price": reference_price,
+            "pnl_pct": round(pnl_pct, 4) if pnl_pct is not None else None,
+            "pnl_amount_estimate": round(pnl_amount_estimate, 2) if pnl_amount_estimate is not None else None,
             "cap_pct": cap.get("cap_pct"),
             "c_action": c_action,
             "c_direction": c_direction,

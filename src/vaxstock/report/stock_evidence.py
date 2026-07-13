@@ -51,17 +51,17 @@ def format_live_history(summary: Mapping[str, Any]) -> str:
         if not cell.get("evaluated"):
             continue
         cell_count = int(cell["evaluated"])
-        cell_positive = int(cell.get("positive_excess_count") or 0)
-        parts.append(
-            f"{label} {cell_count}次，平均超额"
-            f"{_pct(cell.get('avg_excess'))}，{cell_positive}/{cell_count}"
-            f"次跑赢指数"
-        )
+        detail = f"{label} {cell_count}次，平均收益{_pct(cell.get('avg_ret'))}"
+        if cell.get("positive_ret_count") is not None:
+            detail += f"，{int(cell['positive_ret_count'])}/{cell_count}次收益为正"
+        parts.append(detail)
     if parts:
         return "；".join(parts)
     count = int(summary["evaluated"])
-    positive = int(summary.get("positive_excess_count") or 0)
-    return f"live已核验{count}次，平均超额{_pct(summary.get('avg_excess'))}，{positive}/{count}次跑赢指数"
+    text = f"live已核验{count}次，平均收益{_pct(summary.get('avg_ret'))}"
+    if summary.get("positive_ret_count") is not None:
+        text += f"，{int(summary['positive_ret_count'])}/{count}次收益为正"
+    return text
 
 
 def format_history_verdict(verdict: Mapping[str, Any]) -> str:
@@ -73,23 +73,26 @@ def format_history_verdict(verdict: Mapping[str, Any]) -> str:
         evaluated = int(cell.get("evaluated") or 0)
         if not evaluated:
             continue
-        avg_excess = cell.get("avg_excess")
+        avg_ret = cell.get("avg_ret")
+        positive_rate = cell.get("positive_ret_rate")
         detail = f"T+{horizon} {evaluated}次"
-        if avg_excess is not None:
-            detail += f"/平均超额{_pct(avg_excess)}"
+        if avg_ret is not None:
+            detail += f"/平均收益{_pct(avg_ret)}"
+        if positive_rate is not None:
+            detail += f"/正收益率{_pct(positive_rate, signed=False)}"
         parts.append(detail)
 
     if not parts:
         horizon = str(verdict.get("horizon") or "1")
         evaluated = int(verdict.get("evaluated") or 0)
-        avg_excess = verdict.get("avg_excess")
-        positive_rate = verdict.get("positive_excess_rate")
+        avg_ret = verdict.get("avg_ret")
+        positive_rate = verdict.get("positive_ret_rate")
         if evaluated:
             detail = f"T+{horizon} {evaluated}次"
-            if avg_excess is not None:
-                detail += f"/平均超额{_pct(avg_excess)}"
+            if avg_ret is not None:
+                detail += f"/平均收益{_pct(avg_ret)}"
             if positive_rate is not None:
-                detail += f"/跑赢率{_pct(positive_rate, signed=False)}"
+                detail += f"/正收益率{_pct(positive_rate, signed=False)}"
             parts.append(detail)
 
     state = str(verdict.get("verdict") or "insufficient")
