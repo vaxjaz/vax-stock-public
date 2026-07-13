@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """services 层: run_eod —— EOD 端到端串联编排器(可作模块入口供 cron/systemd 调)。
 
-MR6 PR-B: 串 collect → compact → build → store → mail 五步。AITrack 超时不在本 PR;
+MR6 PR-B: 串 collect → compact → build → store，并排队异步 D-line。AITrack 超时不在本 PR;
 api/intraday/cron unit 留 PR-C。
 
 对接 main 真实签名(已核):
@@ -10,9 +10,8 @@ api/intraday/cron unit 留 PR-C。
   compact_for_claude(payload) -> claude_data                    report.claude_md
   build_claude_markdown(claude_data, track_results=) -> str     report.claude_md
   store_report(payload, claude_data, markdown) -> {paths}       report.store
-  send_email(body, attachments, smtp_conf, subject=, is_html=)  report.mailer
 
-铁律: 顶层取数失败不吞(应可见); 仅 send_email 自身 try, 失败不影响已完成的落盘。
+铁律: 顶层取数失败不吞(应可见); A/B/C 落盘后由 D-line worker 统一生成并发送每日操作邮件。
 """
 
 import logging
@@ -20,8 +19,7 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, Optional
 
 from vaxstock import config
-from vaxstock.report.claude_md import build_claude_markdown, build_email_digest, compact_for_claude
-from vaxstock.report.mailer import send_email
+from vaxstock.report.claude_md import build_claude_markdown, compact_for_claude
 from vaxstock.report.store import store_report
 from vaxstock.services.collect import collect_payload
 from vaxstock.services.eval_recorder import record_and_backfill
@@ -71,15 +69,9 @@ def run_eod() -> Dict[str, str]:
     paths = store_report(payload, claude_data, markdown)
     _enqueue_d_observation_job(paths, payload, prediction_run)
 
-    logger.info("[6/7] 邮件门控 + 发送...")
-    # 邮件正文 = 精简摘要(大盘/宏观/赛道/持仓详情/观察池高分清单); 完整 markdown(claude.md)
-    # 与全量 payload.json 走附件。原 markdown 仍 store 落盘 + 作附件, 不变(见 CLAUDE.md §9.8)。
-    digest = build_email_digest(claude_data, track_results=tracks)
-    attachments = [
-        ("claude.md", paths["claude_md"], "octet-stream"),
-        ("payload.json", paths["payload"], "octet-stream"),
-    ]
-    _maybe_send_email(digest, attachments)
+    # 用户邮件由异步 D-line worker 在任务完成后统一发送。这里保留 A/B/C
+    # 报告落盘与 D-line 入队契约，不再额外发送旧 EOD 摘要，避免每日两封邮件。
+    logger.info("[6/7] EOD 数据已落盘；每日操作邮件等待 D-line worker...")
 
     # MR-Eval E2: Layer2 离线分析(分环境分桶前瞻收益/超额)。纯读 E1 两 jsonl,
     # 失败仅 warning 不影响 EOD。Layer2 不按样本数屏蔽统计值; N 直接展示。
@@ -246,27 +238,6 @@ def _enqueue_d_observation_job(paths: Dict[str, str], payload: Dict[str, Any],
     except Exception as e:
         logger.warning(f"D线观察任务入队失败(不影响EOD): {str(e)[:120]}")
 
-
-def _maybe_send_email(body: str, attachments) -> None:
-    """邮件门控: SECRETS 凭据齐才发; SECRETS 键 → send_email 的 smtp_conf 键适配(发信固定 QQ)。
-    body = 精简摘要(build_email_digest); send_email 失败仅 warning, 不影响已完成的落盘。"""
-    S = config.SECRETS
-    if S.get("email_enabled") and S.get("email_user") and S.get("email_authcode") and S.get("email_to"):
-        smtp_conf: Dict[str, Any] = {
-            "smtp_server": S.get("smtp_server", "smtp.qq.com"),
-            "smtp_port": S.get("smtp_port", 465),
-            "sender_email": S["email_user"],
-            "sender_password": S["email_authcode"],
-            "receiver_email": S["email_to"],   # 整串透传, mailer._normalize_emails 负责拆逗号/分号多人
-            "cc_email": S.get("email_cc"),      # 整串透传, 同上
-            "bcc_email": None,                  # 本次不启用 BCC
-        }
-        try:
-            send_email(body, attachments, smtp_conf, is_html=False)  # v2 无 HTML, 纯文本发摘要
-        except Exception as e:
-            logger.warning(f"邮件发送失败(不影响落盘): {str(e)[:120]}")
-    else:
-        logger.info("邮件未启用或缺凭据, 跳过发送")
 
 
 if __name__ == "__main__":

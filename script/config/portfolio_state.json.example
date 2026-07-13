@@ -1,0 +1,12 @@
+{
+  "_说明": "私有账户快照模板。真实 portfolio_state.json 已 gitignore，不得提交账户金额。",
+  "schema_version": 1,
+  "as_of_trade_date": null,
+  "captured_at": null,
+  "source": null,
+  "total_assets": null,
+  "market_value": null,
+  "available_cash": null,
+  "position_pct": null,
+  "reference_prices": {}
+}

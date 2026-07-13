@@ -466,4 +466,21 @@ turnover_history.parquet
 3. 盘中主动体检是否只记录市场级事件, 还是也记录个股级观察。
 4. `/intraday/ask` 的输入必须引用哪些已冻结事实源, 输出是否也要 append-only。
 5. 所有盘中字段必须标注实时、T-1 定稿、T 日收盘聚合滞后三类来源。
+## 私有策略派生层: `var/strategy`
 
+这一层不是新的事实样本线。它只把已冻结的 A/C/D 证据、真实持仓和已审核纪律压缩成用户每天阅读的一份操作清单。
+
+- `script/config/strategy_policy.json`: 可公开审阅的纪律版本、仓位单位、单票上限和动作映射。
+- `script/config/portfolio_state.json`: 用户确认的券商账户快照,已 gitignore;缺失时金额/股数必须标待验证。
+- `var/strategy/daily_action_<target_trade_date>.md`: 指定交易日的私有操作清单。
+- `var/strategy/daily_action_latest.md`: 最新私有操作清单。
+
+`var/strategy/` 已 gitignore,因为清单包含账户金额。D线任务 worker 到达终态后刷新清单并发送当天唯一一封操作邮件:`done` 为正常版,`partial_done` / `partial_failed` / `missing_payload` 为降级版且禁止所有条件加仓;成功发送按目标交易日幂等。EOD 仍原样落盘 A/B/C 并排队 D,不再单独发送旧摘要。系统不自动下单。EOD价格可与已确认股数/现金机械重估账户,但任一持仓缺价格时不得产出金额和股数。
+### 邮件证据摘要
+
+每日操作邮件与D线盘中邮件共用以下口径：
+
+- 真实历史结果只统计 `generation_mode=live` 且已有 T+1 核验结果的 C线预测；`replay` 与 `pending` 不进入均值和跑赢次数。
+- 财报事实来自 `tushare.fina_indicator`，仅展示真实返回字段。
+- 预计披露日来自 `tushare.disclosure_date.pre_date`；同时保留 `end_date/actual_date/modify_date` 供审计。预约日可能修订，邮件必须明确标注；接口缺失或字段契约不完整时显示“待公布”。
+- `var/strategy/daily_action_latest.json` 是私有派生计划，供盘中邮件读取同一份“今日策略”；与 Markdown 一样 gitignore，不进入 A-D 事实样本。

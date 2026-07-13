@@ -23,6 +23,7 @@ from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
 from vaxstock import config
 from vaxstock.services.company_context import build_context_from_payload_item, summarize_context
+from vaxstock.services.history_summary import load_live_history
 from vaxstock.sources.codex import CodexCallError
 
 logger = logging.getLogger(__name__)
@@ -300,6 +301,7 @@ def select_observation_task_codes(payload: Dict[str, Any], task_pool: Optional[D
 def build_observation_evidence(payload: Dict[str, Any], target_trade_date: str, *,
                                c_predictions: Optional[Iterable[Dict[str, Any]]] = None,
                                factor_results: Optional[Iterable[Dict[str, Any]]] = None,
+                               prediction_history: Optional[Dict[str, Dict[str, Any]]] = None,
                                task_codes: Optional[Iterable[str]] = None,
                                generated_at: Optional[str] = None) -> List[Dict[str, Any]]:
     """Build per-stock D-line evidence packs from A/B/C data.
@@ -315,6 +317,7 @@ def build_observation_evidence(payload: Dict[str, Any], target_trade_date: str, 
 
     pred_idx = _prediction_index(c_predictions)
     factor_idx = _factor_history_index(factor_results if factor_results is not None else _load_factor_results())
+    prediction_history_idx = prediction_history if prediction_history is not None else load_live_history(cutoff_trade_date=baseline)
     market = _compact_market(payload)
     ts = generated_at or _now_iso()
     task_code_set = {str(c).strip() for c in task_codes or [] if str(c).strip()} if task_codes is not None else None
@@ -349,6 +352,14 @@ def build_observation_evidence(payload: Dict[str, Any], target_trade_date: str, 
                 "market": market,
             },
             "B_factor_history": factor_idx.get(code, []),
+            "B_prediction_history_summary": prediction_history_idx.get(code) or {
+                "available": False,
+                "source": "eod_predictions+eod_prediction_results",
+                "generation_mode": "live",
+                "horizon": "1",
+                "cutoff_trade_date": baseline,
+                "evaluated": 0,
+            },
             "C_prediction": pred_idx.get(code),
             "E_context": build_context_from_payload_item(item, payload, target),
             "D_contract": {
@@ -521,6 +532,7 @@ def _call_codex_for_plan(evidence: Dict[str, Any]) -> Optional[str]:
 def generate_observation_tasks(payload: Dict[str, Any], target_trade_date: str, *,
                                c_predictions: Optional[Iterable[Dict[str, Any]]] = None,
                                factor_results: Optional[Iterable[Dict[str, Any]]] = None,
+                               prediction_history: Optional[Dict[str, Dict[str, Any]]] = None,
                                task_codes: Optional[Iterable[str]] = None,
                                planner_func: Optional[Callable[[Dict[str, Any]], Any]] = None,
                                plan_version: str = DEFAULT_PLAN_VERSION,
@@ -539,6 +551,7 @@ def generate_observation_tasks(payload: Dict[str, Any], target_trade_date: str, 
         target_trade_date,
         c_predictions=c_predictions,
         factor_results=factor_results,
+        prediction_history=prediction_history,
         task_codes=task_codes,
         generated_at=generated_at,
     )
@@ -995,7 +1008,13 @@ def run_observation_job(job: Optional[Dict[str, Any]] = None, *,
             error={"type": "missing_payload", "message": str(payload_path or "")},
         )
         _write_json(current, snap)
-        return {"status": "missing_payload", "generated": 0, "written": 0, "skipped": 0}
+        return {
+            "status": "missing_payload",
+            "target_trade_date": str(job.get("target_trade_date") or ""),
+            "generated": 0,
+            "written": 0,
+            "skipped": 0,
+        }
 
     baseline = str(job.get("baseline_trade_date") or ((payload.get("market_overview") or {}).get("trade_date")) or "").strip()
     target = str(job.get("target_trade_date") or "").strip()
@@ -1021,7 +1040,13 @@ def run_observation_job(job: Optional[Dict[str, Any]] = None, *,
         )
         _write_json(current, snap)
         logger.info("D-line observation worker: all %s tasks already exist, no-op", len(done_codes))
-        return {"status": "done", **stats, "task_codes": len(task_codes), "remaining": 0}
+        return {
+            "status": "done",
+            "target_trade_date": target,
+            **stats,
+            "task_codes": len(task_codes),
+            "remaining": 0,
+        }
 
     running = _job_snapshot(
         job,
@@ -1108,7 +1133,14 @@ def run_observation_job(job: Optional[Dict[str, Any]] = None, *,
             error.get("failed_code"),
             error.get("type"),
         )
-        return {"status": "partial_failed", **stats, "task_codes": len(task_codes), "remaining": len(remaining_after), "error": error}
+        return {
+            "status": "partial_failed",
+            "target_trade_date": target,
+            **stats,
+            "task_codes": len(task_codes),
+            "remaining": len(remaining_after),
+            "error": error,
+        }
 
     existing_after = _existing_task_codes(hist, baseline, target, plan_version)
     done_after = [c for c in task_codes if c in existing_after]
@@ -1135,7 +1167,13 @@ def run_observation_job(job: Optional[Dict[str, Any]] = None, *,
         failures=failures,
     )
     _write_json(current, snap)
-    return {"status": status, **stats, "task_codes": len(task_codes), "remaining": len(remaining_after)}
+    return {
+        "status": status,
+        "target_trade_date": target,
+        **stats,
+        "task_codes": len(task_codes),
+        "remaining": len(remaining_after),
+    }
 
 
 def record_observation_tasks(tasks: Iterable[Dict[str, Any]], *,

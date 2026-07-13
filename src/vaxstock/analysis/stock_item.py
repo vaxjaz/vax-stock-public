@@ -73,6 +73,7 @@ def build_stock_item(
         fina_recs   = _res(source.get_fina_indicator, code, 4) if has_ts else None
         forecasts   = _res(source.get_forecast, code, 2) if has_ts else None
         expresses   = _res(source.get_express, code, 2) if has_ts else None
+        disclosures = _res(source.get_disclosure_schedule, code, 8) if has_ts else None
         holders     = _res(source.get_holder_number, code, 2) if has_ts else None
         daily_basic = _res(source.get_daily_basic, code) if has_ts else None
         ts_concepts = _res(source.get_stock_concepts, code) if use_concepts else None
@@ -250,6 +251,7 @@ def build_stock_item(
         "metrics": metrics,
         "forecast": forecast_info,
         "express": express_info,
+        "disclosure_schedule": disclosures,
         "holder_change": holder_change,
         "fina_history": fina_history,
         "history_tail": history[-5:] if history else [],

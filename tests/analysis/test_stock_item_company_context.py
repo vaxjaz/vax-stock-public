@@ -60,6 +60,18 @@ class FakeSource:
             }
         ]
 
+    def get_disclosure_schedule(self, code, periods=8):
+        self.calls.append(("disclosure_schedule", code, periods))
+        return [
+            {
+                "ts_code": "002475.SZ",
+                "ann_date": "20260701",
+                "end_date": "20260630",
+                "pre_date": "20260820",
+                "actual_date": None,
+                "modify_date": "20260701",
+            }
+        ]
     def get_holder_number(self, code, periods=2):
         self.calls.append(("holder_number", code, periods))
         return []
@@ -112,9 +124,11 @@ def test_build_stock_item_carries_real_source_context_fields():
     assert ("fina_indicator", "002475", 4) in src.calls
     assert ("forecast", "002475", 2) in src.calls
     assert ("express", "002475", 2) in src.calls
+    assert ("disclosure_schedule", "002475", 8) in src.calls
     assert item["forecast"]["source"] == "tushare.forecast"
     assert "p_change_min" in item["forecast"]["raw_fields"]
     assert item["express"]["source"] == "tushare.express"
+    assert item["disclosure_schedule"][0]["pre_date"] == "20260820"
     assert "yoy_net_profit" in item["express"]["raw_fields"]
     assert item["fina_history"][0]["source"] == "tushare.fina_indicator"
     assert "netprofit_yoy" in item["fina_history"][0]["raw_fields"]

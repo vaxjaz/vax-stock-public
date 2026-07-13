@@ -119,6 +119,16 @@ def test_context_uses_real_tushare_fields_from_payload_item():
             "p_change_max": 80,
             "summary": "profit forecast",
         },
+        "disclosure_schedule": [
+            {
+                "ts_code": "002475.SZ",
+                "ann_date": "20260701",
+                "end_date": "20260630",
+                "pre_date": "20260820",
+                "actual_date": None,
+                "modify_date": "20260701",
+            }
+        ],
         "express": {
             "source": "tushare.express",
             "raw_fields": ["ts_code", "ann_date", "end_date", "yoy_net_profit", "perf_summary"],
@@ -137,7 +147,9 @@ def test_context_uses_real_tushare_fields_from_payload_item():
     assert latest["period"] == "20260331"
     assert latest["ann_date"] == "20260425"
     assert latest["raw_fields"] == ["ts_code", "end_date", "ann_date", "netprofit_yoy", "or_yoy"]
-    assert ctx["earnings"]["next_report"]["status"] == "pending_source"
+    assert ctx["earnings"]["next_report"]["status"] == "scheduled"
+    assert ctx["earnings"]["next_report"]["expected_ann_date"] == "20260820"
+    assert ctx["earnings"]["next_report"]["source"] == "tushare.disclosure_date"
 
     events = ctx["company_events"]["events"]
     assert [event["source"] for event in events] == ["tushare.forecast", "tushare.express"]

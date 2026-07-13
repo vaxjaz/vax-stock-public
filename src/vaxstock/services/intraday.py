@@ -25,6 +25,7 @@ from vaxstock import config
 from vaxstock.report.notify import push_email, push_wechat
 from vaxstock.services._intraday_rules import enforce_intraday_rules
 from vaxstock.services._t1_baseline import load_t1_baseline
+from vaxstock.report.stock_evidence import format_earnings, format_live_history, format_today_strategy
 from vaxstock.services.forecast_recorder import record_forecast
 from vaxstock.sources.codex import call_codex
 
@@ -495,13 +496,26 @@ def _fmt_amount_yi(values: Dict[str, Any], quote: Dict[str, Any]) -> str:
 
 def _format_dline_alert_body(code: str, name: str, task: Dict[str, Any], quote: Dict[str, Any],
                              blueprint: Dict[str, Any], values: Dict[str, Any], c_pred: Dict[str, Any],
-                             reasoning: str, trigger_type: str, severity: str, fire_count=None) -> str:
+                             reasoning: str, trigger_type: str, severity: str, fire_count=None,
+                             strategy_row=None) -> str:
     values = values or {}
     quote = quote or {}
     expected_feedback = blueprint.get("expected_feedback_to_c") or (task.get("observation") or {}).get("c_line_feedback_focus")
     c_reason = _short(c_pred.get("reason"), 220) or "待获取"
+    evidence = task.get("evidence_pack") or {}
+    history = evidence.get("B_prediction_history_summary") or {}
+    earnings = ((evidence.get("E_context") or {}).get("earnings") or {})
     return "\n".join([
         f"{code} {name} | {trigger_type} | severity={severity}",
+        "",
+        "【真实历史结果】",
+        format_live_history(history),
+        "",
+        "【公司财报】",
+        format_earnings(earnings),
+        "",
+        "【今日策略】",
+        format_today_strategy(strategy_row or {}),
         "",
         "【触发摘要】",
         f"- 触发依据: {_short(blueprint.get('why'), 260) or '待获取'}",
@@ -540,8 +554,19 @@ def notify_dline(task: Dict[str, Any], quote: Dict[str, Any], blueprint: Dict[st
     severity = blueprint.get("severity") or "medium"
     title = f"[D线] {name} {trigger_type} 触发"
     reasoning = _dline_reasoning(task, blueprint)
-    body = _format_dline_alert_body(code, name, task, quote, blueprint, values, c_pred,
-                                    reasoning, trigger_type, severity, fire_count=fire_count)
+    history = evidence.get("B_prediction_history_summary") or {}
+    if not history.get("available"):
+        from vaxstock.services.history_summary import load_live_history
+        evidence["B_prediction_history_summary"] = load_live_history(
+            cutoff_trade_date=task.get("baseline_trade_date")
+        ).get(code) or history
+    from vaxstock.services.daily_action import load_daily_strategy_row
+    strategy_row = load_daily_strategy_row(code, task.get("target_trade_date"))
+    body = _format_dline_alert_body(
+        code, name, task, quote, blueprint, values, c_pred,
+        reasoning, trigger_type, severity, fire_count=fire_count,
+        strategy_row=strategy_row,
+    )
 
     structured = {
         "verdict": trigger_type,

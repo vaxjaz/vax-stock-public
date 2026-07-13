@@ -38,6 +38,10 @@ REGIME_STATE_FILE: Path = STATE_DIR / "regime_history.json"
 # secrets.json 路径 (建议 chmod 600, 已加入 .gitignore, 不上传任何外部系统)
 SECRETS_FILE: Path = CONFIG_DIR / "secrets.json"
 
+# 私有账户快照可由环境变量指向 VPS 本地文件；默认文件已 gitignore。
+PORTFOLIO_STATE_FILE: Path = Path(os.getenv("PORTFOLIO_STATE_FILE") or (CONFIG_DIR / "portfolio_state.json"))
+STRATEGY_POLICY_FILE: Path = CONFIG_DIR / "strategy_policy.json"
+
 
 # ==================== 敏感配置加载 ====================
 
@@ -177,6 +181,30 @@ ALERT_RULES = {
 
 # ==================== 标的池加载(观察池 / 持仓) ====================
 # 在使用处(如 services.collect)按需调用, 返回局部变量, 不建任何模块级 WATCHLIST/HOLDINGS 全局。
+
+def _load_local_json_object(path: Path, label: str) -> Dict[str, Any]:
+    """读取本地 JSON object；缺失或损坏返回空 dict，不补默认决策值。"""
+    if not path.exists():
+        return {}
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        if not isinstance(data, dict):
+            raise ValueError("top-level JSON is not an object")
+        return data
+    except Exception as e:
+        logger.warning(f"{label} 解析失败,返回空数据: {str(e)[:80]}")
+        return {}
+
+
+def load_portfolio_state(path=None) -> Dict[str, Any]:
+    """读取私有账户快照；缺失时返回空 dict，由策略层标记待验证。"""
+    return _load_local_json_object(Path(path or PORTFOLIO_STATE_FILE), "portfolio_state.json")
+
+
+def load_strategy_policy(path=None) -> Dict[str, Any]:
+    """读取已审核的交易纪律配置；缺失时返回空 dict，不启用隐式策略。"""
+    return _load_local_json_object(Path(path or STRATEGY_POLICY_FILE), "strategy_policy.json")
 
 def load_watchlist() -> Tuple[Dict[str, str], Dict[str, List[str]]]:
     """从 CONFIG_DIR/watchlist.json 加载观察池。

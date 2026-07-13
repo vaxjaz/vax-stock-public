@@ -37,13 +37,12 @@ _TRACKS = [{"track_name": "AI算力", "date": "2026-06-25", "available": False,
             "position_ceiling": "待验证(数据缺失, 不出仓位结论)", "pending": ["stub"]}]
 _CLAUDE = {"generated_at": "2026-06-25 16:00", "_compact": True}
 _MD = "MARKDOWN_BODY"
-_DIGEST = "DIGEST_BODY"
 _PATHS = {"payload": "/r/2026-06-25/payload.json",
           "claude_json": "/r/2026-06-25/claude.json",
           "claude_md": "/r/2026-06-25/claude.md"}
 
 _SEAMS = ["TushareSource", "collect_payload", "compact_for_claude",
-          "build_claude_markdown", "build_email_digest", "store_report", "send_email",
+          "build_claude_markdown", "store_report",
           "record_and_backfill", "evaluate_from_files", "predictions_from_payload",
           "record_predictions", "enqueue_observation_job",
           "_next_trade_date"]
@@ -123,10 +122,6 @@ def _install_spies(secrets=None, payload=None, next_trade_date="20260626"):
         return _MD
     eod_mod.build_claude_markdown = _build
 
-    def _digest(claude_data, track_results=None):
-        rec["digest_in"] = {"claude_data": claude_data, "track_results": track_results}
-        return _DIGEST
-    eod_mod.build_email_digest = _digest
 
     def _store(payload, claude_data, markdown, report_dir=None):
         rec["order"].append("store")
@@ -134,11 +129,6 @@ def _install_spies(secrets=None, payload=None, next_trade_date="20260626"):
         return _PATHS
     eod_mod.store_report = _store
 
-    def _send(body, attachments, smtp_conf, subject=None, is_html=False):
-        rec["send_calls"].append({"body": body, "attachments": attachments,
-                                  "smtp_conf": smtp_conf, "is_html": is_html})
-        return True
-    eod_mod.send_email = _send
 
     def _eval(payload, source):
         rec["order"].append("e1")
@@ -231,10 +221,9 @@ def test_eod_orchestration_and_passthrough():
         assert rec["store_in"]["markdown"] == _MD
         assert rec["summary_call"] == {"target_trade_date": "20260625"}
         assert rec["store_in"]["claude_data"]["prediction_summary"]["predictions"] == 2
-        # digest 收到 compact 的 claude_data + collect 的 tracks(邮件正文走 digest, 非完整 markdown)
-        assert rec["digest_in"]["claude_data"] is _CLAUDE
-        assert rec["digest_in"]["track_results"] is _TRACKS
-        assert rec["digest_in"]["claude_data"]["prediction_summary"]["pending"] == 1
+        # EOD 只落盘并排队 D 线，不再构造或发送旧摘要邮件。
+        assert "digest_in" not in rec
+        assert rec["send_calls"] == []
         # build 收到的 claude_data 是 compact 的输出
         assert rec["build_in"]["claude_data"] is _CLAUDE
         # run_eod 返回 store_report 的 paths
@@ -346,37 +335,16 @@ def test_email_gate_missing_creds():
         restore()
 
 
-def test_email_gate_enabled_smtp_conf_mapping():
-    rec, restore = _install_spies(secrets={"email_enabled": True, "email_user": "u@qq.com",
-                                           "email_authcode": "pw", "email_to": "t@163.com"})
-    try:
-        eod_mod.run_eod()
-        assert len(rec["send_calls"]) == 1
-        conf = rec["send_calls"][0]["smtp_conf"]
-        assert conf["sender_email"] == "u@qq.com"
-        assert conf["sender_password"] == "pw"
-        assert conf["receiver_email"] == "t@163.com"
-        assert conf["smtp_server"] == "smtp.qq.com"   # 缺省固定 QQ
-        assert conf["smtp_port"] == 465
-        assert conf["bcc_email"] is None              # 本次不启用 BCC
-        assert rec["send_calls"][0]["is_html"] is False  # v2 纯文本
-        assert rec["send_calls"][0]["body"] == _DIGEST   # 邮件正文 = 精简摘要 digest(非完整 markdown)
-    finally:
-        restore()
-
-
-def test_email_cc_passthrough_unsplit():
+def test_eod_never_sends_legacy_email_even_with_complete_credentials():
     rec, restore = _install_spies(secrets={"email_enabled": True, "email_user": "u@qq.com",
                                            "email_authcode": "pw", "email_to": "t@163.com",
                                            "email_cc": "x@a.com,y@b.com"})
     try:
         eod_mod.run_eod()
-        conf = rec["send_calls"][0]["smtp_conf"]
-        # 整串透传, 本层不拆(拆分交给 mailer._normalize_emails)
-        assert conf["cc_email"] == "x@a.com,y@b.com"
+        assert rec["send_calls"] == [], "EOD 邮件必须等待 D-line worker 统一发送"
+        assert "digest_in" not in rec
     finally:
         restore()
-
 
 if __name__ == "__main__":
     import sys

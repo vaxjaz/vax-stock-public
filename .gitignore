@@ -1,5 +1,6 @@
 # 敏感配置(本地 chmod 600, 不上传任何外部系统; 模板见 secrets.json.example)
 script/config/secrets.json
+script/config/portfolio_state.json
 
 # 运行期状态 / 缓存 / 报告产物
 #var/
@@ -14,3 +15,4 @@ __pycache__/
 # 杂项
 *.bak
 *.log
+var/strategy/

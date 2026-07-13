@@ -18,7 +18,7 @@ script/stock_report_enhanced.py 中的 get_history_kline 搬入本层。
 - moneyflow                              个股资金流向(4档)
 - moneyflow_hsgt                         北向资金
 - fina_indicator                         财务指标(80+字段)
-- forecast / express                     业绩预告/快报
+- forecast / express / disclosure_date   业绩预告/快报/财报预约披露日
 - stk_holdernumber                       股东户数
 - concept_detail                         概念板块
 
@@ -48,7 +48,7 @@ CACHE_TTL = {
     "stock_basic": 30, "concept_list": 30, "stock_concepts": 14,
     "daily": 1, "daily_basic": 1,
     "moneyflow": 1, "moneyflow_hsgt": 1,
-    "fina_indicator": 30, "forecast": 7, "express": 7,
+    "fina_indicator": 30, "forecast": 7, "express": 7, "disclosure_date": 1,
     "holder_number": 30, "index_daily": 1, "top_list": 1,
 }
 
@@ -365,6 +365,37 @@ class TushareSource:
         records = self.get_fina_indicator(code, periods=1)
         return records[0] if records else None
 
+    def get_disclosure_schedule(self, code, periods=8):
+        """财报预约披露计划；只接受 Tushare 官方字段契约。"""
+        if self.points_level < 2000:
+            return None
+        cache_key = f"disclosure_{code}_{periods}"
+        cached = self._cache_get(cache_key, CACHE_TTL["disclosure_date"])
+        if cached is not None:
+            return cached
+
+        ts_code = self.code_to_ts(code)
+        fields = "ts_code,ann_date,end_date,pre_date,actual_date,modify_date"
+        df = self._safe_call("disclosure_date", ts_code=ts_code, fields=fields)
+        if df is None:
+            return None
+        required = set(fields.split(","))
+        actual_fields = {str(column) for column in getattr(df, "columns", [])}
+        missing = sorted(required - actual_fields)
+        if missing:
+            logger.warning("disclosure_date 字段不完整(%s): missing=%s", code, missing)
+            return None
+        if len(df) == 0:
+            self._cache_set(cache_key, [])
+            return []
+
+        records = (
+            df.sort_values(["end_date", "pre_date"], ascending=[False, False])
+            .head(periods)
+            .to_dict("records")
+        )
+        self._cache_set(cache_key, records)
+        return records
     # ============ 业绩预告/快报 (2000分) ============
 
     def get_forecast(self, code, periods=4):

@@ -56,3 +56,6 @@ Safety rules:
 - If any non-whitelisted file is dirty, the autocommit step skips and prints the blocking paths.
 - Push requires non-interactive GitHub credentials for root/systemd, such as SSH deploy key or a stored credential helper. The code never stores tokens.
 - Git prompts are disabled (`GIT_TERMINAL_PROMPT=0`, `GCM_INTERACTIVE=never`); missing credentials fail fast in journal logs.
+## Private daily action artifact
+
+After `vaxstock-dline-plan.service` reaches a terminal status, it refreshes `var/strategy/daily_action_latest.md` and the target-date snapshot, then sends the single daily action email. `status=done` sends the normal plan; `partial_done` / `partial_failed` / `missing_payload` sends an explicit degraded plan with all conditional adds disabled. Successful sends are idempotent per target trade date. These files contain private account amounts, are gitignored, and are never committed. The VPS must provide its own private `PORTFOLIO_STATE_FILE`; missing account data degrades to pending rather than fabricated amounts. The EOD process still writes A/B/C reports and queues D, but no longer sends the legacy digest email itself.

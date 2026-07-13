@@ -356,6 +356,7 @@ def test_build_observation_evidence_includes_abc_contract():
         "20260706",
         c_predictions=[_c_prediction()],
         factor_results=_factor_results(),
+        prediction_history={"002475": {"available": True, "evaluated": 6, "avg_excess": 0.0052, "positive_excess_count": 3}},
         generated_at="2026-07-04T05:00:00",
     )
     assert len(evs) == 1
@@ -367,6 +368,7 @@ def test_build_observation_evidence_includes_abc_contract():
     assert ev["A_eod"]["metrics"]["right_side_score"] == 3.0
     assert ev["A_eod"]["market"]["market_regime"] == "value"
     assert ev["B_factor_history"][0]["excess"]["1"] == -0.015
+    assert ev["B_prediction_history_summary"]["evaluated"] == 6
     assert ev["C_prediction"]["prediction"]["action"] == "watch"
     assert ev["E_context"]["line"] == "E_context"
     assert ev["E_context"]["earnings"]["source_status"] == "pending_source"

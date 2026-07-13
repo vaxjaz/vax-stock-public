@@ -97,6 +97,8 @@ def _normalize_report_node(raw: Dict[str, Any]) -> Dict[str, Any]:
         "net_profit_yoy": node.get("net_profit_yoy"),
         "revenue_yoy": node.get("revenue_yoy"),
         "deducted_net_profit_yoy": node.get("deducted_net_profit_yoy"),
+        "roe": node.get("roe"),
+        "gross_margin": node.get("gross_margin"),
         "raw_fields": list(node.get("raw_fields") or []),
         "raw": _as_dict(node.get("raw")) or None,
     }
@@ -105,13 +107,16 @@ def _normalize_report_node(raw: Dict[str, Any]) -> Dict[str, Any]:
 def _normalize_next_report(raw: Dict[str, Any]) -> Dict[str, Any]:
     node = _as_dict(raw)
     return {
-        "expected_ann_date": _first_non_empty(node.get("expected_ann_date"), node.get("ann_date")),
+        "expected_ann_date": _first_non_empty(node.get("expected_ann_date"), node.get("pre_date"), node.get("ann_date")),
+        "actual_ann_date": _first_non_empty(node.get("actual_ann_date"), node.get("actual_date")),
         "period": _first_non_empty(node.get("period"), node.get("report_period")),
         "source": _clean_text(node.get("source")),
         "status": _clean_text(node.get("status")) or "pending_source",
         "near_target_window": node.get("near_target_window"),
         "distance_calendar_days": node.get("distance_calendar_days"),
         "note": _clean_text(node.get("note")),
+        "raw_fields": list(node.get("raw_fields") or []),
+        "raw": _as_dict(node.get("raw")) or None,
     }
 
 
@@ -199,7 +204,35 @@ def _raw_fields(node: Dict[str, Any]) -> List[str]:
     return list(node.keys())
 
 
-def _raw_context_from_item(item: Dict[str, Any]) -> Dict[str, Any]:
+def _next_disclosure(schedule: List[Any], target_trade_date: Optional[str]) -> Dict[str, Any]:
+    """Select the nearest unreported scheduled disclosure relative to target date."""
+    rows = []
+    for value in schedule:
+        row = _as_dict(value)
+        pre_date = _clean_text(row.get("pre_date"))
+        if not pre_date or _clean_text(row.get("actual_date")):
+            continue
+        rows.append((pre_date, row))
+    if not rows:
+        return {}
+    rows.sort(key=lambda pair: pair[0])
+    target = _clean_text(target_trade_date)
+    selected = next((pair for pair in rows if not target or pair[0] >= target), rows[-1])
+    pre_date, row = selected
+    status = "scheduled" if not target or pre_date >= target else "planned_date_passed_unconfirmed"
+    return {
+        "expected_ann_date": pre_date,
+        "actual_ann_date": row.get("actual_date"),
+        "period": row.get("end_date"),
+        "source": "tushare.disclosure_date",
+        "status": status,
+        "note": "交易所预约披露日期，后续可能修订" if status == "scheduled" else "预约日期已过，实际披露待数据源确认",
+        "raw_fields": list(row.get("raw_fields") or sorted(str(k) for k in row.keys())),
+        "raw": row,
+    }
+
+
+def _raw_context_from_item(item: Dict[str, Any], target_trade_date: Optional[str] = None) -> Dict[str, Any]:
     """Derive context from existing real Tushare fields assembled in stock_item."""
     fina_history = _as_list(item.get("fina_history"))
     forecast = _as_dict(item.get("forecast"))
@@ -216,6 +249,8 @@ def _raw_context_from_item(item: Dict[str, Any]) -> Dict[str, Any]:
             "source": latest.get("source") or "tushare.fina_indicator",
             "net_profit_yoy": latest.get("np_yoy"),
             "revenue_yoy": latest.get("or_yoy"),
+            "roe": latest.get("roe"),
+            "gross_margin": latest.get("gross_margin"),
             "raw_fields": _raw_fields(latest),
             "raw": latest,
         }
@@ -257,14 +292,15 @@ def _raw_context_from_item(item: Dict[str, Any]) -> Dict[str, Any]:
             "raw": express,
         })
 
+    next_report = _next_disclosure(_as_list(item.get("disclosure_schedule")), target_trade_date)
     raw: Dict[str, Any] = {}
-    if latest_report:
+    if latest_report or next_report:
         raw["earnings"] = {
-            "source": "tushare.fina_indicator",
+            "source": "tushare.fina_indicator" if latest_report else "tushare.disclosure_date",
             "latest_report": latest_report,
-            "next_report": {
+            "next_report": next_report or {
                 "status": "pending_source",
-                "note": "next report disclosure date source not connected yet",
+                "note": "预约披露日期待数据源返回",
             },
         }
     if events:
@@ -310,7 +346,7 @@ def build_context_from_payload_item(item: Dict[str, Any], payload: Dict[str, Any
     item = _as_dict(item)
     payload = _as_dict(payload)
     raw = _deep_merge(
-        _raw_context_from_item(item),
+        _raw_context_from_item(item, target_trade_date),
         _as_dict(item.get("company_context") or item.get("event_context")),
     )
     rt = _as_dict(item.get("realtime"))

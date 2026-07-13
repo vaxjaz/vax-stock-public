@@ -1,0 +1,68 @@
+{
+  "_说明": "用户确认的交易纪律 v1。这里只定义容量边界，不直接生成买卖指令。",
+  "schema_version": 1,
+  "policy_version": "discipline_v1",
+  "effective_from": "20260713",
+  "position_units_pct": {
+    "half_unit": 2.5,
+    "unit": 5.0
+  },
+  "position_caps_pct": {
+    "ordinary": 10.0,
+    "core": 20.0,
+    "strategic_core": 30.0
+  },
+  "max_strategic_core_count": 1,
+  "legacy_over_cap_policy": "no_add_wait_for_c_or_d_risk_signal",
+  "stock_tiers": {
+    "601138": "strategic_core",
+    "600276": "core",
+    "002475": "ordinary",
+    "601179": "ordinary",
+    "603009": "ordinary",
+    "600875": "ordinary",
+    "600900": "ordinary"
+  },
+  "trade_rules": {
+    "buy_lot_size": 100,
+    "scope": "mainboard_auction_buy",
+    "source_refs": [
+      {
+        "exchange": "SSE",
+        "rule": "上海证券交易所交易规则（2026年修订）第3.3.8条",
+        "url": "https://www.sse.com.cn/lawandrules/sselawsrules2025/trade/universal/c/c_20260424_10816492.shtml"
+      },
+      {
+        "exchange": "SZSE",
+        "rule": "深圳证券交易所交易规则（2026年修订）第3.3.8条",
+        "url": "https://docs.static.szse.cn/www/lawrules/rule/trade/current/W020260424690713155663.pdf"
+      }
+    ]
+  },
+  "action_rules": {
+    "conditional_add_unit": "half_unit",
+    "risk_reduce_unit": "unit",
+    "c_actions_eligible_for_conditional_add": [
+      "watch",
+      "candidate_buy",
+      "panic_rebound_watch",
+      "panic_rebound_probe"
+    ],
+    "positive_trigger_types": [
+      "reclaim_confirm",
+      "breakout_confirm",
+      "panic_rebound_probe"
+    ],
+    "risk_trigger_types": [
+      "breakdown_confirm",
+      "failed_breakout",
+      "risk_off_confirm"
+    ],
+    "non_action_trigger_types": [
+      "weak_rebound",
+      "noise_filter"
+    ],
+    "avoid_reclaim_effect": "review_only_not_buy",
+    "new_position_policy": "no_open_without_explicit_tier_and_d_confirmation"
+  }
+}
