@@ -125,7 +125,9 @@ def test_context_uses_real_tushare_fields_from_payload_item():
                 "ann_date": "20260701",
                 "end_date": "20260630",
                 "pre_date": "20260820",
-                "actual_date": None,
+                # Tushare DataFrame.to_dict() returns an IEEE NaN for this
+                # empty production field rather than Python None.
+                "actual_date": float("nan"),
                 "modify_date": "20260701",
             }
         ],
@@ -149,6 +151,7 @@ def test_context_uses_real_tushare_fields_from_payload_item():
     assert latest["raw_fields"] == ["ts_code", "end_date", "ann_date", "netprofit_yoy", "or_yoy"]
     assert ctx["earnings"]["next_report"]["status"] == "scheduled"
     assert ctx["earnings"]["next_report"]["expected_ann_date"] == "20260820"
+    assert ctx["earnings"]["next_report"]["actual_ann_date"] is None
     assert ctx["earnings"]["next_report"]["source"] == "tushare.disclosure_date"
 
     events = ctx["company_events"]["events"]

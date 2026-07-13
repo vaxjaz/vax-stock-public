@@ -9,6 +9,8 @@ can use the absence honestly.
 
 from __future__ import annotations
 
+import math
+from numbers import Real
 from typing import Any, Dict, Iterable, List, Optional
 
 
@@ -49,6 +51,8 @@ def _as_list(value: Any) -> List[Any]:
 
 def _clean_text(value: Any) -> Optional[str]:
     if value is None:
+        return None
+    if isinstance(value, Real) and math.isnan(float(value)):
         return None
     text = str(value).strip()
     return text or None
@@ -222,7 +226,7 @@ def _next_disclosure(schedule: List[Any], target_trade_date: Optional[str]) -> D
     status = "scheduled" if not target or pre_date >= target else "planned_date_passed_unconfirmed"
     return {
         "expected_ann_date": pre_date,
-        "actual_ann_date": row.get("actual_date"),
+        "actual_ann_date": _clean_text(row.get("actual_date")),
         "period": row.get("end_date"),
         "source": "tushare.disclosure_date",
         "status": status,
