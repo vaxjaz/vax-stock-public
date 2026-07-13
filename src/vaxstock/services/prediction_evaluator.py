@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 PREDICTION_RESULTS_FILE = config.STATE_DIR / "prediction" / "eod_prediction_results.jsonl"
 SCHEMA_VERSION = 1
 DEFAULT_HORIZON = "1"
+MAX_PATH_HORIZON = 30
 
 
 def _now_iso() -> str:
@@ -97,6 +98,22 @@ def build_factor_result_index(rows: Iterable[Dict[str, Any]]) -> Dict[Tuple[str,
     return idx
 
 
+def complete_horizons(actual_box: Dict[str, Dict[str, Any]], *,
+                      max_horizon: int = MAX_PATH_HORIZON) -> List[str]:
+    """Return positive horizons present in return, benchmark and excess."""
+    keys = (
+        set((actual_box.get("ret") or {}).keys())
+        & set((actual_box.get("mkt_ret") or {}).keys())
+        & set((actual_box.get("excess") or {}).keys())
+    )
+    values = []
+    for key in keys:
+        text = str(key)
+        if text.isdigit() and 1 <= int(text) <= max_horizon:
+            values.append(text)
+    return sorted(values, key=int)
+
+
 def _direction_hit(direction: str, ret: Optional[float]) -> Optional[bool]:
     """方向命中: up/down 用绝对收益判定; neutral 不作方向性评分。"""
     if ret is None:
@@ -145,6 +162,7 @@ def evaluate_prediction(prediction: Dict[str, Any], factor_index: Dict[Tuple[str
         return None
 
     h = str(horizon or prediction_horizon(prediction))
+    target_horizon = prediction_horizon(prediction)
     actual_box = factor_index.get((baseline, code))
     if not actual_box:
         return None
@@ -152,7 +170,7 @@ def evaluate_prediction(prediction: Dict[str, Any], factor_index: Dict[Tuple[str
     ret = _to_float((actual_box.get("ret") or {}).get(h))
     mkt_ret = _to_float((actual_box.get("mkt_ret") or {}).get(h))
     excess = _to_float((actual_box.get("excess") or {}).get(h))
-    if ret is None or excess is None:
+    if ret is None or mkt_ret is None or excess is None:
         return None
 
     pred = prediction.get("prediction") or {}
@@ -161,6 +179,8 @@ def evaluate_prediction(prediction: Dict[str, Any], factor_index: Dict[Tuple[str
     positive_excess = excess > 0
     direction_hit = _direction_hit(direction, ret)
     action_hit = _action_hit(bucket, positive_excess)
+    is_target_horizon = h == target_horizon
+    evaluation_role = "target_horizon" if is_target_horizon else "post_prediction_path"
 
     return {
         "schema_version": SCHEMA_VERSION,
@@ -178,10 +198,13 @@ def evaluate_prediction(prediction: Dict[str, Any], factor_index: Dict[Tuple[str
             "source": "factor_results",
         },
         "evaluation": {
-            "direction_hit": direction_hit,
+            "evaluation_role": evaluation_role,
+            "direction_hit": direction_hit if is_target_horizon else None,
             "positive_excess": positive_excess,
-            "action_hit": action_hit,
-            "deviation": _deviation(bucket, positive_excess, action_hit),
+            "action_hit": action_hit if is_target_horizon else None,
+            "path_direction_alignment": direction_hit,
+            "path_action_alignment": action_hit,
+            "deviation": _deviation(bucket, positive_excess, action_hit) if is_target_horizon else "post_prediction_path",
             "error_type": None,
         },
     }
@@ -194,9 +217,19 @@ def evaluate_predictions(predictions: Iterable[Dict[str, Any]], factor_results: 
     factor_index = build_factor_result_index(factor_results)
     rows = []
     for pred in predictions:
-        row = evaluate_prediction(pred, factor_index, horizon=horizon, evaluated_at=evaluated_at)
-        if row:
-            rows.append(row)
+        baseline = str((pred or {}).get("baseline_trade_date") or "").strip()
+        code = str((pred or {}).get("code") or "").strip()
+        actual_box = factor_index.get((baseline, code)) or {}
+        horizons = [str(horizon)] if horizon is not None else complete_horizons(actual_box)
+        for path_horizon in horizons:
+            row = evaluate_prediction(
+                pred,
+                factor_index,
+                horizon=path_horizon,
+                evaluated_at=evaluated_at,
+            )
+            if row:
+                rows.append(row)
     return rows
 
 
@@ -232,10 +265,11 @@ def evaluate_from_files(*, predictions_path=None, factor_results_path=None, outp
     factor_results = _read_jsonl(factor_results_path)
     rows = evaluate_predictions(predictions, factor_results, horizon=horizon, evaluated_at=evaluated_at)
     stats = record_prediction_results(rows, path=output_path)
+    evaluated_predictions = {row.get("prediction_id") for row in rows if row.get("prediction_id")}
     stats.update({
         "source_predictions": len(predictions),
         "source_factor_results": len(factor_results),
         "generated": len(rows),
-        "missing_or_pending": len(predictions) - len(rows),
+        "missing_or_pending": len(predictions) - len(evaluated_predictions),
     })
     return stats

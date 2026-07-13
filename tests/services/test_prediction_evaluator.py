@@ -87,6 +87,96 @@ def test_evaluate_predictions_merges_incremental_factor_results():
     assert out[0]["actual"]["excess"] == 0.02
 
 
+def test_evaluate_predictions_records_every_mature_path_through_t30():
+    factors = [{
+        "trade_date": "20260701",
+        "code": "002475",
+        "ret": {"1": 0.03, "2": -0.02, "5": 0.06, "31": 0.50},
+        "mkt_ret": {"1": 0.01, "2": -0.01, "5": 0.03, "31": 0.10},
+        "excess": {"1": 0.02, "2": -0.01, "5": 0.03, "31": 0.40},
+    }]
+
+    out = pe.evaluate_predictions(
+        [_prediction()],
+        factors,
+        evaluated_at="2026-07-10T05:10:00",
+    )
+
+    assert [row["horizon"] for row in out] == ["1", "2", "5"]
+    target = out[0]["evaluation"]
+    assert target["evaluation_role"] == "target_horizon"
+    assert target["direction_hit"] is True
+    assert target["action_hit"] is True
+
+    path = out[1]["evaluation"]
+    assert path["evaluation_role"] == "post_prediction_path"
+    assert path["direction_hit"] is None
+    assert path["action_hit"] is None
+    assert path["path_direction_alignment"] is False
+    assert path["path_action_alignment"] is False
+
+
+def test_evaluate_prediction_requires_benchmark_for_complete_path():
+    idx = pe.build_factor_result_index([{
+        "trade_date": "20260701",
+        "code": "002475",
+        "ret": {"1": 0.01},
+        "excess": {"1": 0.02},
+    }])
+    assert pe.evaluate_prediction(_prediction(), idx) is None
+
+
+def test_evaluate_from_files_appends_only_newly_mature_horizons():
+    d = tempfile.mkdtemp(prefix="vaxpred_path_")
+    try:
+        pred_path = pathlib.Path(d) / "eod_predictions.jsonl"
+        fact_path = pathlib.Path(d) / "factor_results.jsonl"
+        out_path = pathlib.Path(d) / "eod_prediction_results.jsonl"
+        pred_path.write_text(
+            json.dumps(_prediction(), ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+        fact_path.write_text(
+            json.dumps(_factor_result(), ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+
+        first = pe.evaluate_from_files(
+            predictions_path=pred_path,
+            factor_results_path=fact_path,
+            output_path=out_path,
+        )
+        assert first["written"] == 1
+
+        mature = _factor_result()
+        mature["ret"]["2"] = 0.04
+        mature["mkt_ret"]["2"] = 0.01
+        mature["excess"]["2"] = 0.03
+        fact_path.write_text(
+            json.dumps(mature, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+        second = pe.evaluate_from_files(
+            predictions_path=pred_path,
+            factor_results_path=fact_path,
+            output_path=out_path,
+        )
+        assert second["written"] == 1
+        assert second["skipped"] == 1
+        assert [row["horizon"] for row in _read_rows(out_path)] == ["1", "2"]
+
+        third = pe.evaluate_from_files(
+            predictions_path=pred_path,
+            factor_results_path=fact_path,
+            output_path=out_path,
+        )
+        assert third["written"] == 0
+        assert third["skipped"] == 2
+        assert len(_read_rows(out_path)) == 2
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+
+
 def test_evaluate_from_files_idempotent_writes_tmp():
     d = tempfile.mkdtemp(prefix="vaxpred_eval_")
     try:

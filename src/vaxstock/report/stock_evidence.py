@@ -38,6 +38,22 @@ def _date(value: Any) -> str:
 def format_live_history(summary: Mapping[str, Any]) -> str:
     if not summary or not summary.get("available") or not summary.get("evaluated"):
         return "真实历史结果待积累"
+    horizons = summary.get("horizons") or {}
+    keys = summary.get("key_horizons") or ("1", "5", "10", "30")
+    parts = []
+    for horizon in keys:
+        cell = horizons.get(str(horizon)) or {}
+        if not cell.get("evaluated"):
+            continue
+        cell_count = int(cell["evaluated"])
+        cell_positive = int(cell.get("positive_excess_count") or 0)
+        parts.append(
+            f"T+{horizon} {cell_count}\u6b21\uff0c\u5e73\u5747\u8d85\u989d"
+            f"{_pct(cell.get('avg_excess'))}\uff0c{cell_positive}/{cell_count}"
+            f"\u6b21\u8dd1\u8d62\u6307\u6570"
+        )
+    if parts:
+        return "\uff1b".join(parts)
     count = int(summary["evaluated"])
     positive = int(summary.get("positive_excess_count") or 0)
     return f"live已核验{count}次，平均超额{_pct(summary.get('avg_excess'))}，{positive}/{count}次跑赢指数"

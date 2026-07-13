@@ -14,6 +14,8 @@ def test_history_summary_uses_only_evaluated_live_rows_before_cutoff():
     results = [
         {"prediction_id": "p1", "generation_mode": "live", "horizon": "1", "actual": {"ret": 0.02, "excess": 0.01}},
         {"prediction_id": "p2", "generation_mode": "live", "horizon": "1", "actual": {"ret": -0.01, "excess": -0.02}},
+        {"prediction_id": "p1", "generation_mode": "live", "horizon": "5", "actual": {"ret": 0.08, "excess": 0.05}},
+        {"prediction_id": "p2", "generation_mode": "live", "horizon": "5", "actual": {"ret": 0.02, "excess": -0.01}},
         {"prediction_id": "p3", "generation_mode": "replay", "horizon": "1", "actual": {"ret": 9, "excess": 9}},
         {"prediction_id": "p4", "generation_mode": "live", "horizon": "1", "actual": {"ret": 8, "excess": 8}},
     ]
@@ -22,6 +24,12 @@ def test_history_summary_uses_only_evaluated_live_rows_before_cutoff():
     assert summary["avg_ret"] == 0.005
     assert summary["avg_excess"] == -0.005
     assert summary["positive_excess_count"] == 1
+    assert summary["prediction_count"] == 3
+    assert summary["max_horizon"] == 5
+    assert summary["horizons"]["5"]["evaluated"] == 2
+    assert summary["horizons"]["5"]["avg_ret"] == 0.05
+    assert summary["horizons"]["5"]["avg_excess"] == 0.02
+    assert summary["horizons"]["5"]["positive_excess_count"] == 1
 
 
 def test_history_summary_returns_no_row_without_real_results():

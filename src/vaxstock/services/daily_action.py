@@ -90,14 +90,14 @@ def _enrich_history(snapshot: Dict[str, Any]) -> Dict[str, Any]:
             continue
         code = str(task.get("code") or "")
         evidence = task.setdefault("evidence_pack", {})
-        evidence.setdefault("B_prediction_history_summary", history.get(code) or {
+        evidence["B_prediction_history_summary"] = history.get(code) or {
             "available": False,
             "source": "eod_predictions+eod_prediction_results",
             "generation_mode": "live",
             "horizon": "1",
             "cutoff_trade_date": baseline,
             "evaluated": 0,
-        })
+        }
     return snapshot
 
 

@@ -11,6 +11,26 @@ def test_formats_real_live_history_without_relabeling_rate():
     assert text == "live已核验6次，平均超额+0.76%，4/6次跑赢指数"
 
 
+def test_formats_key_c_line_path_horizons():
+    text = format_live_history({
+        "available": True,
+        "evaluated": 6,
+        "avg_excess": 0.0076,
+        "positive_excess_count": 4,
+        "key_horizons": ["1", "5", "10", "30"],
+        "horizons": {
+            "1": {"evaluated": 6, "avg_excess": 0.0076, "positive_excess_count": 4},
+            "2": {"evaluated": 5, "avg_excess": 0.0100, "positive_excess_count": 3},
+            "5": {"evaluated": 2, "avg_excess": -0.0050, "positive_excess_count": 1},
+        },
+    })
+
+    assert text == (
+        "T+1 6\u6b21\uff0c\u5e73\u5747\u8d85\u989d+0.76%\uff0c4/6\u6b21\u8dd1\u8d62\u6307\u6570"
+        "\uff1bT+5 2\u6b21\uff0c\u5e73\u5747\u8d85\u989d-0.50%\uff0c1/2\u6b21\u8dd1\u8d62\u6307\u6570"
+    )
+
+
 def test_formats_financials_and_scheduled_disclosure():
     text = format_earnings({
         "latest_report": {
