@@ -13,6 +13,19 @@ _TIER_LABELS = {
     "strategic_core": "战略核心",
 }
 _UNIT_LABELS = {"half_unit": "0.5单位", "unit": "1单位"}
+_TRIGGER_LABELS = {
+    "reclaim_confirm": "收复确认",
+    "breakout_confirm": "突破确认",
+    "panic_rebound_probe": "恐慌修复确认",
+    "breakdown_confirm": "破位确认",
+    "failed_breakout": "突破失败",
+    "risk_off_confirm": "风险关闭",
+    "weak_rebound": "弱反弹",
+    "noise_filter": "噪音过滤",
+}
+_SEVERITY_LABELS = {"high": "高", "medium": "中", "low": "低"}
+
+
 _SOURCE_LABELS = {
     "broker_screenshot_user_confirmed": "已确认券商截图",
     "eod_revalued_from_confirmed_cash_and_holdings": "已确认现金和持仓 + EOD收盘价",
@@ -27,16 +40,36 @@ def _pct(value: Any) -> str:
     return "待确认" if value is None else f"{float(value):.2f}%"
 
 
+def _trigger_fact_text(fact: Mapping[str, Any]) -> str:
+    trigger_type = str(fact.get("trigger_type") or "触发条件")
+    label = _TRIGGER_LABELS.get(trigger_type, trigger_type)
+    raw_time = str(fact.get("trade_time") or "待确认")
+    trade_time = raw_time[:8] if len(raw_time) >= 8 else raw_time
+    price = "待确认" if fact.get("price") is None else f"{float(fact['price']):.2f}"
+    severity = _SEVERITY_LABELS.get(str(fact.get("severity") or ""), fact.get("severity") or "待确认")
+    text = f"{trade_time}触发{label}，触发价{price}，风险级别{severity}"
+    occurrences = int(fact.get("occurrences") or 1)
+    if occurrences > 1:
+        text += f"；同一任务重复记录{occurrences}次，本报告按首次触发"
+    return text
+
+
 def render_daily_action_markdown(plan: Mapping[str, Any]) -> str:
     bg = plan.get("background") or {}
     account = plan.get("account") or {}
     units = account.get("unit_amounts") or {}
     target = bg.get("target_trade_date") or "待确认"
     source = _SOURCE_LABELS.get(account.get("source"), account.get("source") or "待验证")
+    title = "收盘操作复盘" if plan.get("phase") == "close_review" else "每日操作清单"
     lines = [
-        f"# {target} 每日操作清单",
+        f"# {target} {title}",
         "",
     ]
+    if plan.get("phase") == "close_review":
+        lines += [
+            "- **收盘口径**: D线已触发只代表条件真实发生；没有实际成交记录时，一律标记为执行待确认。",
+            "",
+        ]
     if plan.get("degraded"):
         lines += [
             "- **降级模式**: D线未完整生成，今日禁止所有条件加仓。",
@@ -67,26 +100,55 @@ def render_daily_action_markdown(plan: Mapping[str, Any]) -> str:
         lines.append(f"   - 策略校正: {format_history_verdict(row.get('history_verdict') or {})}")
         lines.append(f"   - 公司财报: {format_earnings(row.get('earnings') or {})}")
         lines.append(f"   - 原因: {row.get('reason')}")
+        for fact in row.get("dline_triggers") or []:
+            lines.append(f"   - D线事实: {_trigger_fact_text(fact)}。")
         add = row.get("conditional_add")
         if add:
-            lines.append(
-                f"   - 加仓开关: {add.get('condition')}后，加仓上限{_UNIT_LABELS.get(add.get('unit'), add.get('unit'))}，"
-                f"按参考价估算{add.get('estimated_shares')}股/{_amount(add.get('amount'))}。"
-            )
+            unit = _UNIT_LABELS.get(add.get("unit"), add.get("unit"))
+            if add.get("triggered") is True:
+                lines.append(
+                    f"   - 加仓结果: 条件已触发；加仓上限{unit}，按参考价估算"
+                    f"{add.get('estimated_shares')}股/{_amount(add.get('amount'))}；实际成交待确认。"
+                )
+            elif add.get("triggered") is False:
+                lines.append(
+                    f"   - 加仓结果: D线未记录到{add.get('condition')}；系统未产生加仓执行依据。"
+                )
+            else:
+                lines.append(
+                    f"   - 加仓开关: {add.get('condition')}后，加仓上限{unit}，"
+                    f"按参考价估算{add.get('estimated_shares')}股/{_amount(add.get('amount'))}。"
+                )
         risk = row.get("risk_reduce")
         if risk:
-            shares = f"估算{risk.get('estimated_shares')}股" if risk.get("estimated_shares") is not None else "股数盘中重算"
-            lines.append(
-                f"   - 风险开关: {risk.get('condition')}后，减仓上限{_UNIT_LABELS.get(risk.get('unit'), risk.get('unit'))}，"
-                f"{shares}/{_amount(risk.get('estimated_amount'))}。"
-            )
+            unit = _UNIT_LABELS.get(risk.get("unit"), risk.get("unit"))
+            shares = f"估算{risk.get('estimated_shares')}股" if risk.get("estimated_shares") is not None else "股数待确认"
+            if risk.get("triggered") is True:
+                lines.append(
+                    f"   - 风险结果: 条件已触发；减仓上限{unit}，{shares}/"
+                    f"{_amount(risk.get('estimated_amount'))}；实际成交待确认。"
+                )
+            elif risk.get("triggered") is False:
+                lines.append(
+                    f"   - 风险结果: D线未记录到{risk.get('condition')}；系统未产生减仓执行依据。"
+                )
+            else:
+                lines.append(
+                    f"   - 风险开关: {risk.get('condition')}后，减仓上限{unit}，"
+                    f"{shares}/{_amount(risk.get('estimated_amount'))}。"
+                )
     new_positions = plan.get("new_positions") or {}
+    footer = (
+        "> 触发时间和触发价来自D线冻结记录；金额和股数按记录价格估算；实际成交以用户确认持仓为准。"
+        if plan.get("phase") == "close_review" else
+        "> 金额和股数为参考价估算；盘中只有对应D线条件真实触发后才执行，并按实时价重算。"
+    )
     lines += [
         "",
         "## 新开仓",
         "",
         f"- **{new_positions.get('action') or '待确认'}**：{new_positions.get('reason') or '待确认'}。",
         "",
-        "> 金额和股数为参考价估算；盘中只有对应D线条件真实触发后才执行，并按实时价重算。",
+        footer,
     ]
     return "\n".join(lines).rstrip() + "\n"

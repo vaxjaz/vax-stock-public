@@ -359,6 +359,8 @@ Purpose: materialized active tasks for the target session. It is not append-only
 
 口径:上述 Markdown 只过滤 `structured.source=dline_task_blueprint` 且 `dline_plan_version=d_observe_llm_v2` 的触发行;它展示触发时 quote、MA 偏离、C线原始 action/direction/confidence、LLM 客观评价和 C线反哺线索,不写未来结果,不自动调参。
 
+收盘闭环:`services.forecast_recorder.load_dline_trigger_facts` 同时接受 `YYYYMMDD` / `YYYY-MM-DD` 交易日,只读取 D线 v2,并按 `(code, task_id, trigger_type)` 取首次触发、统计重复次数。`services.daily_action` 仅在 trigger 的 `task_id` 与当前任务完全一致时把它并入操作清单;风险触发优先于加仓触发,但没有成交记录时只能写“执行待确认”。
+
 当前缺口:
 
 - 盘中消费者已由 `services.intraday` 读取 `current_tasks.json` 执行 D线触发 DSL,触发后写 `forecasts.jsonl`。
@@ -472,19 +474,21 @@ turnover_history.parquet
 5. 所有盘中字段必须标注实时、T-1 定稿、T 日收盘聚合滞后三类来源。
 ## 私有策略派生层: `var/strategy`
 
-这一层不是新的事实样本线。它只把已冻结的 A/C/D 证据、真实持仓和已审核纪律压缩成用户每天阅读的一份操作清单。
+这一层不是新的事实样本线。它只把已冻结的 A/B/C/D 证据、真实持仓和已审核纪律压缩成用户每天阅读的操作清单。
 
 - `script/config/strategy_policy.json`: 可公开审阅的纪律版本、仓位单位、单票上限和动作映射。
 - `script/config/portfolio_state.json`: 用户确认的券商账户快照,已 gitignore;缺失时金额/股数必须标待验证。
 - `var/strategy/daily_action_<target_trade_date>.md`: 指定交易日的私有操作清单。
-- `var/strategy/daily_action_latest.md`: 最新私有操作清单。
+- `var/strategy/daily_action_latest.md`: 最新凌晨预案。
+- `var/strategy/close_review_<target_trade_date>.md`: 指定交易日的收盘触发复盘。
+- `var/strategy/close_review_latest.md`: 最新收盘触发复盘；不覆盖凌晨预案。
 
-`var/strategy/` 已 gitignore,因为清单包含账户金额。D线任务 worker 到达终态后刷新清单并发送当天唯一一封操作邮件:`done` 为正常版,`partial_done` / `partial_failed` / `missing_payload` 为降级版且禁止所有条件加仓;成功发送按目标交易日幂等。EOD 仍原样落盘 A/B/C 并排队 D,不再单独发送旧摘要。系统不自动下单。EOD价格可与已确认股数/现金机械重估账户,但任一持仓缺价格时不得产出金额和股数。
+`var/strategy/` 已 gitignore,因为清单包含账户金额。D线任务 worker 到达终态后发送 `[每日操作]` 凌晨预案；盘中服务在交易日 15:02 后读取当天 `forecasts.jsonl`，另写 `close_review_*` 并发送 `[收盘复盘]`，绝不覆盖凌晨预案。两类邮件使用独立状态文件，分别按目标交易日幂等；收盘复盘成功后重复轮询只做快速跳过。`done` 为正常预案，`partial_done` / `partial_failed` / `missing_payload` 为降级预案且禁止所有条件加仓。系统不自动下单；D线触发不等于成交，成交必须由后续真实持仓确认。EOD价格可与已确认股数/现金机械重估账户,但任一持仓缺价格时不得产出金额和股数。
 ### 邮件证据摘要
 
 每日操作邮件与D线盘中邮件共用以下口径：
 
-- 真实历史结果只统计 `generation_mode=live` 且已成熟的 C线真实路径；固定展示 T+1/5/10/30，并始终追加最新 T+N，`replay` 与 `pending` 不进入均值和跑赢次数。
+- 真实历史结果只统计 `generation_mode=live` 且已成熟的 C线真实路径；固定展示 T+1/5/10/30，并始终追加最新 T+N，`replay` 与 `pending` 不进入平均实际收益和正收益次数。相对指数收益仅保留在研究数据，不进入用户邮件和策略校正。
 - 策略校正只使用与当前 C 预测相同 `rule_version/action/direction/market_regime/macro_regime` 的历史样本；T+1/T+5 明确反对可禁止加仓，T+10/T+30 稳定证据只发起仓位规则人工复盘；样本不足不修正，任何历史证据不得阻止 D 线风险减仓。
 - 财报事实来自 `tushare.fina_indicator`，仅展示真实返回字段。
 - 预计披露日来自 `tushare.disclosure_date.pre_date`；同时保留 `end_date/actual_date/modify_date` 供审计。预约日可能修订，邮件必须明确标注；接口缺失或字段契约不完整时显示“待公布”。

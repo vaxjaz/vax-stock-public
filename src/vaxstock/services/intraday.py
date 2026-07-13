@@ -684,6 +684,25 @@ def notify(rule, quote, fire_count=None):
 
 
 
+def _close_review_target(dline_tasks: List[Dict[str, Any]]) -> Optional[str]:
+    targets = {
+        str(task.get("target_trade_date") or "").strip()
+        for task in dline_tasks or [] if task.get("target_trade_date")
+    }
+    return next(iter(targets)) if len(targets) == 1 else None
+
+
+def _run_close_review(dline_tasks: List[Dict[str, Any]]) -> Dict[str, Any]:
+    target = _close_review_target(dline_tasks)
+    if not target:
+        return {"status": "skipped", "reason": "target_trade_date_missing_or_mixed"}
+    from vaxstock.services.daily_action import refresh_and_send_close_review
+    result = refresh_and_send_close_review(target_trade_date=target)
+    logger.info("Close review completed: target=%s action=%s mail=%s", target,
+                (result.get("action") or {}).get("status"), result.get("mail"))
+    return result
+
+
 # ==================== 主循环 ====================
 
 def run(once=False, force=False):
@@ -725,13 +744,21 @@ def run(once=False, force=False):
         _today = dt.date.today()
         if _today != fire_count_day:
             today_fire_count.clear()
+            fired_keys.clear()
             fire_count_day = _today
 
         if not is_trading_time(force):
             n = dt.datetime.now()
             if n.time() > dt.time(15, 2):
-                logger.info("market closed, intraday watch finished.")
-                break
+                try:
+                    _run_close_review(dline_tasks)
+                except Exception as exc:
+                    logger.warning("close review failed, will retry after poll interval: %s: %s",
+                                   type(exc).__name__, str(exc)[:160])
+                if once:
+                    break
+                time.sleep(POLL_SECONDS)
+                continue
             logger.info("outside trading window, waiting...")
             if once:
                 break

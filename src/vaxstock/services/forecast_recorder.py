@@ -115,21 +115,78 @@ def _is_dline_v2_row(row: Dict[str, Any]) -> bool:
     )
 
 
+def _trade_date_key(value: Any) -> Optional[str]:
+    """Normalize only verified YYYYMMDD / YYYY-MM-DD trade-date forms."""
+    text = str(value or "").strip()
+    if len(text) == 8 and text.isdigit():
+        return text
+    if len(text) == 10 and text[4] == "-" and text[7] == "-":
+        compact = text.replace("-", "")
+        return compact if compact.isdigit() else None
+    return None
+
+
 def _dline_rows(rows: List[Dict[str, Any]], trade_date: Optional[str] = None) -> List[Dict[str, Any]]:
-    target = str(trade_date).strip() if trade_date else None
+    target = _trade_date_key(trade_date) if trade_date else None
     out = []
     for row in rows:
         if not _is_dline_v2_row(row):
             continue
-        if target and str(row.get("trade_date") or "").strip() != target:
+        if target and _trade_date_key(row.get("trade_date")) != target:
             continue
         out.append(row)
-    return sorted(out, key=lambda r: (str(r.get("trade_date") or ""), str(r.get("forecast_ts") or ""), str(r.get("code") or "")))
+    return sorted(out, key=lambda r: (_trade_date_key(r.get("trade_date")) or "", str(r.get("forecast_ts") or ""), str(r.get("code") or "")))
 
 
 def _latest_dline_trade_date(rows: List[Dict[str, Any]]) -> Optional[str]:
-    dates = [str(r.get("trade_date") or "").strip() for r in rows if _is_dline_v2_row(r) and r.get("trade_date")]
-    return sorted(dates)[-1] if dates else None
+    dates = [
+        (_trade_date_key(r.get("trade_date")), str(r.get("trade_date") or "").strip())
+        for r in rows if _is_dline_v2_row(r) and _trade_date_key(r.get("trade_date"))
+    ]
+    return sorted(dates)[-1][1] if dates else None
+
+
+def load_dline_trigger_facts(trade_date: str, *, forecasts_path=None) -> Dict[str, List[Dict[str, Any]]]:
+    """Load earliest immutable D-line trigger per task/type, grouped by stock."""
+    rows = _dline_rows(_read_jsonl(forecasts_path or FORECASTS_FILE), trade_date=trade_date)
+    selected: Dict[tuple, Dict[str, Any]] = {}
+    occurrences: Dict[tuple, int] = {}
+    for row in rows:
+        inputs_ref = row.get("inputs_ref") or {}
+        structured = row.get("structured") or {}
+        blueprint = inputs_ref.get("trigger_blueprint") or {}
+        quote = inputs_ref.get("quote_snapshot") or {}
+        code = str(row.get("code") or quote.get("code") or "").strip()
+        trigger_type = str(blueprint.get("trigger_type") or structured.get("trigger_type") or "").strip()
+        task_id = str(inputs_ref.get("dline_task_id") or structured.get("task_id") or "").strip()
+        if not code or not trigger_type:
+            continue
+        key = (code, task_id, trigger_type)
+        occurrences[key] = occurrences.get(key, 0) + 1
+        if key in selected:
+            continue
+        trade_time = str(quote.get("trade_time") or "").strip()
+        if not trade_time:
+            forecast_ts = str(row.get("forecast_ts") or "")
+            trade_time = forecast_ts.split("T", 1)[1] if "T" in forecast_ts else ""
+        selected[key] = {
+            "trade_date": _trade_date_key(row.get("trade_date")),
+            "code": code,
+            "task_id": task_id or None,
+            "trigger_type": trigger_type,
+            "severity": blueprint.get("severity") or structured.get("severity"),
+            "forecast_ts": row.get("forecast_ts"),
+            "trade_time": trade_time or None,
+            "price": _as_float(quote.get("price")),
+            "change_pct": _as_float(quote.get("change_pct")),
+            "expected_feedback_to_c": blueprint.get("expected_feedback_to_c"),
+            "fire_count": structured.get("fire_count"),
+        }
+    out: Dict[str, List[Dict[str, Any]]] = {}
+    for key, fact in selected.items():
+        fact["occurrences"] = occurrences[key]
+        out.setdefault(fact["code"], []).append(fact)
+    return out
 
 
 def _date_file_token(trade_date: str) -> str:

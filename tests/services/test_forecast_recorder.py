@@ -112,6 +112,54 @@ def test_record_dline_forecast_refreshes_markdown_summary():
         shutil.rmtree(d, ignore_errors=True)
 
 
+def test_load_dline_trigger_facts_normalizes_date_and_deduplicates_task():
+    d = tempfile.mkdtemp(prefix="vaxfc_facts_")
+    try:
+        path = pathlib.Path(d) / "forecasts.jsonl"
+        base = {
+            "schema_version": 1,
+            "code": "002475",
+            "inputs_ref": {
+                "dline_plan_version": fr.DLINE_PLAN_VERSION,
+                "dline_task_id": "20260710_20260713_002475_d_observe_llm_v2",
+                "trigger_blueprint": {
+                    "trigger_type": "breakdown_confirm",
+                    "severity": "high",
+                    "expected_feedback_to_c": "watch -> avoid_review",
+                },
+                "quote_snapshot": {
+                    "code": "002475", "trade_time": "09:35:38", "price": 60.9,
+                },
+            },
+            "structured": {
+                "source": "dline_task_blueprint", "trigger_type": "breakdown_confirm",
+                "fire_count": 1,
+            },
+        }
+        duplicate = json.loads(json.dumps(base))
+        duplicate["trade_date"] = "20260713"
+        duplicate["forecast_ts"] = "2026-07-13T09:40:00"
+        duplicate["inputs_ref"]["quote_snapshot"]["trade_time"] = "09:40:00"
+        duplicate["inputs_ref"]["quote_snapshot"]["price"] = 60.5
+        first = json.loads(json.dumps(base))
+        first["trade_date"] = "2026-07-13"
+        first["forecast_ts"] = "2026-07-13T09:35:38"
+        ignored = json.loads(json.dumps(base))
+        ignored["trade_date"] = "2026-07-12"
+        ignored["forecast_ts"] = "2026-07-12T09:35:38"
+        path.write_text("\n".join(json.dumps(row, ensure_ascii=False) for row in (duplicate, ignored, first)) + "\n", encoding="utf-8")
+
+        facts = fr.load_dline_trigger_facts("20260713", forecasts_path=path)
+        assert list(facts) == ["002475"]
+        assert len(facts["002475"]) == 1
+        fact = facts["002475"][0]
+        assert fact["trade_date"] == "20260713"
+        assert fact["trade_time"] == "09:35:38"
+        assert fact["price"] == 60.9
+        assert fact["occurrences"] == 2
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+
 def test_record_forecast_skips_without_trade_date():
     d = tempfile.mkdtemp(prefix="vaxfc_")
     saved = _set_tmp(d)

@@ -12,10 +12,22 @@ from vaxstock.analysis.position_plan import build_position_capacity, revalue_por
 from vaxstock.report.daily_action import render_daily_action_markdown
 from vaxstock.report.mailer import send_email
 from vaxstock.services.history_summary import load_history_views
+from vaxstock.services.forecast_recorder import FORECASTS_FILE, load_dline_trigger_facts
 
 CURRENT_TASKS_FILE = config.STATE_DIR / "forecast" / "current_tasks.json"
 STRATEGY_DIR = config.STATE_DIR / "strategy"
 MAIL_STATE_FILE = STRATEGY_DIR / "daily_action_mail_state.json"
+CLOSE_REVIEW_MAIL_STATE_FILE = STRATEGY_DIR / "close_review_mail_state.json"
+
+
+def _strategy_output_paths(out_dir: Path, target: str, phase: str):
+    stem = "close_review" if phase == "close_review" else "daily_action"
+    return (
+        out_dir / f"{stem}_{target}.md",
+        out_dir / f"{stem}_latest.md",
+        out_dir / f"{stem}_{target}.json",
+        out_dir / f"{stem}_latest.json",
+    )
 
 
 def _now_iso() -> str:
@@ -134,7 +146,8 @@ def load_daily_strategy_row(code: str, target_trade_date: str | None = None,
 def refresh_daily_action(*, tasks_path=None, output_dir=None,
                          target_trade_date=None, degraded: bool = False,
                          holdings_data=None, portfolio_state=None,
-                         policy_data=None) -> Dict[str, Any]:
+                         policy_data=None, forecasts_path=None,
+                         phase: str = "pre_market") -> Dict[str, Any]:
     snapshot = _enrich_history(_snapshot_for_target(
         _read_json(tasks_path or CURRENT_TASKS_FILE),
         str(target_trade_date) if target_trade_date else None,
@@ -160,7 +173,17 @@ def refresh_daily_action(*, tasks_path=None, output_dir=None,
         )
 
     capacity = build_position_capacity(portfolio, holdings, policy)
-    plan = build_daily_action_plan(snapshot, holdings, capacity, policy, degraded=degraded)
+    target_dates = {str(value) for value in (snapshot.get("target_trade_dates") or []) if value}
+    trigger_target = str(target_trade_date or (next(iter(target_dates)) if len(target_dates) == 1 else ""))
+    trigger_facts = load_dline_trigger_facts(
+        trigger_target, forecasts_path=forecasts_path or FORECASTS_FILE,
+    ) if phase == "close_review" and trigger_target else {}
+    plan = build_daily_action_plan(
+        snapshot, holdings, capacity, policy,
+        degraded=degraded,
+        dline_trigger_facts=trigger_facts,
+        phase=phase,
+    )
     markdown = render_daily_action_markdown(plan)
     target = (plan.get("background") or {}).get("target_trade_date")
     if not target:
@@ -168,10 +191,7 @@ def refresh_daily_action(*, tasks_path=None, output_dir=None,
 
     out_dir = Path(output_dir or STRATEGY_DIR)
     out_dir.mkdir(parents=True, exist_ok=True)
-    dated = out_dir / f"daily_action_{target}.md"
-    latest = out_dir / "daily_action_latest.md"
-    dated_json = out_dir / f"daily_action_{target}.json"
-    latest_json = out_dir / "daily_action_latest.json"
+    dated, latest, dated_json, latest_json = _strategy_output_paths(out_dir, target, phase)
     dated.write_text(markdown, encoding="utf-8")
     latest.write_text(markdown, encoding="utf-8")
     _write_json(dated_json, plan)
@@ -181,6 +201,7 @@ def refresh_daily_action(*, tasks_path=None, output_dir=None,
         "written": 4,
         "target_trade_date": target,
         "degraded": degraded,
+        "phase": phase,
         "dated_path": str(dated),
         "latest_path": str(latest),
         "dated_json_path": str(dated_json),
@@ -190,14 +211,14 @@ def refresh_daily_action(*, tasks_path=None, output_dir=None,
     }
 
 
-def send_daily_action_email(action_result: Dict[str, Any], *, mail_state_path=None,
-                            send_func=None) -> Dict[str, Any]:
+def _send_action_email(action_result: Dict[str, Any], *, state_path, subject: str,
+                       mode: str, send_func=None) -> Dict[str, Any]:
     target = str(action_result.get("target_trade_date") or "")
     if action_result.get("status") != "written" or not target:
         return {"status": "pending", "sent": False, "target_trade_date": target or None}
 
-    state_path = Path(mail_state_path or MAIL_STATE_FILE)
-    state = _read_json(state_path)
+    path = Path(state_path)
+    state = _read_json(path)
     sent_targets = state.get("sent_targets") or {}
     if target in sent_targets:
         return {"status": "already_sent", "sent": False, "target_trade_date": target}
@@ -206,8 +227,6 @@ def send_daily_action_email(action_result: Dict[str, Any], *, mail_state_path=No
     if not smtp_conf:
         return {"status": "disabled", "sent": False, "target_trade_date": target}
 
-    degraded = bool(action_result.get("degraded"))
-    subject = f"[每日操作{'-降级' if degraded else ''}] {target}"
     sender = send_func or send_email
     try:
         ok = bool(sender(
@@ -227,16 +246,41 @@ def send_daily_action_email(action_result: Dict[str, Any], *, mail_state_path=No
 
     sent_targets[target] = {
         "sent_at": _now_iso(),
-        "mode": "degraded" if degraded else "normal",
+        "mode": mode,
         "subject": subject,
     }
-    _write_json(state_path, {
+    _write_json(path, {
         "schema_version": 1,
         "sent_targets": sent_targets,
         "updated_at": _now_iso(),
     })
     return {"status": "sent", "sent": True, "target_trade_date": target, "subject": subject}
 
+
+def send_daily_action_email(action_result: Dict[str, Any], *, mail_state_path=None,
+                            send_func=None) -> Dict[str, Any]:
+    target = str(action_result.get("target_trade_date") or "")
+    degraded = bool(action_result.get("degraded"))
+    subject = f"[每日操作{'-降级' if degraded else ''}] {target}"
+    return _send_action_email(
+        action_result,
+        state_path=mail_state_path or MAIL_STATE_FILE,
+        subject=subject,
+        mode="degraded" if degraded else "normal",
+        send_func=send_func,
+    )
+
+
+def send_close_review_email(action_result: Dict[str, Any], *, mail_state_path=None,
+                            send_func=None) -> Dict[str, Any]:
+    target = str(action_result.get("target_trade_date") or "")
+    return _send_action_email(
+        action_result,
+        state_path=mail_state_path or CLOSE_REVIEW_MAIL_STATE_FILE,
+        subject=f"[收盘复盘] {target}",
+        mode="close_review",
+        send_func=send_func,
+    )
 
 def refresh_and_send_daily_action(*, target_trade_date=None, degraded: bool = False,
                                   mail_state_path=None, send_func=None, **refresh_kwargs) -> Dict[str, Any]:
@@ -248,6 +292,33 @@ def refresh_and_send_daily_action(*, target_trade_date=None, degraded: bool = Fa
     mail_result = send_daily_action_email(
         action_result,
         mail_state_path=mail_state_path,
+        send_func=send_func,
+    )
+    return {"action": action_result, "mail": mail_result}
+
+
+def refresh_and_send_close_review(*, target_trade_date, mail_state_path=None,
+                                  send_func=None, **refresh_kwargs) -> Dict[str, Any]:
+    target = str(target_trade_date or "").strip()
+    if not target:
+        return {
+            "action": {"status": "pending", "target_trade_date": None},
+            "mail": {"status": "pending", "sent": False, "target_trade_date": None},
+        }
+    state_path = Path(mail_state_path or CLOSE_REVIEW_MAIL_STATE_FILE)
+    if target in ((_read_json(state_path).get("sent_targets") or {})):
+        return {
+            "action": {"status": "skipped_already_sent", "target_trade_date": target},
+            "mail": {"status": "already_sent", "sent": False, "target_trade_date": target},
+        }
+    action_result = refresh_daily_action(
+        target_trade_date=target,
+        phase="close_review",
+        **refresh_kwargs,
+    )
+    mail_result = send_close_review_email(
+        action_result,
+        mail_state_path=state_path,
         send_func=send_func,
     )
     return {"action": action_result, "mail": mail_result}

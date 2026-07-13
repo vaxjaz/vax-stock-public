@@ -224,3 +224,82 @@ def test_history_verdict_uses_absolute_return_not_benchmark_excess():
     verdict = _history_evidence_verdict(summary, _policy()["action_rules"])
     assert verdict["verdict"] == "preliminary_conflict"
     assert verdict["blocks_add"] is True
+
+def test_close_review_risk_trigger_overrides_add_and_marks_execution_unconfirmed():
+    task = _task("600001", "watch", "up")
+    snapshot = {"target_trade_dates": ["20260713"], "tasks": [task]}
+    holdings = {"600001": {"name": "A", "shares": 1000, "cost": 12.0}}
+    capacity = _capacity()
+    capacity["holdings"] = {"600001": capacity["holdings"]["600001"]}
+    facts = {"600001": [
+        {
+            "code": "600001", "task_id": "task_600001",
+            "trigger_type": "reclaim_confirm", "severity": "medium",
+            "trade_time": "09:31:00", "price": 10.2, "occurrences": 1,
+        },
+        {
+            "code": "600001", "task_id": "task_600001",
+            "trigger_type": "breakdown_confirm", "severity": "high",
+            "trade_time": "10:15:00", "price": 8.0, "occurrences": 2,
+        },
+    ]}
+
+    plan = build_daily_action_plan(
+        snapshot, holdings, capacity, _policy(),
+        dline_trigger_facts=facts, phase="close_review",
+    )
+    row = plan["holdings"][0]
+    assert plan["phase"] == "close_review"
+    assert row["action"] == "风险条件已触发，减仓执行待确认"
+    assert row["conditional_add"] is None
+    assert row["risk_reduce"]["triggered"] is True
+    assert row["risk_reduce"]["estimated_shares"] == 600
+    assert row["risk_reduce"]["estimated_amount"] == 4800.0
+    markdown = render_daily_action_markdown(plan)
+    assert "# 20260713 收盘操作复盘" in markdown
+    assert "10:15:00触发破位确认，触发价8.00，风险级别高" in markdown
+    assert "同一任务重复记录2次，本报告按首次触发" in markdown
+    assert "风险结果: 条件已触发" in markdown
+    assert "实际成交待确认" in markdown
+
+
+def test_close_review_marks_untriggered_conditions_without_inventing_execution():
+    task = _task("600001", "watch", "up")
+    snapshot = {"target_trade_dates": ["20260713"], "tasks": [task]}
+    holdings = {"600001": {"name": "A", "shares": 1000, "cost": 12.0}}
+    capacity = _capacity()
+    capacity["holdings"] = {"600001": capacity["holdings"]["600001"]}
+
+    plan = build_daily_action_plan(
+        snapshot, holdings, capacity, _policy(),
+        dline_trigger_facts={}, phase="close_review",
+    )
+    row = plan["holdings"][0]
+    assert row["action"] == "D线未记录加仓触发，不执行系统加仓"
+    assert row["conditional_add"]["triggered"] is False
+    assert row["risk_reduce"]["triggered"] is False
+    markdown = render_daily_action_markdown(plan)
+    assert "加仓结果: D线未记录到" in markdown
+    assert "风险结果: D线未记录到" in markdown
+    assert "已经买入" not in markdown
+    assert "已经减仓" not in markdown
+
+def test_premarket_plan_ignores_same_day_dline_trigger_facts():
+    task = _task("600001", "watch", "up")
+    snapshot = {"target_trade_dates": ["20260713"], "tasks": [task]}
+    holdings = {"600001": {"name": "A", "shares": 1000, "cost": 12.0}}
+    capacity = _capacity()
+    capacity["holdings"] = {"600001": capacity["holdings"]["600001"]}
+    facts = {"600001": [{
+        "code": "600001", "task_id": "task_600001",
+        "trigger_type": "breakdown_confirm", "severity": "high",
+        "trade_time": "10:15:00", "price": 8.0,
+    }]}
+
+    plan = build_daily_action_plan(
+        snapshot, holdings, capacity, _policy(), dline_trigger_facts=facts,
+    )
+    row = plan["holdings"][0]
+    assert plan["phase"] == "pre_market"
+    assert row["risk_reduce"]["triggered"] is None
+    assert "执行待确认" not in row["action"]

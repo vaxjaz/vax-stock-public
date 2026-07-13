@@ -182,7 +182,9 @@ def _sell_estimate(unit_amount: Optional[float], price: Optional[float],
 
 def build_daily_action_plan(task_snapshot: Mapping[str, Any], holdings: Mapping[str, Mapping[str, Any]],
                             capacity: Mapping[str, Any], policy: Mapping[str, Any], *,
-                            degraded: bool = False) -> Dict[str, Any]:
+                            degraded: bool = False,
+                            dline_trigger_facts: Optional[Mapping[str, Iterable[Mapping[str, Any]]]] = None,
+                            phase: str = "pre_market") -> Dict[str, Any]:
     """生成只面向真实持仓的每日操作计划；不读取网络，不自动开新仓。"""
     tasks = task_snapshot.get("tasks") or []
     task_by_code = {str(t.get("code")): t for t in tasks if isinstance(t, dict) and t.get("code")}
@@ -239,6 +241,17 @@ def build_daily_action_plan(task_snapshot: Mapping[str, Any], holdings: Mapping[
         positive = _first_trigger(blueprints, positive_types)
         risk = _first_trigger(blueprints, risk_types)
         metrics = (evidence.get("A_eod") or {}).get("metrics") or {}
+        task_id = str((task or {}).get("task_id") or "")
+        trigger_facts = [
+            dict(fact) for fact in ((dline_trigger_facts or {}).get(code) or [])
+            if task_id and str((fact or {}).get("task_id") or "") == task_id
+        ]
+        risk_trigger = next(
+            (fact for fact in trigger_facts if fact.get("trigger_type") in set(risk_types)), None
+        ) if phase == "close_review" else None
+        positive_trigger = next(
+            (fact for fact in trigger_facts if fact.get("trigger_type") in set(positive_types)), None
+        ) if phase == "close_review" else None
 
         add_capacity = ((cap.get("unit_capacity") or {}).get(add_unit) or {}) if add_unit else {}
         add_eligible = (
@@ -308,6 +321,34 @@ def build_daily_action_plan(task_snapshot: Mapping[str, Any], holdings: Mapping[
                 ),
             }
 
+        if add_plan is not None:
+            add_plan["triggered"] = False if phase == "close_review" else None
+        if risk_plan is not None:
+            risk_plan["triggered"] = False if phase == "close_review" else None
+
+        if risk_trigger is not None:
+            add_plan = None
+            action = (
+                "风险条件已触发，减仓执行待确认"
+                if risk_plan is not None else "风险条件已触发，减仓数量待确认"
+            )
+            reason = "D线风险条件已真实触发；系统没有实际成交记录，不能视为已经减仓"
+            if risk_plan is not None:
+                trigger_price = _number(risk_trigger.get("price"))
+                if trigger_price is not None:
+                    risk_plan.update(_sell_estimate(
+                        unit_amounts.get(reduce_unit), trigger_price,
+                        cap.get("shares"), lot_size,
+                    ))
+                risk_plan.update({"triggered": True, "trigger_fact": risk_trigger})
+        elif positive_trigger is not None and add_plan is not None:
+            action = "加仓条件已触发，成交待确认"
+            reason = "D线加仓条件已真实触发；系统没有实际成交记录，不能视为已经买入"
+            add_plan.update({"triggered": True, "trigger_fact": positive_trigger})
+        elif phase == "close_review" and add_plan is not None:
+            action = "D线未记录加仓触发，不执行系统加仓"
+            reason = "截至收盘未发现与当前任务匹配的D线加仓触发记录"
+
         cost_price = _number(holding.get("cost"))
         reference_price = _number(cap.get("reference_price"))
         current_shares = cap.get("shares")
@@ -339,11 +380,13 @@ def build_daily_action_plan(task_snapshot: Mapping[str, Any], holdings: Mapping[
             "reason": reason,
             "conditional_add": add_plan,
             "risk_reduce": risk_plan,
+            "dline_triggers": trigger_facts,
             "pending": row_pending,
         })
 
     return {
-        "schema_version": 1,
+        "schema_version": 2,
+        "phase": phase,
         "policy_version": policy.get("policy_version"),
         "degraded": degraded,
         "available": not pending and bool(rows) and all(not row.get("pending") for row in rows),

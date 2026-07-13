@@ -628,3 +628,35 @@ if __name__ == "__main__":
             failed += 1; print(f"  [ERROR] {name}: {type(e).__name__}: {e}")
     print(f"\n{len(fns)-failed}/{len(fns)} passed")
     sys.exit(1 if failed else 0)
+
+def test_close_review_target_requires_one_consistent_task_date():
+    assert intra._close_review_target([
+        {"target_trade_date": "20260713"},
+        {"target_trade_date": "20260713"},
+    ]) == "20260713"
+    assert intra._close_review_target([
+        {"target_trade_date": "20260713"},
+        {"target_trade_date": "20260714"},
+    ]) is None
+    assert intra._close_review_target([]) is None
+
+
+def test_run_close_review_delegates_to_idempotent_service():
+    from vaxstock.services import daily_action
+    saved = daily_action.refresh_and_send_close_review
+    calls = []
+    try:
+        daily_action.refresh_and_send_close_review = lambda **kwargs: (
+            calls.append(kwargs) or {
+                "action": {"status": "written"},
+                "mail": {"status": "sent"},
+            }
+        )
+        result = intra._run_close_review([
+            {"target_trade_date": "20260713"},
+            {"target_trade_date": "20260713"},
+        ])
+        assert result["mail"]["status"] == "sent"
+        assert calls == [{"target_trade_date": "20260713"}]
+    finally:
+        daily_action.refresh_and_send_close_review = saved

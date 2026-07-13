@@ -5,7 +5,10 @@ import tempfile
 from pathlib import Path
 
 from vaxstock import config
-from vaxstock.services.daily_action import load_daily_strategy_row, send_daily_action_email
+from vaxstock.services.daily_action import (
+    _strategy_output_paths, load_daily_strategy_row, send_close_review_email,
+    send_daily_action_email,
+)
 
 
 def _action(degraded=False):
@@ -101,3 +104,65 @@ def test_load_daily_strategy_row_requires_matching_target():
         }, ensure_ascii=False), encoding="utf-8")
         assert load_daily_strategy_row("601138", "20260713", plan_path=path)["action"] == "持有，不加仓"
         assert load_daily_strategy_row("601138", "20260714", plan_path=path) == {}
+
+def test_close_review_mail_has_independent_idempotent_state():
+    saved = config.SECRETS
+    calls = []
+    try:
+        config.SECRETS = _secrets()
+        with tempfile.TemporaryDirectory() as tmp:
+            daily_state = Path(tmp) / "daily.json"
+            close_state = Path(tmp) / "close.json"
+
+            def _send(*args, **kwargs):
+                calls.append(kwargs.get("subject"))
+                return True
+
+            daily = send_daily_action_email(
+                _action(), mail_state_path=daily_state, send_func=_send,
+            )
+            close = send_close_review_email(
+                _action(), mail_state_path=close_state, send_func=_send,
+            )
+            duplicate = send_close_review_email(
+                _action(), mail_state_path=close_state, send_func=_send,
+            )
+            close_state_data = json.loads(close_state.read_text(encoding="utf-8"))
+
+        assert daily["status"] == "sent"
+        assert close["status"] == "sent"
+        assert duplicate["status"] == "already_sent"
+        assert calls == ["[每日操作] 20260713", "[收盘复盘] 20260713"]
+        assert close_state_data["sent_targets"]["20260713"]["mode"] == "close_review"
+    finally:
+        config.SECRETS = saved
+
+def test_close_review_fast_skips_before_regenerating_when_already_sent():
+    from vaxstock.services import daily_action
+    saved = daily_action.refresh_daily_action
+    try:
+        with tempfile.TemporaryDirectory() as tmp:
+            state_path = Path(tmp) / "close.json"
+            state_path.write_text(json.dumps({
+                "sent_targets": {"20260713": {"mode": "close_review"}},
+            }), encoding="utf-8")
+            daily_action.refresh_daily_action = lambda **kwargs: (_ for _ in ()).throw(
+                AssertionError("must not regenerate an already-sent close review")
+            )
+            result = daily_action.refresh_and_send_close_review(
+                target_trade_date="20260713", mail_state_path=state_path,
+            )
+        assert result["action"]["status"] == "skipped_already_sent"
+        assert result["mail"]["status"] == "already_sent"
+    finally:
+        daily_action.refresh_daily_action = saved
+
+def test_close_review_output_paths_do_not_overwrite_premarket_files():
+    out_dir = Path("strategy")
+    daily = _strategy_output_paths(out_dir, "20260713", "pre_market")
+    close = _strategy_output_paths(out_dir, "20260713", "close_review")
+    assert daily[0].name == "daily_action_20260713.md"
+    assert daily[1].name == "daily_action_latest.md"
+    assert close[0].name == "close_review_20260713.md"
+    assert close[1].name == "close_review_latest.md"
+    assert set(daily).isdisjoint(close)
