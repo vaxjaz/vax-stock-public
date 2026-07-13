@@ -275,12 +275,16 @@ def test_close_review_marks_untriggered_conditions_without_inventing_execution()
         dline_trigger_facts={}, phase="close_review",
     )
     row = plan["holdings"][0]
-    assert row["action"] == "D线未记录加仓触发，不执行系统加仓"
-    assert row["conditional_add"]["triggered"] is False
-    assert row["risk_reduce"]["triggered"] is False
+    assert row["action"] == "D线观察证据不足，不操作"
+    assert row["conditional_add"]["triggered"] is None
+    assert row["conditional_add"]["trigger_record_status"] == "coverage_missing"
+    assert row["risk_reduce"]["triggered"] is None
+    assert row["risk_reduce"]["trigger_record_status"] == "coverage_missing"
+    assert "dline.coverage" in row["pending"]
     markdown = render_daily_action_markdown(plan)
-    assert "加仓结果: D线未记录到" in markdown
-    assert "风险结果: D线未记录到" in markdown
+    assert "D线观察: 无与当前任务匹配的有效观察记录" in markdown
+    assert "加仓结果: D线观察记录不足" in markdown
+    assert "风险结果: D线观察记录不足" in markdown
     assert "已经买入" not in markdown
     assert "已经减仓" not in markdown
 
@@ -303,3 +307,34 @@ def test_premarket_plan_ignores_same_day_dline_trigger_facts():
     assert plan["phase"] == "pre_market"
     assert row["risk_reduce"]["triggered"] is None
     assert "执行待确认" not in row["action"]
+
+def test_close_review_uses_verified_observation_coverage_for_not_recorded():
+    task = _task("600001", "watch", "up")
+    snapshot = {"target_trade_dates": ["20260713"], "tasks": [task]}
+    holdings = {"600001": {"name": "A", "shares": 1000, "cost": 12.0}}
+    capacity = _capacity()
+    capacity["holdings"] = {"600001": capacity["holdings"]["600001"]}
+    coverage = {
+        "status": "available", "target_trade_date": "20260713",
+        "by_code": {"600001": [{
+            "task_id": "task_600001", "code": "600001",
+            "observation_count": 12,
+            "first_quote_trade_time": "09:35:00",
+            "last_quote_trade_time": "14:58:00",
+            "last_price": 10.2,
+        }]},
+    }
+
+    plan = build_daily_action_plan(
+        snapshot, holdings, capacity, _policy(), dline_trigger_facts={},
+        dline_coverage=coverage, phase="close_review",
+    )
+    row = plan["holdings"][0]
+    assert row["action"] == "D线已观察，未记录加仓触发，不执行系统加仓"
+    assert row["conditional_add"]["trigger_record_status"] == "not_recorded"
+    assert row["risk_reduce"]["trigger_record_status"] == "not_recorded"
+    assert row["pending"] == []
+    markdown = render_daily_action_markdown(plan)
+    assert "D线观察: 有效观察12次，首笔09:35:00，末笔14:58:00，最后价10.20" in markdown
+    assert "加仓结果: D线未记录到" in markdown
+    assert "风险结果: D线未记录到" in markdown

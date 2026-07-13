@@ -26,7 +26,8 @@ from vaxstock.report.notify import push_email, push_wechat
 from vaxstock.services._intraday_rules import enforce_intraday_rules
 from vaxstock.services._t1_baseline import load_t1_baseline
 from vaxstock.report.stock_evidence import format_earnings, format_live_history, format_today_strategy
-from vaxstock.services.forecast_recorder import record_forecast
+from vaxstock.services.forecast_recorder import load_dline_trigger_facts, record_forecast
+from vaxstock.services.observation_coverage import record_task_observation
 from vaxstock.sources.codex import call_codex
 
 logger = logging.getLogger(__name__)
@@ -446,14 +447,23 @@ def _condition_matches(condition: Dict[str, Any], values: Dict[str, Any]) -> boo
     return all_ok and any_ok
 
 
-def check_dline_task(task: Dict[str, Any], quote: Dict[str, Any]) -> Tuple[Optional[int], Optional[Dict[str, Any]], Dict[str, Any]]:
+def matching_dline_triggers(task: Dict[str, Any], quote: Dict[str, Any]):
     values = _quote_feature_values(task, quote)
     blueprints = ((task.get("observation") or {}).get("trigger_blueprints") or [])
+    matches = []
     for idx, bp in enumerate(blueprints):
         if not isinstance(bp, dict):
             continue
         if _condition_matches(bp.get("condition") or {}, values):
-            return idx, bp, values
+            matches.append((idx, bp, values))
+    return matches
+
+
+def check_dline_task(task: Dict[str, Any], quote: Dict[str, Any]) -> Tuple[Optional[int], Optional[Dict[str, Any]], Dict[str, Any]]:
+    matches = matching_dline_triggers(task, quote)
+    if matches:
+        return matches[0]
+    values = _quote_feature_values(task, quote)
     return None, None, values
 
 
@@ -692,6 +702,38 @@ def _close_review_target(dline_tasks: List[Dict[str, Any]]) -> Optional[str]:
     return next(iter(targets)) if len(targets) == 1 else None
 
 
+def _dline_trigger_key(task: Dict[str, Any], trigger_type: str):
+    return ("dline", task.get("task_id") or task.get("code"), str(trigger_type or ""))
+
+
+def _existing_dline_runtime_state(dline_tasks: List[Dict[str, Any]]):
+    target = _close_review_target(dline_tasks)
+    if not target:
+        return set(), {}
+    try:
+        facts_by_code = load_dline_trigger_facts(target)
+    except Exception as exc:
+        logger.warning("failed to restore D-line fired keys: %s: %s", type(exc).__name__, str(exc)[:160])
+        return set(), {}
+    task_by_id = {
+        str(task.get("task_id") or ""): task for task in dline_tasks if task.get("task_id")
+    }
+    restored = set()
+    fire_counts = {}
+    for facts in facts_by_code.values():
+        for fact in facts:
+            task = task_by_id.get(str(fact.get("task_id") or ""))
+            if task is not None:
+                restored.add(_dline_trigger_key(task, fact.get("trigger_type")))
+                code = str(task.get("code") or "")
+                fire_counts[code] = fire_counts.get(code, 0) + 1
+    return restored, fire_counts
+
+
+def _existing_dline_fired_keys(dline_tasks: List[Dict[str, Any]]):
+    return _existing_dline_runtime_state(dline_tasks)[0]
+
+
 def _run_close_review(dline_tasks: List[Dict[str, Any]]) -> Dict[str, Any]:
     target = _close_review_target(dline_tasks)
     if not target:
@@ -708,15 +750,12 @@ def _run_close_review(dline_tasks: List[Dict[str, Any]]) -> Dict[str, Any]:
 def run(once=False, force=False):
     rules = load_rules()
     dline_tasks = load_dline_tasks()
-    fired_keys = set()
-    today_fire_count = {}
+    fired_keys, today_fire_count = _existing_dline_runtime_state(dline_tasks)
     fire_count_day = None
 
     def _rule_key(r):
         return ("legacy", r.get("code"), r.get("type"), r.get("level"))
 
-    def _dline_key(task):
-        return ("dline", task.get("task_id") or task.get("code"))
 
     def _active_codes():
         legacy_codes = {r.get("code") for r in rules if r.get("code")}
@@ -745,6 +784,9 @@ def run(once=False, force=False):
         if _today != fire_count_day:
             today_fire_count.clear()
             fired_keys.clear()
+            restored_keys, restored_counts = _existing_dline_runtime_state(dline_tasks)
+            fired_keys.update(restored_keys)
+            today_fire_count.update(restored_counts)
             fire_count_day = _today
 
         if not is_trading_time(force):
@@ -769,7 +811,15 @@ def run(once=False, force=False):
         for r in new_rules:
             r["fired"] = _rule_key(r) in fired_keys
         rules = new_rules
-        dline_tasks = load_dline_tasks()
+        loaded_dline_tasks = load_dline_tasks()
+        previous_task_ids = {str(task.get("task_id") or "") for task in dline_tasks}
+        loaded_task_ids = {str(task.get("task_id") or "") for task in loaded_dline_tasks}
+        dline_tasks = loaded_dline_tasks
+        if loaded_task_ids != previous_task_ids:
+            restored_keys, restored_counts = _existing_dline_runtime_state(dline_tasks)
+            fired_keys.update(restored_keys)
+            for code, count in restored_counts.items():
+                today_fire_count[code] = max(today_fire_count.get(code, 0), count)
         codes = _active_codes()
         if not codes:
             logger.info("no legacy rules and no D-line tasks for today; no-op")
@@ -802,21 +852,25 @@ def run(once=False, force=False):
                     fired_keys.add(_rule_key(rule))
 
             for task in dline_tasks:
-                key = _dline_key(task)
-                if key in fired_keys:
-                    continue
                 code = task.get("code")
                 qd = data.get(code)
                 if not qd:
                     continue
-                idx, bp, values = check_dline_task(task, qd)
-                if bp is None:
-                    continue
-                today_fire_count[code] = today_fire_count.get(code, 0) + 1
-                logger.info("D-line trigger matched: code=%s task_id=%s blueprint_index=%s trigger_type=%s",
-                            code, task.get("task_id"), idx, bp.get("trigger_type"))
-                notify_dline(task, qd, bp, values, fire_count=today_fire_count.get(code, 1))
-                fired_keys.add(key)
+                coverage = record_task_observation(
+                    task, qd, observed_at=dt.datetime.now().isoformat(timespec="seconds"),
+                )
+                if coverage.get("status") == "error":
+                    logger.warning("D-line coverage write failed: code=%s task_id=%s detail=%s",
+                                   code, task.get("task_id"), coverage.get("detail"))
+                for idx, bp, values in matching_dline_triggers(task, qd):
+                    key = _dline_trigger_key(task, bp.get("trigger_type"))
+                    if key in fired_keys:
+                        continue
+                    today_fire_count[code] = today_fire_count.get(code, 0) + 1
+                    logger.info("D-line trigger matched: code=%s task_id=%s blueprint_index=%s trigger_type=%s",
+                                code, task.get("task_id"), idx, bp.get("trigger_type"))
+                    notify_dline(task, qd, bp, values, fire_count=today_fire_count.get(code, 1))
+                    fired_keys.add(key)
 
         if once:
             break

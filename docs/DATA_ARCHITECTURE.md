@@ -314,6 +314,12 @@ Source: `services.forecast_planner.record_observation_tasks`
 
 Purpose: materialized active tasks for the target session. It is not append-only and can be rebuilt from `observation_tasks.jsonl`.
 
+### `current_observation_status.json`
+
+Source: `services.observation_coverage.record_task_observation`, called by `services.intraday` after a same-session quote is verified.
+
+Purpose: runtime evidence for each current D-line task: observation count, first/last observation timestamps, first/last quote times, and the final observed price. Writes are atomic and duplicate observation keys are idempotent. A stale quote whose `trade_date` does not equal the task `target_trade_date` is rejected. This current-session file is gitignored; dated close-review JSON copies the evidence needed for audit.
+
 ### `forecasts.jsonl`
 
 来源: `services.forecast_recorder.record_forecast`
@@ -360,6 +366,8 @@ Purpose: materialized active tasks for the target session. It is not append-only
 口径:上述 Markdown 只过滤 `structured.source=dline_task_blueprint` 且 `dline_plan_version=d_observe_llm_v2` 的触发行;它展示触发时 quote、MA 偏离、C线原始 action/direction/confidence、LLM 客观评价和 C线反哺线索,不写未来结果,不自动调参。
 
 收盘闭环:`services.forecast_recorder.load_dline_trigger_facts` 同时接受 `YYYYMMDD` / `YYYY-MM-DD` 交易日,只读取 D线 v2,并按 `(code, task_id, trigger_type)` 取首次触发、统计重复次数。`services.daily_action` 仅在 trigger 的 `task_id` 与当前任务完全一致时把它并入操作清单;风险触发优先于加仓触发,但没有成交记录时只能写“执行待确认”。
+
+`services.intraday` keeps observing a task after its first trigger and deduplicates notifications by `(task_id, trigger_type)`. On restart it restores those keys from frozen D-line facts. The close review distinguishes `recorded`, `not_recorded`, and `coverage_missing`; missing coverage never becomes a false “not triggered” conclusion.
 
 当前缺口:
 

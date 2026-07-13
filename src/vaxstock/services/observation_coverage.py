@@ -67,8 +67,10 @@ def record_task_observation(task: Dict[str, Any], quote: Dict[str, Any], *,
             "status": "skipped", "reason": "quote_trade_date_mismatch",
             "target_trade_date": target, "quote_trade_date": quote_date,
         }
-    if price is None:
-        return {"status": "skipped", "reason": "quote_price_missing"}
+    try:
+        price_value = float(price)
+    except (TypeError, ValueError):
+        return {"status": "skipped", "reason": "quote_price_invalid"}
     try:
         observed = _observed_at(observed_at)
     except ValueError:
@@ -79,8 +81,18 @@ def record_task_observation(task: Dict[str, Any], quote: Dict[str, Any], *,
         return {"status": "error", "reason": "status_file_invalid", "detail": error}
     if state and _trade_date_key(state.get("target_trade_date")) != target:
         state = {}
-    tasks = dict((state or {}).get("tasks") or {})
-    current = dict(tasks.get(task_id) or {})
+    raw_tasks = (state or {}).get("tasks")
+    if raw_tasks is None:
+        raw_tasks = {}
+    if not isinstance(raw_tasks, dict):
+        return {"status": "error", "reason": "status_file_invalid_schema", "detail": "tasks_not_object"}
+    tasks = dict(raw_tasks)
+    raw_current = tasks.get(task_id)
+    if raw_current is None:
+        raw_current = {}
+    if not isinstance(raw_current, dict):
+        return {"status": "error", "reason": "status_file_invalid_schema", "detail": "task_not_object"}
+    current = dict(raw_current)
     quote_time = str(quote.get("trade_time") or "").strip() or None
     observation_key = "|".join([
         task_id, observed, quote_date,
@@ -99,7 +111,7 @@ def record_task_observation(task: Dict[str, Any], quote: Dict[str, Any], *,
         "observation_count": count,
         "first_quote_trade_time": current.get("first_quote_trade_time") or quote_time,
         "last_quote_trade_time": quote_time,
-        "last_price": float(price),
+        "last_price": price_value,
         "last_change_pct": quote.get("change_pct"),
         "last_quote_source": quote.get("source"),
         "last_observation_key": observation_key,
@@ -129,8 +141,16 @@ def load_observation_coverage(trade_date: str, *, status_path=None) -> Dict[str,
             "status": "target_mismatch", "target_trade_date": target,
             "observed_trade_date": actual, "by_code": {},
         }
+    raw_tasks = state.get("tasks")
+    if raw_tasks is None:
+        raw_tasks = {}
+    if not isinstance(raw_tasks, dict):
+        return {
+            "status": "invalid", "target_trade_date": target,
+            "by_code": {}, "detail": "tasks_not_object",
+        }
     by_code: Dict[str, list] = {}
-    for row in (state.get("tasks") or {}).values():
+    for row in raw_tasks.values():
         if not isinstance(row, dict) or _trade_date_key(row.get("target_trade_date")) != target:
             continue
         code = str(row.get("code") or "").strip()

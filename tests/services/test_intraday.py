@@ -533,28 +533,41 @@ def test_notify_dline_freezes_forecast_and_pushes():
 
 
 def test_run_consumes_dline_current_tasks():
-    saved = (intra.load_rules, intra.load_dline_tasks, intra.fetch_quotes, intra.notify_dline, intra.request)
+    saved = (intra.load_rules, intra.load_dline_tasks, intra.fetch_quotes, intra.notify_dline,
+             intra.record_task_observation, intra.load_dline_trigger_facts, intra.request)
     calls = []
+    coverage_calls = []
     try:
         intra.load_rules = lambda: []
         intra.load_dline_tasks = lambda: [_sample_dline_task()]
+        intra.record_task_observation = lambda task, quote, **kwargs: (
+            coverage_calls.append((task["code"], quote["trade_date"])) or {"status": "written"}
+        )
+        intra.load_dline_trigger_facts = lambda *args, **kwargs: {}
         intra.fetch_quotes = lambda codes: {"002475": {"code": "002475", "name": "立讯精密", "price": 96.0,
             "change_pct": -1.5, "amplitude_pct": 3.2, "amount": 2e8, "trade_date": "20260706"}}
         intra.notify_dline = lambda task, quote, bp, values, fire_count=None: calls.append((task["code"], bp["trigger_type"], fire_count))
         intra.request = types.SimpleNamespace(urlopen=lambda *a, **k: _FakeResp({"regime": "x"}))
         intra.run(once=True, force=True)
         assert calls == [("002475", "breakdown_confirm", 1)]
+        assert coverage_calls == [("002475", "20260706")]
     finally:
-        intra.load_rules, intra.load_dline_tasks, intra.fetch_quotes, intra.notify_dline, intra.request = saved
+        (intra.load_rules, intra.load_dline_tasks, intra.fetch_quotes, intra.notify_dline,
+         intra.record_task_observation, intra.load_dline_trigger_facts, intra.request) = saved
 # ── C2b: run() 今日触发计数 —— 同 code 多规则递增; 跨日清零 ──
 def test_run_fire_count_increments_per_code():
-    saved = (intra.load_rules, intra.load_dline_tasks, intra.fetch_quotes, intra.notify, intra.request)
+    saved = (intra.load_rules, intra.load_dline_tasks, intra.fetch_quotes, intra.notify,
+             intra.record_task_observation, intra.load_dline_trigger_facts, intra.request)
     calls = []
+    coverage_calls = []
     try:
         intra.load_rules = lambda: [
             {"code": "002475", "name": "立讯", "type": "price_above", "level": 69.0, "note": "a"},
             {"code": "002475", "name": "立讯", "type": "pct_above", "level": 1.0, "note": "b"},
         ]
+        intra.load_dline_tasks = lambda: []
+        intra.record_task_observation = lambda *args, **kwargs: {"status": "written"}
+        intra.load_dline_trigger_facts = lambda *args, **kwargs: {}
         intra.fetch_quotes = lambda codes: {"002475": {"name": "立讯", "price": 70.0, "change_pct": 2.0}}
         intra.notify = lambda rule, quote, fire_count=None: calls.append((rule["type"], fire_count))
         intra.request = types.SimpleNamespace(urlopen=lambda *a, **k: _FakeResp({"regime": "x"}))
@@ -562,12 +575,14 @@ def test_run_fire_count_increments_per_code():
         # 同 code 两条规则同轮均触发 -> 计数 1,2
         assert sorted(fc for _, fc in calls) == [1, 2]
     finally:
-        intra.load_rules, intra.load_dline_tasks, intra.fetch_quotes, intra.notify, intra.request = saved
+        (intra.load_rules, intra.load_dline_tasks, intra.fetch_quotes, intra.notify,
+         intra.record_task_observation, intra.load_dline_trigger_facts, intra.request) = saved
 
 
 def test_run_fire_count_resets_on_new_day():
     _Stop = type("_Stop", (Exception,), {})
-    saved = (intra.load_rules, intra.load_dline_tasks, intra.fetch_quotes, intra.notify, intra.request,
+    saved = (intra.load_rules, intra.load_dline_tasks, intra.fetch_quotes, intra.notify,
+             intra.record_task_observation, intra.load_dline_trigger_facts, intra.request,
              intra.dt, intra.time)
     calls = []
     rule_a = {"code": "002475", "name": "立讯", "type": "price_above", "level": 69.0, "note": "a"}
@@ -596,6 +611,8 @@ def test_run_fire_count_resets_on_new_day():
     try:
         intra.load_rules = _load
         intra.load_dline_tasks = lambda: []
+        intra.record_task_observation = lambda *args, **kwargs: {"status": "written"}
+        intra.load_dline_trigger_facts = lambda *args, **kwargs: {}
         intra.fetch_quotes = lambda codes: {"002475": {"name": "立讯", "price": 70.0, "change_pct": 2.0}}
         intra.notify = lambda rule, quote, fire_count=None: calls.append((rule["type"], fire_count))
         intra.request = types.SimpleNamespace(urlopen=lambda *a, **k: _FakeResp({"regime": "x"}))
@@ -607,11 +624,11 @@ def test_run_fire_count_resets_on_new_day():
             intra.run(once=False, force=True)
         except _Stop:
             pass
-        # iter1(6/25): A 触发 fc=1; iter2(6/26 跨日清零): B 触发应回到 fc=1(未清零则为2)
-        assert ("price_above", 1) in calls
-        assert ("pct_above", 1) in calls, f"跨日未清零计数, 实际: {calls}"
+        # iter1(6/25): A=1; iter2(6/26): A重新生效=1，随后B=2。
+        assert calls[-2:] == [("price_above", 1), ("pct_above", 2)]
     finally:
-        (intra.load_rules, intra.load_dline_tasks, intra.fetch_quotes, intra.notify, intra.request,
+        (intra.load_rules, intra.load_dline_tasks, intra.fetch_quotes, intra.notify,
+         intra.record_task_observation, intra.load_dline_trigger_facts, intra.request,
          intra.dt, intra.time) = saved
 
 
@@ -660,3 +677,74 @@ def test_run_close_review_delegates_to_idempotent_service():
         assert calls == [{"target_trade_date": "20260713"}]
     finally:
         daily_action.refresh_and_send_close_review = saved
+
+def test_matching_dline_triggers_returns_every_matching_type():
+    task = {
+        "observation": {"trigger_blueprints": [
+            {"trigger_type": "reclaim_confirm", "condition": {}},
+            {"trigger_type": "breakdown_confirm", "condition": {}},
+        ]},
+        "evidence_pack": {"A_eod": {"metrics": {}}},
+    }
+    matches = intra.matching_dline_triggers(task, {"price": 10.0})
+    assert [row[1]["trigger_type"] for row in matches] == [
+        "reclaim_confirm", "breakdown_confirm",
+    ]
+
+
+def test_existing_dline_fired_keys_restores_each_frozen_trigger_type():
+    saved = intra.load_dline_trigger_facts
+    task = {
+        "task_id": "task_601138", "code": "601138",
+        "target_trade_date": "20260713",
+    }
+    try:
+        intra.load_dline_trigger_facts = lambda target: {"601138": [
+            {"task_id": "task_601138", "trigger_type": "reclaim_confirm"},
+            {"task_id": "task_601138", "trigger_type": "breakdown_confirm"},
+            {"task_id": "different_task", "trigger_type": "noise_filter"},
+        ]}
+        restored, counts = intra._existing_dline_runtime_state([task])
+    finally:
+        intra.load_dline_trigger_facts = saved
+    assert restored == {
+        ("dline", "task_601138", "reclaim_confirm"),
+        ("dline", "task_601138", "breakdown_confirm"),
+    }
+    assert counts == {"601138": 2}
+
+
+def test_run_restores_fired_keys_when_tasks_appear_after_startup():
+    saved = (
+        intra.load_rules, intra.load_dline_tasks, intra.fetch_quotes,
+        intra.notify_dline, intra.record_task_observation,
+        intra.load_dline_trigger_facts, intra.request,
+    )
+    task = _sample_dline_task()
+    loads = [[], [task]]
+    notifications = []
+    try:
+        intra.load_rules = lambda: []
+        intra.load_dline_tasks = lambda: loads.pop(0) if loads else [task]
+        intra.load_dline_trigger_facts = lambda target: {"002475": [{
+            "task_id": task["task_id"], "trigger_type": "reclaim_confirm",
+        }]}
+        intra.record_task_observation = lambda *args, **kwargs: {"status": "written"}
+        intra.fetch_quotes = lambda codes: {"002475": {
+            "code": "002475", "price": 96.0, "change_pct": -1.5,
+            "amplitude_pct": 3.2, "amount": 2e8, "trade_date": "20260706",
+        }}
+        intra.notify_dline = lambda task, quote, bp, values, fire_count=None: (
+            notifications.append((bp["trigger_type"], fire_count))
+        )
+        intra.request = types.SimpleNamespace(
+            urlopen=lambda *args, **kwargs: _FakeResp({"regime": "x"})
+        )
+        intra.run(once=True, force=True)
+        assert notifications == [("breakdown_confirm", 2)]
+    finally:
+        (
+            intra.load_rules, intra.load_dline_tasks, intra.fetch_quotes,
+            intra.notify_dline, intra.record_task_observation,
+            intra.load_dline_trigger_facts, intra.request,
+        ) = saved

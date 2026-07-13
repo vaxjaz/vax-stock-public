@@ -13,6 +13,9 @@ from vaxstock.report.daily_action import render_daily_action_markdown
 from vaxstock.report.mailer import send_email
 from vaxstock.services.history_summary import load_history_views
 from vaxstock.services.forecast_recorder import FORECASTS_FILE, load_dline_trigger_facts
+from vaxstock.services.observation_coverage import (
+    OBSERVATION_STATUS_FILE, load_observation_coverage,
+)
 
 CURRENT_TASKS_FILE = config.STATE_DIR / "forecast" / "current_tasks.json"
 STRATEGY_DIR = config.STATE_DIR / "strategy"
@@ -147,6 +150,7 @@ def refresh_daily_action(*, tasks_path=None, output_dir=None,
                          target_trade_date=None, degraded: bool = False,
                          holdings_data=None, portfolio_state=None,
                          policy_data=None, forecasts_path=None,
+                         observation_status_path=None,
                          phase: str = "pre_market") -> Dict[str, Any]:
     snapshot = _enrich_history(_snapshot_for_target(
         _read_json(tasks_path or CURRENT_TASKS_FILE),
@@ -178,10 +182,16 @@ def refresh_daily_action(*, tasks_path=None, output_dir=None,
     trigger_facts = load_dline_trigger_facts(
         trigger_target, forecasts_path=forecasts_path or FORECASTS_FILE,
     ) if phase == "close_review" and trigger_target else {}
+    coverage = load_observation_coverage(
+        trigger_target, status_path=observation_status_path or OBSERVATION_STATUS_FILE,
+    ) if phase == "close_review" and trigger_target else {
+        "status": "not_loaded", "target_trade_date": trigger_target or None, "by_code": {},
+    }
     plan = build_daily_action_plan(
         snapshot, holdings, capacity, policy,
         degraded=degraded,
         dline_trigger_facts=trigger_facts,
+        dline_coverage=coverage,
         phase=phase,
     )
     markdown = render_daily_action_markdown(plan)

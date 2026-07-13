@@ -16,3 +16,4 @@ __pycache__/
 *.bak
 *.log
 var/strategy/
+var/forecast/current_observation_status.json

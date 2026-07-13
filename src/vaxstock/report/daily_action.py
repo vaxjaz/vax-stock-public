@@ -54,6 +54,14 @@ def _trigger_fact_text(fact: Mapping[str, Any]) -> str:
     return text
 
 
+def _coverage_fact_text(fact: Mapping[str, Any]) -> str:
+    count = int(fact.get("observation_count") or 0)
+    first = fact.get("first_quote_trade_time") or fact.get("first_observed_at") or "待确认"
+    last = fact.get("last_quote_trade_time") or fact.get("last_observed_at") or "待确认"
+    price = "待确认" if fact.get("last_price") is None else f"{float(fact['last_price']):.2f}"
+    return f"有效观察{count}次，首笔{first}，末笔{last}，最后价{price}"
+
+
 def render_daily_action_markdown(plan: Mapping[str, Any]) -> str:
     bg = plan.get("background") or {}
     account = plan.get("account") or {}
@@ -102,17 +110,30 @@ def render_daily_action_markdown(plan: Mapping[str, Any]) -> str:
         lines.append(f"   - 原因: {row.get('reason')}")
         for fact in row.get("dline_triggers") or []:
             lines.append(f"   - D线事实: {_trigger_fact_text(fact)}。")
+        if plan.get("phase") == "close_review":
+            coverage = row.get("dline_coverage")
+            if coverage:
+                lines.append(f"   - D线观察: {_coverage_fact_text(coverage)}。")
+            elif row.get("dline_triggers"):
+                lines.append("   - D线观察: 独立覆盖记录缺失；已冻结触发事实仍保留。")
+            else:
+                lines.append("   - D线观察: 无与当前任务匹配的有效观察记录，盘中条件结果待确认。")
         add = row.get("conditional_add")
         if add:
             unit = _UNIT_LABELS.get(add.get("unit"), add.get("unit"))
-            if add.get("triggered") is True:
+            record_status = add.get("trigger_record_status")
+            if record_status == "recorded":
                 lines.append(
                     f"   - 加仓结果: 条件已触发；加仓上限{unit}，按参考价估算"
                     f"{add.get('estimated_shares')}股/{_amount(add.get('amount'))}；实际成交待确认。"
                 )
-            elif add.get("triggered") is False:
+            elif record_status == "not_recorded":
                 lines.append(
                     f"   - 加仓结果: D线未记录到{add.get('condition')}；系统未产生加仓执行依据。"
+                )
+            elif record_status == "coverage_missing":
+                lines.append(
+                    "   - 加仓结果: D线观察记录不足，无法确认条件是否发生；系统不执行加仓。"
                 )
             else:
                 lines.append(
@@ -123,14 +144,19 @@ def render_daily_action_markdown(plan: Mapping[str, Any]) -> str:
         if risk:
             unit = _UNIT_LABELS.get(risk.get("unit"), risk.get("unit"))
             shares = f"估算{risk.get('estimated_shares')}股" if risk.get("estimated_shares") is not None else "股数待确认"
-            if risk.get("triggered") is True:
+            record_status = risk.get("trigger_record_status")
+            if record_status == "recorded":
                 lines.append(
                     f"   - 风险结果: 条件已触发；减仓上限{unit}，{shares}/"
                     f"{_amount(risk.get('estimated_amount'))}；实际成交待确认。"
                 )
-            elif risk.get("triggered") is False:
+            elif record_status == "not_recorded":
                 lines.append(
                     f"   - 风险结果: D线未记录到{risk.get('condition')}；系统未产生减仓执行依据。"
+                )
+            elif record_status == "coverage_missing":
+                lines.append(
+                    "   - 风险结果: D线观察记录不足，无法确认条件是否发生；请按实际行情复核。"
                 )
             else:
                 lines.append(

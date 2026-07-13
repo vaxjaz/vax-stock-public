@@ -184,6 +184,7 @@ def build_daily_action_plan(task_snapshot: Mapping[str, Any], holdings: Mapping[
                             capacity: Mapping[str, Any], policy: Mapping[str, Any], *,
                             degraded: bool = False,
                             dline_trigger_facts: Optional[Mapping[str, Iterable[Mapping[str, Any]]]] = None,
+                            dline_coverage: Optional[Mapping[str, Any]] = None,
                             phase: str = "pre_market") -> Dict[str, Any]:
     """生成只面向真实持仓的每日操作计划；不读取网络，不自动开新仓。"""
     tasks = task_snapshot.get("tasks") or []
@@ -203,6 +204,8 @@ def build_daily_action_plan(task_snapshot: Mapping[str, Any], holdings: Mapping[
     lot_size = ((policy.get("trade_rules") or {}).get("buy_lot_size"))
     account = capacity.get("account") or {}
     unit_amounts = account.get("unit_amounts") or {}
+    coverage_status = str((dline_coverage or {}).get("status") or "not_loaded")
+    coverage_by_code = (dline_coverage or {}).get("by_code") or {}
 
     first_task = tasks[0] if tasks else {}
     first_evidence = (first_task.get("evidence_pack") or {}) if isinstance(first_task, dict) else {}
@@ -246,6 +249,10 @@ def build_daily_action_plan(task_snapshot: Mapping[str, Any], holdings: Mapping[
             dict(fact) for fact in ((dline_trigger_facts or {}).get(code) or [])
             if task_id and str((fact or {}).get("task_id") or "") == task_id
         ]
+        coverage_fact = next((
+            dict(fact) for fact in (coverage_by_code.get(code) or [])
+            if task_id and str((fact or {}).get("task_id") or "") == task_id
+        ), None)
         risk_trigger = next(
             (fact for fact in trigger_facts if fact.get("trigger_type") in set(risk_types)), None
         ) if phase == "close_review" else None
@@ -322,9 +329,21 @@ def build_daily_action_plan(task_snapshot: Mapping[str, Any], holdings: Mapping[
             }
 
         if add_plan is not None:
-            add_plan["triggered"] = False if phase == "close_review" else None
+            add_plan.update({
+                "triggered": None,
+                "trigger_record_status": (
+                    "not_recorded" if phase == "close_review" and coverage_fact
+                    else "coverage_missing" if phase == "close_review" else "pending"
+                ),
+            })
         if risk_plan is not None:
-            risk_plan["triggered"] = False if phase == "close_review" else None
+            risk_plan.update({
+                "triggered": None,
+                "trigger_record_status": (
+                    "not_recorded" if phase == "close_review" and coverage_fact
+                    else "coverage_missing" if phase == "close_review" else "pending"
+                ),
+            })
 
         if risk_trigger is not None:
             add_plan = None
@@ -340,14 +359,29 @@ def build_daily_action_plan(task_snapshot: Mapping[str, Any], holdings: Mapping[
                         unit_amounts.get(reduce_unit), trigger_price,
                         cap.get("shares"), lot_size,
                     ))
-                risk_plan.update({"triggered": True, "trigger_fact": risk_trigger})
+                risk_plan.update({
+                    "triggered": True, "trigger_record_status": "recorded",
+                    "trigger_fact": risk_trigger,
+                })
         elif positive_trigger is not None and add_plan is not None:
-            action = "加仓条件已触发，成交待确认"
-            reason = "D线加仓条件已真实触发；系统没有实际成交记录，不能视为已经买入"
-            add_plan.update({"triggered": True, "trigger_fact": positive_trigger})
+            if coverage_fact:
+                action = "加仓条件已触发，成交待确认"
+                reason = "D线加仓条件已真实触发；系统没有实际成交记录，不能视为已经买入"
+            else:
+                action = "加仓触发已记录，但D线观察证据不完整，不执行系统加仓"
+                reason = "存在加仓触发记录，但没有同任务观察覆盖记录，无法确认后续风险条件"
+                row_pending.append("dline.coverage")
+            add_plan.update({
+                "triggered": True, "trigger_record_status": "recorded",
+                "trigger_fact": positive_trigger,
+            })
+        elif phase == "close_review" and coverage_fact is None:
+            action = "D线观察证据不足，不操作"
+            reason = f"没有与当前任务匹配的D线有效观察记录（覆盖状态={coverage_status}），不能判断盘中条件是否发生"
+            row_pending.append("dline.coverage")
         elif phase == "close_review" and add_plan is not None:
-            action = "D线未记录加仓触发，不执行系统加仓"
-            reason = "截至收盘未发现与当前任务匹配的D线加仓触发记录"
+            action = "D线已观察，未记录加仓触发，不执行系统加仓"
+            reason = f"D线记录了{int(coverage_fact.get('observation_count') or 0)}次有效观察，未发现与当前任务匹配的加仓触发记录"
 
         cost_price = _number(holding.get("cost"))
         reference_price = _number(cap.get("reference_price"))
@@ -381,12 +415,14 @@ def build_daily_action_plan(task_snapshot: Mapping[str, Any], holdings: Mapping[
             "conditional_add": add_plan,
             "risk_reduce": risk_plan,
             "dline_triggers": trigger_facts,
+            "dline_coverage": coverage_fact,
             "pending": row_pending,
         })
 
     return {
-        "schema_version": 2,
+        "schema_version": 3,
         "phase": phase,
+        "dline_coverage_status": coverage_status,
         "policy_version": policy.get("policy_version"),
         "degraded": degraded,
         "available": not pending and bool(rows) and all(not row.get("pending") for row in rows),
