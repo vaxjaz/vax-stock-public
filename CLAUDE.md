@@ -212,7 +212,7 @@ print('✅ import无副作用 + 纯函数验证通过')
    | `var/forecast/current_tasks.json` | `services.forecast_planner.record_observation_tasks` | D线当前任务快照 | 当前目标交易日任务物化,供 services.intraday 盘中消费者读取 | 可覆盖;由 observation_tasks 重建 |
    | `var/forecast/forecasts.jsonl` | `services.forecast_recorder.record_forecast` | D线盘中触发评价 | 盘中触发时冻结 codex 结构化预测+T-1基准+lite快照+regime | append-only;触发样本,不可冒充全样本 |
    | `var/prediction/eod_predictions.jsonl` | `services.eod_predictor` | EOD Prediction 输入/动作 | 基于 `baseline_trade_date=T-1` EOD 真数据,预测 `target_trade_date=T` 的动作/方向/置信度 | append-only;同 `(baseline_trade_date,target_trade_date,code,rule_version,generation_mode)` 幂等 |
-   | `var/prediction/eod_prediction_results.jsonl` | `services.prediction_evaluator` | EOD Prediction 核验结果 | T+1 EOD 后核验 target 日真实收益、benchmark、excess、方向命中、动作命中、偏离 | append-only;同 `prediction_id+horizon` 幂等 |
+   | `var/prediction/eod_prediction_results.jsonl` | `services.prediction_evaluator` | EOD Prediction 核验结果 | 每日 reduce 全部历史并补齐已成熟 T+1..T+now 连续路径；原始 horizon 核验命中，后续路径只作演变证据 | append-only;同 `prediction_id+horizon` 幂等 |
    | `var/prediction/prediction_layer2_report_<trade_date>.md` | `research.prediction_eval.run_prediction_layer2` | EOD Prediction 分析报告 | action/direction/confidence × 环境/概念分桶,评估预测动作而非单纯 score;live/replay 分开展示,pending 不进指标,N 直接展示 | 可重生成覆盖 |
    | `var/prediction/rule_suggestions_<trade_date>.md` | `research.rule_suggester.run_rule_suggestions` | 研究建议 | 基于 action/market/concept 证据生成规则升级建议;展示 N、平均超额、命中率、evidence_strength;只建议,不自动改生产规则 | 可重生成覆盖;人工审核后另开 PR 升级 rule_version |
 

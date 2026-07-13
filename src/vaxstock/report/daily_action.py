@@ -3,7 +3,9 @@
 
 from typing import Any, Mapping
 
-from vaxstock.report.stock_evidence import format_earnings, format_live_history
+from vaxstock.report.stock_evidence import (
+    format_earnings, format_history_verdict, format_live_history,
+)
 
 _TIER_LABELS = {
     "ordinary": "普通",
@@ -57,6 +59,7 @@ def render_daily_action_markdown(plan: Mapping[str, Any]) -> str:
             f"（{tier}仓 {_pct(row.get('current_weight_pct'))}/{_pct(row.get('cap_pct'))}）"
         )
         lines.append(f"   - 真实历史: {format_live_history(row.get('history_summary') or {})}")
+        lines.append(f"   - 策略校正: {format_history_verdict(row.get('history_verdict') or {})}")
         lines.append(f"   - 公司财报: {format_earnings(row.get('earnings') or {})}")
         lines.append(f"   - 原因: {row.get('reason')}")
         add = row.get("conditional_add")

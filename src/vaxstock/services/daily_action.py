@@ -11,7 +11,7 @@ from vaxstock.analysis.daily_action import build_daily_action_plan
 from vaxstock.analysis.position_plan import build_position_capacity, revalue_portfolio_state
 from vaxstock.report.daily_action import render_daily_action_markdown
 from vaxstock.report.mailer import send_email
-from vaxstock.services.history_summary import load_live_history
+from vaxstock.services.history_summary import load_history_views
 
 CURRENT_TASKS_FILE = config.STATE_DIR / "forecast" / "current_tasks.json"
 STRATEGY_DIR = config.STATE_DIR / "strategy"
@@ -84,17 +84,35 @@ def _enrich_history(snapshot: Dict[str, Any]) -> Dict[str, Any]:
         for task in tasks if isinstance(task, dict)
     }
     baseline = next(iter(baselines)) if len(baselines) == 1 else None
-    history = load_live_history(cutoff_trade_date=baseline)
+    current_signals = {}
+    for task in tasks:
+        if not isinstance(task, dict):
+            continue
+        code = str(task.get("code") or "")
+        prediction = ((task.get("evidence_pack") or {}).get("C_prediction") or {})
+        if code and prediction:
+            current_signals[code] = prediction
+    views = load_history_views(
+        current_signals=current_signals,
+        cutoff_trade_date=baseline,
+    )
     for task in tasks:
         if not isinstance(task, dict):
             continue
         code = str(task.get("code") or "")
         evidence = task.setdefault("evidence_pack", {})
-        evidence["B_prediction_history_summary"] = history.get(code) or {
+        evidence["B_prediction_history_summary"] = (views.get("overall") or {}).get(code) or {
             "available": False,
             "source": "eod_predictions+eod_prediction_results",
             "generation_mode": "live",
-            "horizon": "1",
+            "cutoff_trade_date": baseline,
+            "evaluated": 0,
+        }
+        evidence["C_matching_history_summary"] = (views.get("matching") or {}).get(code) or {
+            "available": False,
+            "source": "eod_predictions+eod_prediction_results",
+            "generation_mode": "live",
+            "scope": "matching_current_signal",
             "cutoff_trade_date": baseline,
             "evaluated": 0,
         }

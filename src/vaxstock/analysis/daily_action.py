@@ -34,6 +34,92 @@ def _number(value: Any) -> Optional[float]:
         return None
 
 
+def _history_evidence_verdict(summary: Mapping[str, Any],
+                              action_rules: Mapping[str, Any]) -> Dict[str, Any]:
+    policy = action_rules.get("history_evidence") or {}
+    primary_horizon = str(policy.get("decision_horizon") or "1")
+    add_veto_horizons = [
+        str(value) for value in (policy.get("add_veto_horizons") or (1, 5))
+    ]
+    position_review_horizons = [
+        str(value) for value in (policy.get("position_review_horizons") or (10, 30))
+    ]
+    tracked_horizons = list(dict.fromkeys(
+        [primary_horizon, *add_veto_horizons, *position_review_horizons]
+    ))
+    minimum = int(policy.get("minimum_preliminary_samples") or 5)
+    stable_minimum = int(policy.get("minimum_stable_samples") or 20)
+    support_rate = _number(policy.get("support_min_positive_excess_rate"))
+    conflict_rate = _number(policy.get("conflict_max_positive_excess_rate"))
+    support_rate = 0.60 if support_rate is None else support_rate
+    conflict_rate = 0.40 if conflict_rate is None else conflict_rate
+
+    horizon_verdicts = {}
+    for horizon in tracked_horizons:
+        cell = ((summary or {}).get("horizons") or {}).get(horizon) or {}
+        evaluated = int(cell.get("evaluated") or 0)
+        avg_excess = _number(cell.get("avg_excess"))
+        positive_rate = _number(cell.get("positive_excess_rate"))
+        verdict = "insufficient"
+        if evaluated >= minimum and avg_excess is not None and positive_rate is not None:
+            strength = "stable" if evaluated >= stable_minimum else "preliminary"
+            if avg_excess > 0 and positive_rate >= support_rate:
+                verdict = f"{strength}_support"
+            elif avg_excess < 0 and positive_rate <= conflict_rate:
+                verdict = f"{strength}_conflict"
+            else:
+                verdict = "mixed"
+        horizon_verdicts[horizon] = {
+            "verdict": verdict,
+            "horizon": horizon,
+            "evaluated": evaluated,
+            "avg_excess": avg_excess,
+            "positive_excess_rate": positive_rate,
+        }
+
+    priority = (
+        "stable_conflict", "preliminary_conflict", "stable_support",
+        "preliminary_support", "mixed", "insufficient",
+    )
+    action_states = {
+        horizon_verdicts[horizon]["verdict"]
+        for horizon in add_veto_horizons if horizon in horizon_verdicts
+    }
+    verdict = next(state for state in priority if state in action_states)
+    blocked_horizons = [
+        horizon for horizon in add_veto_horizons
+        if horizon_verdicts.get(horizon, {}).get("verdict")
+        in {"preliminary_conflict", "stable_conflict"}
+    ]
+    review_horizons = [
+        horizon for horizon in position_review_horizons
+        if horizon_verdicts.get(horizon, {}).get("verdict")
+        in {"stable_support", "stable_conflict"}
+    ]
+    primary = horizon_verdicts.get(primary_horizon) or {}
+    return {
+        "verdict": verdict,
+        "horizon": primary_horizon,
+        "evaluated": primary.get("evaluated", 0),
+        "avg_excess": primary.get("avg_excess"),
+        "positive_excess_rate": primary.get("positive_excess_rate"),
+        "horizon_verdicts": horizon_verdicts,
+        "add_veto_horizons": add_veto_horizons,
+        "blocked_horizons": blocked_horizons,
+        "position_review_horizons": position_review_horizons,
+        "review_horizons": review_horizons,
+        "position_review_required": bool(review_horizons),
+        "minimum_preliminary_samples": minimum,
+        "minimum_stable_samples": stable_minimum,
+        "blocks_add": (
+            bool(blocked_horizons)
+            and policy.get("conflict_effect", "block_conditional_add") == "block_conditional_add"
+        ),
+        "scope": (summary or {}).get("scope") or "matching_current_signal",
+        "cohort": (summary or {}).get("cohort"),
+    }
+
+
 def _first_trigger(blueprints: Iterable[Mapping[str, Any]], allowed) -> Optional[Mapping[str, Any]]:
     allowed_set = set(allowed or [])
     for blueprint in blueprints or []:
@@ -142,6 +228,9 @@ def build_daily_action_plan(task_snapshot: Mapping[str, Any], holdings: Mapping[
 
         evidence = (task or {}).get("evidence_pack") or {}
         history_summary = evidence.get("B_prediction_history_summary") or {}
+        matching_history = evidence.get("C_matching_history_summary") or {}
+        history_verdict = _history_evidence_verdict(matching_history, rules)
+        history_blocks_add = bool(history_verdict.get("blocks_add"))
         earnings = ((evidence.get("E_context") or {}).get("earnings") or {})
         c_prediction = (evidence.get("C_prediction") or {}).get("prediction") or {}
         c_action = c_prediction.get("action")
@@ -158,6 +247,7 @@ def build_daily_action_plan(task_snapshot: Mapping[str, Any], holdings: Mapping[
             and c_action in eligible_actions
             and c_direction == "up"
             and positive is not None
+            and not history_blocks_add
             and (add_capacity.get("estimated_shares") or 0) > 0
         )
         if row_pending:
@@ -169,9 +259,6 @@ def build_daily_action_plan(task_snapshot: Mapping[str, Any], holdings: Mapping[
         elif c_action == "avoid" or c_direction != "up":
             action = "持有观察，不加仓"
             reason = "C线为回避/低优先级；盘中转强只重新评估，不直接买入"
-        elif add_eligible:
-            action = "持有，等待加仓确认"
-            reason = "C线偏上，但必须等D线确认后才允许增加仓位"
         elif cap.get("over_cap"):
             action = "持有，不加仓"
             reason = "当前仓位已经超过本档上限"
@@ -184,9 +271,18 @@ def build_daily_action_plan(task_snapshot: Mapping[str, Any], holdings: Mapping[
         elif add_capacity and not add_capacity.get("estimated_shares"):
             action = "持有，不加仓"
             reason = "可用现金或仓位容量不足"
+        elif history_blocks_add:
+            action = "持有观察，不加仓"
+            reason = (
+                f"同类C线T+{'/T+'.join(history_verdict.get('blocked_horizons') or [])}"
+                "历史反对当前加仓，D线转强只重新评估"
+            )
+        elif add_eligible:
+            action = "持有，等待加仓确认"
+            reason = "C线偏上，历史未否决；必须等D线确认后才允许增加仓位"
         else:
             action = "持有，不加仓"
-            reason = "当前没有同时满足C线方向、D线确认和仓位容量的条件"
+            reason = "当前没有同时满足C线方向、历史校验、D线确认和仓位容量的条件"
 
         add_plan = None
         if add_eligible:
@@ -222,6 +318,9 @@ def build_daily_action_plan(task_snapshot: Mapping[str, Any], holdings: Mapping[
             "c_direction": c_direction,
             "c_confidence": c_prediction.get("confidence"),
             "history_summary": history_summary,
+            "matching_history_summary": matching_history,
+            "history_verdict": history_verdict,
+            "history_position_review": bool(history_verdict.get("position_review_required")),
             "earnings": earnings,
             "action": action,
             "reason": reason,

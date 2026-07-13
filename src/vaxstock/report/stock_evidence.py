@@ -39,24 +39,74 @@ def format_live_history(summary: Mapping[str, Any]) -> str:
     if not summary or not summary.get("available") or not summary.get("evaluated"):
         return "真实历史结果待积累"
     horizons = summary.get("horizons") or {}
-    keys = summary.get("key_horizons") or ("1", "5", "10", "30")
+    keys = [str(value) for value in (summary.get("key_horizons") or ("1", "5", "10", "30"))]
+    latest = str(summary.get("latest_horizon") or summary.get("max_horizon") or "")
+    display = [(horizon, f"T+{horizon}") for horizon in keys]
+    if latest and latest not in keys and horizons.get(latest):
+        display.append((latest, f"最新T+{latest}"))
+
     parts = []
-    for horizon in keys:
-        cell = horizons.get(str(horizon)) or {}
+    for horizon, label in display:
+        cell = horizons.get(horizon) or {}
         if not cell.get("evaluated"):
             continue
         cell_count = int(cell["evaluated"])
         cell_positive = int(cell.get("positive_excess_count") or 0)
         parts.append(
-            f"T+{horizon} {cell_count}\u6b21\uff0c\u5e73\u5747\u8d85\u989d"
-            f"{_pct(cell.get('avg_excess'))}\uff0c{cell_positive}/{cell_count}"
-            f"\u6b21\u8dd1\u8d62\u6307\u6570"
+            f"{label} {cell_count}次，平均超额"
+            f"{_pct(cell.get('avg_excess'))}，{cell_positive}/{cell_count}"
+            f"次跑赢指数"
         )
     if parts:
-        return "\uff1b".join(parts)
+        return "；".join(parts)
     count = int(summary["evaluated"])
     positive = int(summary.get("positive_excess_count") or 0)
     return f"live已核验{count}次，平均超额{_pct(summary.get('avg_excess'))}，{positive}/{count}次跑赢指数"
+
+
+def format_history_verdict(verdict: Mapping[str, Any]) -> str:
+    verdict = verdict or {}
+    cells = verdict.get("horizon_verdicts") or {}
+    parts = []
+    for horizon in ("1", "5", "10", "30"):
+        cell = cells.get(horizon) or {}
+        evaluated = int(cell.get("evaluated") or 0)
+        if not evaluated:
+            continue
+        avg_excess = cell.get("avg_excess")
+        detail = f"T+{horizon} {evaluated}次"
+        if avg_excess is not None:
+            detail += f"/平均超额{_pct(avg_excess)}"
+        parts.append(detail)
+
+    if not parts:
+        horizon = str(verdict.get("horizon") or "1")
+        evaluated = int(verdict.get("evaluated") or 0)
+        avg_excess = verdict.get("avg_excess")
+        positive_rate = verdict.get("positive_excess_rate")
+        if evaluated:
+            detail = f"T+{horizon} {evaluated}次"
+            if avg_excess is not None:
+                detail += f"/平均超额{_pct(avg_excess)}"
+            if positive_rate is not None:
+                detail += f"/跑赢率{_pct(positive_rate, signed=False)}"
+            parts.append(detail)
+
+    state = str(verdict.get("verdict") or "insufficient")
+    labels = {
+        "insufficient": "证据不足，不修正当前动作",
+        "preliminary_support": "初步支持，只维持原加仓上限",
+        "stable_support": "较强支持，只维持原加仓上限",
+        "preliminary_conflict": "初步反对，禁止加仓",
+        "stable_conflict": "较强反对，禁止加仓",
+        "mixed": "结果混合，不提高操作力度",
+    }
+    prefix = "同类C线" + ("、".join(parts) if parts else "暂无成熟样本")
+    text = f"{prefix}；{labels.get(state, '结论待验证')}"
+    if verdict.get("position_review_required"):
+        review = "/".join(f"T+{value}" for value in verdict.get("review_horizons") or [])
+        text += f"；{review}达到稳定证据，仓位规则待人工复盘"
+    return text
 
 
 def format_earnings(earnings: Mapping[str, Any]) -> str:

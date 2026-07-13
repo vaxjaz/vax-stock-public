@@ -3,15 +3,19 @@
 
 import json
 import math
+import re
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Mapping, Optional
 
 from vaxstock import config
 
 PREDICTIONS_FILE = config.STATE_DIR / "prediction" / "eod_predictions.jsonl"
 RESULTS_FILE = config.STATE_DIR / "prediction" / "eod_prediction_results.jsonl"
+FACTOR_RESULTS_FILE = config.STATE_DIR / "eval" / "factor_results.jsonl"
 KEY_HORIZONS = ("1", "5", "10", "30")
-MAX_HISTORY_HORIZON = 30
+COHORT_FIELDS = (
+    "rule_version", "action", "direction", "market_regime", "macro_regime",
+)
 
 
 def _read_jsonl(path) -> List[dict]:
@@ -37,14 +41,51 @@ def _finite(value: Any) -> Optional[float]:
     return number if math.isfinite(number) else None
 
 
+def _prediction_horizon(prediction: Mapping[str, Any]) -> str:
+    raw = str(((prediction.get("prediction") or {}).get("horizon") or ""))
+    match = re.search(r"(\d+)", raw)
+    return match.group(1) if match else "1"
+
+
+def cohort_signature(prediction: Mapping[str, Any]) -> tuple:
+    payload = prediction.get("prediction") or {}
+    features = prediction.get("features_ref") or {}
+    return (
+        str(prediction.get("rule_version") or ""),
+        str(payload.get("action") or ""),
+        str(payload.get("direction") or ""),
+        str(features.get("market_regime") or ""),
+        str(features.get("macro_regime") or ""),
+    )
+
+
+def cohort_descriptor(prediction: Mapping[str, Any]) -> Dict[str, str]:
+    return dict(zip(COHORT_FIELDS, cohort_signature(prediction)))
+
+
+def _result_trade_date(result: Mapping[str, Any], prediction: Mapping[str, Any],
+                       path_horizon: str) -> Optional[str]:
+    actual_date = str(((result.get("actual") or {}).get("trade_date") or ""))
+    if len(actual_date) == 8 and actual_date.isdigit():
+        return actual_date
+    if path_horizon == _prediction_horizon(prediction):
+        target = str(prediction.get("target_trade_date") or "")
+        if len(target) == 8 and target.isdigit():
+            return target
+    return None
+
+
 def summarize_live_history(predictions: Iterable[Dict[str, Any]],
                            results: Iterable[Dict[str, Any]], *,
                            cutoff_trade_date: Optional[str] = None,
-                           horizon: Optional[str] = None) -> Dict[str, Dict[str, Any]]:
-    """Reduce every mature live C-line path through T+30 from all prior predictions."""
+                           horizon: Optional[str] = None,
+                           current_signals: Optional[Mapping[str, Mapping[str, Any]]] = None,
+                           require_result_trade_date: bool = False) -> Dict[str, Dict[str, Any]]:
+    """Reduce every mature live C-line path without a horizon ceiling."""
     cutoff = str(cutoff_trade_date or "")
-    prediction_ids: Dict[str, str] = {}
+    prediction_by_id: Dict[str, Dict[str, Any]] = {}
     prediction_ids_by_code: Dict[str, set] = {}
+    cohort_by_code: Dict[str, Dict[str, str]] = {}
     for prediction in predictions or []:
         if str(prediction.get("generation_mode") or "") != "live":
             continue
@@ -55,7 +96,12 @@ def summarize_live_history(predictions: Iterable[Dict[str, Any]],
         code = str(prediction.get("code") or "")
         if not pid or not code:
             continue
-        prediction_ids[pid] = code
+        if current_signals is not None:
+            current = current_signals.get(code)
+            if not current or cohort_signature(prediction) != cohort_signature(current):
+                continue
+            cohort_by_code[code] = cohort_descriptor(current)
+        prediction_by_id[pid] = prediction
         prediction_ids_by_code.setdefault(code, set()).add(pid)
 
     selected_horizon = str(horizon) if horizon is not None else None
@@ -64,19 +110,23 @@ def summarize_live_history(predictions: Iterable[Dict[str, Any]],
         if str(row.get("generation_mode") or "") != "live":
             continue
         pid = str(row.get("prediction_id") or "")
-        code = prediction_ids.get(pid)
+        prediction = prediction_by_id.get(pid)
+        code = str((prediction or {}).get("code") or "")
         path_horizon = str(row.get("horizon") or "")
-        if not code or not path_horizon.isdigit():
-            continue
-        if not 1 <= int(path_horizon) <= MAX_HISTORY_HORIZON:
+        if not code or not path_horizon.isdigit() or int(path_horizon) < 1:
             continue
         if selected_horizon is not None and path_horizon != selected_horizon:
+            continue
+        actual_trade_date = _result_trade_date(row, prediction, path_horizon)
+        if cutoff and actual_trade_date and actual_trade_date > cutoff:
+            continue
+        if require_result_trade_date and not actual_trade_date:
             continue
         result_by_key[(pid, path_horizon)] = row
 
     grouped: Dict[str, Dict[str, List[Dict[str, float]]]] = {}
     for (pid, path_horizon), result in result_by_key.items():
-        code = prediction_ids[pid]
+        code = str(prediction_by_id[pid].get("code") or "")
         actual = (result or {}).get("actual") or {}
         ret = _finite(actual.get("ret"))
         excess = _finite(actual.get("excess"))
@@ -106,18 +156,85 @@ def summarize_live_history(predictions: Iterable[Dict[str, Any]],
         primary = horizon_summaries.get(primary_horizon)
         if primary is None:
             primary = horizon_summaries[min(horizon_summaries, key=int)]
+        max_horizon = max((int(value) for value in horizon_summaries), default=None)
         out[code] = {
             "available": True,
             "source": "eod_predictions+eod_prediction_results",
             "generation_mode": "live",
+            "scope": "matching_current_signal" if current_signals is not None else "all_stock_history",
+            "cohort": cohort_by_code.get(code),
             "cutoff_trade_date": cutoff or None,
             "prediction_count": len(prediction_ids_by_code.get(code) or ()),
-            "max_horizon": max((int(value) for value in horizon_summaries), default=None),
+            "max_horizon": max_horizon,
+            "latest_horizon": str(max_horizon) if max_horizon is not None else None,
             "key_horizons": list(KEY_HORIZONS),
             "horizons": horizon_summaries,
             **primary,
         }
     return out
+
+
+def _enrich_result_trade_dates(predictions: Iterable[Dict[str, Any]],
+                               results: Iterable[Dict[str, Any]],
+                               factor_results: Iterable[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    date_index: Dict[tuple, str] = {}
+    for row in factor_results or []:
+        baseline = str((row or {}).get("trade_date") or "")
+        code = str((row or {}).get("code") or "")
+        for horizon, trade_date in ((row or {}).get("horizon_trade_dates") or {}).items():
+            text = str(trade_date or "")
+            if baseline and code and str(horizon).isdigit() and len(text) == 8:
+                date_index[(baseline, code, str(horizon))] = text
+
+    prediction_by_id = {
+        str(row.get("prediction_id")): row
+        for row in predictions or [] if row.get("prediction_id")
+    }
+    enriched = []
+    for row in results or []:
+        actual = (row or {}).get("actual") or {}
+        if actual.get("trade_date"):
+            enriched.append(row)
+            continue
+        prediction = prediction_by_id.get(str((row or {}).get("prediction_id") or "")) or {}
+        key = (
+            str(prediction.get("baseline_trade_date") or ""),
+            str(prediction.get("code") or ""),
+            str((row or {}).get("horizon") or ""),
+        )
+        trade_date = date_index.get(key)
+        if not trade_date:
+            enriched.append(row)
+            continue
+        copied = dict(row)
+        copied["actual"] = dict(actual)
+        copied["actual"]["trade_date"] = trade_date
+        enriched.append(copied)
+    return enriched
+
+
+def load_history_views(*, current_signals: Mapping[str, Mapping[str, Any]],
+                       cutoff_trade_date: Optional[str] = None,
+                       predictions_path=None, results_path=None,
+                       factor_results_path=None) -> Dict[str, Dict[str, Dict[str, Any]]]:
+    predictions = _read_jsonl(predictions_path or PREDICTIONS_FILE)
+    results = _enrich_result_trade_dates(
+        predictions,
+        _read_jsonl(results_path or RESULTS_FILE),
+        _read_jsonl(factor_results_path or FACTOR_RESULTS_FILE),
+    )
+    return {
+        "overall": summarize_live_history(
+            predictions, results, cutoff_trade_date=cutoff_trade_date,
+        ),
+        "matching": summarize_live_history(
+            predictions,
+            results,
+            cutoff_trade_date=cutoff_trade_date,
+            current_signals=current_signals,
+            require_result_trade_date=True,
+        ),
+    }
 
 
 def load_live_history(*, cutoff_trade_date: Optional[str] = None,

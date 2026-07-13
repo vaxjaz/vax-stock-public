@@ -42,6 +42,18 @@
   "action_rules": {
     "conditional_add_unit": "half_unit",
     "risk_reduce_unit": "unit",
+    "history_evidence": {
+      "decision_horizon": 1,
+      "add_veto_horizons": [1, 5],
+      "position_review_horizons": [10, 30],
+      "minimum_preliminary_samples": 5,
+      "minimum_stable_samples": 20,
+      "support_min_positive_excess_rate": 0.6,
+      "conflict_max_positive_excess_rate": 0.4,
+      "conflict_effect": "block_conditional_add",
+      "support_effect": "keep_existing_unit",
+      "risk_reduce_can_be_blocked": false
+    },
     "c_actions_eligible_for_conditional_add": [
       "watch",
       "candidate_buy",

@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 
-from vaxstock.analysis.daily_action import build_daily_action_plan
+from vaxstock.analysis.daily_action import (
+    _history_evidence_verdict, build_daily_action_plan,
+)
 from vaxstock.report.daily_action import render_daily_action_markdown
 
 
@@ -115,6 +117,73 @@ def test_daily_action_requires_d_confirmation_and_keeps_avoid_as_no_add():
     assert "今日不开新仓" in markdown
     assert "live已核验6次，平均超额+0.76%，4/6次跑赢指数" in markdown
     assert "预计披露 2026-08-12" in markdown
+
+
+def test_matching_c_history_conflict_blocks_add_but_not_risk_reduce():
+    task = _task("600001", "watch", "up")
+    task["evidence_pack"]["C_matching_history_summary"] = {
+        "available": True,
+        "scope": "matching_current_signal",
+        "horizons": {
+            "1": {
+                "evaluated": 6,
+                "avg_excess": -0.005,
+                "positive_excess_rate": 2 / 6,
+            }
+        },
+    }
+    snapshot = {"target_trade_dates": ["20260713"], "tasks": [task]}
+    holdings = {"600001": {"name": "A", "shares": 1000}}
+    capacity = _capacity()
+    capacity["holdings"] = {"600001": capacity["holdings"]["600001"]}
+
+    plan = build_daily_action_plan(snapshot, holdings, capacity, _policy())
+    row = plan["holdings"][0]
+    assert row["history_verdict"]["verdict"] == "preliminary_conflict"
+    assert row["action"] == "持有观察，不加仓"
+    assert row["conditional_add"] is None
+    assert row["risk_reduce"] is not None
+    markdown = render_daily_action_markdown(plan)
+    assert "初步反对，禁止加仓" in markdown
+
+
+def test_t5_conflict_blocks_add_and_stable_t10_requests_position_review():
+    task = _task("600001", "watch", "up")
+    task["evidence_pack"]["C_matching_history_summary"] = {
+        "available": True,
+        "scope": "matching_current_signal",
+        "horizons": {
+            "1": {"evaluated": 6, "avg_excess": 0.01, "positive_excess_rate": 4 / 6},
+            "5": {"evaluated": 6, "avg_excess": -0.02, "positive_excess_rate": 2 / 6},
+            "10": {"evaluated": 20, "avg_excess": -0.03, "positive_excess_rate": 0.30},
+        },
+    }
+    snapshot = {"target_trade_dates": ["20260713"], "tasks": [task]}
+    holdings = {"600001": {"name": "A", "shares": 1000}}
+    capacity = _capacity()
+    capacity["holdings"] = {"600001": capacity["holdings"]["600001"]}
+
+    plan = build_daily_action_plan(snapshot, holdings, capacity, _policy())
+    row = plan["holdings"][0]
+    assert row["history_verdict"]["blocked_horizons"] == ["5"]
+    assert row["history_verdict"]["review_horizons"] == ["10"]
+    assert row["history_position_review"] is True
+    assert row["action"] == "持有观察，不加仓"
+    assert row["risk_reduce"] is not None
+    markdown = render_daily_action_markdown(plan)
+    assert "T+10达到稳定证据，仓位规则待人工复盘" in markdown
+
+
+def test_long_horizon_conflict_requests_review_without_blocking_add():
+    summary = {
+        "horizons": {
+            "10": {"evaluated": 20, "avg_excess": -0.03, "positive_excess_rate": 0.30},
+        }
+    }
+    verdict = _history_evidence_verdict(summary, _policy()["action_rules"])
+    assert verdict["verdict"] == "insufficient"
+    assert verdict["blocks_add"] is False
+    assert verdict["review_horizons"] == ["10"]
 
 
 def test_missing_dline_task_makes_row_pending_instead_of_guessing_action():

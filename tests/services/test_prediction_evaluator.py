@@ -47,6 +47,7 @@ def test_evaluate_prediction_positive_bucket_hit():
     assert row["prediction_id"] == "20260701_20260702_002475_zz800_seed_v1_replay"
     assert row["horizon"] == "1"
     assert row["actual"] == {
+        "trade_date": "20260702",
         "ret": 0.03,
         "mkt_ret": 0.01,
         "excess": 0.02,
@@ -87,7 +88,7 @@ def test_evaluate_predictions_merges_incremental_factor_results():
     assert out[0]["actual"]["excess"] == 0.02
 
 
-def test_evaluate_predictions_records_every_mature_path_through_t30():
+def test_evaluate_predictions_records_every_mature_path_without_ceiling():
     factors = [{
         "trade_date": "20260701",
         "code": "002475",
@@ -102,7 +103,7 @@ def test_evaluate_predictions_records_every_mature_path_through_t30():
         evaluated_at="2026-07-10T05:10:00",
     )
 
-    assert [row["horizon"] for row in out] == ["1", "2", "5"]
+    assert [row["horizon"] for row in out] == ["1", "2", "5", "31"]
     target = out[0]["evaluation"]
     assert target["evaluation_role"] == "target_horizon"
     assert target["direction_hit"] is True
@@ -114,6 +115,8 @@ def test_evaluate_predictions_records_every_mature_path_through_t30():
     assert path["action_hit"] is None
     assert path["path_direction_alignment"] is False
     assert path["path_action_alignment"] is False
+    assert out[-1]["horizon"] == "31"
+    assert out[-1]["evaluation"]["evaluation_role"] == "post_prediction_path"
 
 
 def test_evaluate_prediction_requires_benchmark_for_complete_path():

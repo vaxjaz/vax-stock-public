@@ -23,7 +23,6 @@ logger = logging.getLogger(__name__)
 PREDICTION_RESULTS_FILE = config.STATE_DIR / "prediction" / "eod_prediction_results.jsonl"
 SCHEMA_VERSION = 1
 DEFAULT_HORIZON = "1"
-MAX_PATH_HORIZON = 30
 
 
 def _now_iso() -> str:
@@ -90,17 +89,18 @@ def build_factor_result_index(rows: Iterable[Dict[str, Any]]) -> Dict[Tuple[str,
         code = str(row.get("code") or "").strip()
         if not (td and code):
             continue
-        box = idx.setdefault((td, code), {"ret": {}, "mkt_ret": {}, "excess": {}})
-        for key in ("ret", "mkt_ret", "excess"):
+        box = idx.setdefault((td, code), {
+            "ret": {}, "mkt_ret": {}, "excess": {}, "horizon_trade_dates": {},
+        })
+        for key in ("ret", "mkt_ret", "excess", "horizon_trade_dates"):
             vals = row.get(key) or {}
             if isinstance(vals, dict):
                 box[key].update(vals)
     return idx
 
 
-def complete_horizons(actual_box: Dict[str, Dict[str, Any]], *,
-                      max_horizon: int = MAX_PATH_HORIZON) -> List[str]:
-    """Return positive horizons present in return, benchmark and excess."""
+def complete_horizons(actual_box: Dict[str, Dict[str, Any]]) -> List[str]:
+    """Return every positive horizon present in return, benchmark and excess."""
     keys = (
         set((actual_box.get("ret") or {}).keys())
         & set((actual_box.get("mkt_ret") or {}).keys())
@@ -109,7 +109,7 @@ def complete_horizons(actual_box: Dict[str, Dict[str, Any]], *,
     values = []
     for key in keys:
         text = str(key)
-        if text.isdigit() and 1 <= int(text) <= max_horizon:
+        if text.isdigit() and int(text) >= 1:
             values.append(text)
     return sorted(values, key=int)
 
@@ -181,6 +181,9 @@ def evaluate_prediction(prediction: Dict[str, Any], factor_index: Dict[Tuple[str
     action_hit = _action_hit(bucket, positive_excess)
     is_target_horizon = h == target_horizon
     evaluation_role = "target_horizon" if is_target_horizon else "post_prediction_path"
+    actual_trade_date = (actual_box.get("horizon_trade_dates") or {}).get(h)
+    if not actual_trade_date and is_target_horizon:
+        actual_trade_date = target
 
     return {
         "schema_version": SCHEMA_VERSION,
@@ -192,6 +195,7 @@ def evaluate_prediction(prediction: Dict[str, Any], factor_index: Dict[Tuple[str
         "code": code,
         "horizon": h,
         "actual": {
+            "trade_date": actual_trade_date,
             "ret": ret,
             "mkt_ret": mkt_ret,
             "excess": excess,

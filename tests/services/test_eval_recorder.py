@@ -144,9 +144,9 @@ def test_backfill_records_dense_daily_path_appendonly():
         er.record_snapshots(_payload())
         snap_text_before = er.SNAPSHOTS_FILE.read_text(encoding="utf-8")
 
-        kline, bench, _ = _make_kline_stub(40)   # baseline 后有 T+1..T+39
+        kline, bench, seq = _make_kline_stub(40)   # baseline 后有 T+1..T+39
         source = types.SimpleNamespace(get_daily_kline=kline)
-        er._benchmark_closes = lambda src: bench
+        er._benchmark_closes = lambda src, start_trade_date=None: bench
 
         n = er.backfill(source)
         res = er._read_jsonl(er.RESULTS_FILE)
@@ -154,6 +154,7 @@ def test_backfill_records_dense_daily_path_appendonly():
         r0 = next(x for x in res if x["code"] == "002475")
         assert set(r0["ret"].keys()) == {str(i) for i in range(1, 40)}
         assert "31" in r0["ret"] and "39" in r0["ret"]   # 基础层不截断在 T+30
+        assert r0["horizon_trade_dates"]["39"] == seq[39]
         assert "40" not in r0["ret"]                         # 未来未发生不臆造
         # ret_k = 0.01*k(close 每日 +1%), mkt_k = 0.005*k(指数 +0.5%/日), excess = 差
         assert abs(r0["ret"]["31"] - 0.31) < 1e-6
@@ -173,6 +174,10 @@ def test_backfill_records_dense_daily_path_appendonly():
         shutil.rmtree(d, ignore_errors=True)
 
 
+def test_required_history_window_expands_beyond_fixed_cache():
+    assert er._required_history_days("20200101") > er.config.HISTORY_DAYS
+
+
 def test_backfill_can_use_strategy_horizons_when_requested():
     d = tempfile.mkdtemp(prefix="vaxeval_")
     saved = _set_tmp(d)
@@ -181,7 +186,7 @@ def test_backfill_can_use_strategy_horizons_when_requested():
         er.record_snapshots(_payload())
         kline, bench, _ = _make_kline_stub(40)
         source = types.SimpleNamespace(get_daily_kline=kline)
-        er._benchmark_closes = lambda src: bench
+        er._benchmark_closes = lambda src, start_trade_date=None: bench
 
         er.backfill(source, horizons=er.STRATEGY_HORIZONS)
         r0 = next(x for x in er._read_jsonl(er.RESULTS_FILE) if x["code"] == "002475")
@@ -201,7 +206,7 @@ def test_backfill_partial_when_insufficient_days():
         er.record_snapshots(_payload())
         kline, bench, _ = _make_kline_stub(6)     # baseline 后只有 T+1..T+5
         source = types.SimpleNamespace(get_daily_kline=kline)
-        er._benchmark_closes = lambda src: bench
+        er._benchmark_closes = lambda src, start_trade_date=None: bench
 
         er.backfill(source)
         r0 = next(x for x in er._read_jsonl(er.RESULTS_FILE) if x["code"] == "002475")
@@ -222,7 +227,7 @@ def test_backfill_skips_when_index_missing():
         er.record_snapshots(_payload())
         kline, bench, _ = _make_kline_stub(40)
         source = types.SimpleNamespace(get_daily_kline=kline)
-        er._benchmark_closes = lambda src: {}      # 指数序列取不到
+        er._benchmark_closes = lambda src, start_trade_date=None: {}      # 指数序列取不到
 
         er.backfill(source)
         r0 = next(x for x in er._read_jsonl(er.RESULTS_FILE) if x["code"] == "002475")
@@ -231,7 +236,7 @@ def test_backfill_skips_when_index_missing():
         assert r0["complete"] is False                       # ret-only 不能标 complete
         assert er.backfill(source) == 0                       # 指数仍缺时不重复 spam
 
-        er._benchmark_closes = lambda src: bench              # 基准恢复
+        er._benchmark_closes = lambda src, start_trade_date=None: bench              # 基准恢复
         n2 = er.backfill(source)
         assert n2 == 5
         rows = er._read_jsonl(er.RESULTS_FILE)

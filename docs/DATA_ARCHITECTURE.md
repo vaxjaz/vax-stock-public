@@ -224,15 +224,19 @@ Prediction 线验证的是:
 
 - append-only。
 - 同 `(prediction_id, horizon)` 已存在则跳过。
-- 缺真实 `ret` 或 `excess` 时不写假结果。
+- 每次 EOD 归并全部历史预测与 B 线结果，补齐每条预测从 T+1 到当前已成熟 T+N 的连续交易日路径，不以 T+30 截断。
+- 缺真实 `ret`、`mkt_ret` 或 `excess` 时不写假结果。
+- 只有预测原始 horizon 计入正式方向/动作命中；后续路径标记为 `post_prediction_path`，只作演变证据。
 
 核心字段:
 
 | 字段 | 含义 |
 |---|---|
+| `actual.trade_date` | 该 horizon 对应的真实交易日 |
 | `actual.ret` | 个股真实收益 |
 | `actual.mkt_ret` | 基准收益 |
 | `actual.excess` | 超额收益 |
+| `evaluation.evaluation_role` | 原始预测核验或后续路径证据 |
 | `evaluation.direction_hit` | 方向是否命中 |
 | `evaluation.positive_excess` | 是否正超额 |
 | `evaluation.action_hit` | action 是否符合实际超额方向 |
@@ -480,7 +484,8 @@ turnover_history.parquet
 
 每日操作邮件与D线盘中邮件共用以下口径：
 
-- 真实历史结果只统计 `generation_mode=live` 且已有 T+1 核验结果的 C线预测；`replay` 与 `pending` 不进入均值和跑赢次数。
+- 真实历史结果只统计 `generation_mode=live` 且已成熟的 C线真实路径；固定展示 T+1/5/10/30，并始终追加最新 T+N，`replay` 与 `pending` 不进入均值和跑赢次数。
+- 策略校正只使用与当前 C 预测相同 `rule_version/action/direction/market_regime/macro_regime` 的历史样本；T+1/T+5 明确反对可禁止加仓，T+10/T+30 稳定证据只发起仓位规则人工复盘；样本不足不修正，任何历史证据不得阻止 D 线风险减仓。
 - 财报事实来自 `tushare.fina_indicator`，仅展示真实返回字段。
 - 预计披露日来自 `tushare.disclosure_date.pre_date`；同时保留 `end_date/actual_date/modify_date` 供审计。预约日可能修订，邮件必须明确标注；接口缺失或字段契约不完整时显示“待公布”。
 - `var/strategy/daily_action_latest.json` 是私有派生计划，供盘中邮件读取同一份“今日策略”；与 Markdown 一样 gitignore，不进入 A-D 事实样本。

@@ -110,10 +110,11 @@ def merge_result_rows(rows) -> dict:
             "ret": {},
             "mkt_ret": {},
             "excess": {},
+            "horizon_trade_dates": {},
             "complete": False,
             "filled_ts": None,
         })
-        for field in ("ret", "mkt_ret", "excess"):
+        for field in ("ret", "mkt_ret", "excess", "horizon_trade_dates"):
             vals = row.get(field) or {}
             if isinstance(vals, dict):
                 box[field].update(vals)
@@ -233,15 +234,17 @@ def record_snapshots(payload) -> int:
 
 # ==================== (2) T+k 回填(结果单独 append, 不改预测) ====================
 
-def _benchmark_closes(source) -> dict:
-    """取基准指数(上证综指)近 ~400 日 {trade_date: close}; 取不到返 {}(不臆造)。
+def _benchmark_closes(source, start_trade_date=None) -> dict:
+    """取基准指数从最早待回填日到当前的数据; 取不到返 {}(不臆造)。
 
     get_index_daily 只返最新一行, 故走 source._safe_call('index_daily', 区间) 拉序列。
     测试可直接 monkeypatch 本函数返回构造序列(零网络)。
     """
     try:
         end = dt.datetime.now().strftime("%Y%m%d")
-        start = (dt.datetime.now() - dt.timedelta(days=400)).strftime("%Y%m%d")
+        start = str(start_trade_date or "")
+        if len(start) != 8 or not start.isdigit():
+            start = (dt.datetime.now() - dt.timedelta(days=400)).strftime("%Y%m%d")
         df = source._safe_call("index_daily", ts_code=BENCHMARK_INDEX,
                                start_date=start, end_date=end, fields="trade_date,close")
         if df is None:
@@ -258,6 +261,16 @@ def _benchmark_closes(source) -> dict:
     except Exception as e:
         logger.warning(f"MR-Eval 基准指数序列取数失败: {str(e)[:80]}")
         return {}
+
+
+def _required_history_days(trade_date) -> int:
+    """Expand the source window so old snapshots keep receiving T+now."""
+    try:
+        baseline = dt.datetime.strptime(str(trade_date), "%Y%m%d").date()
+    except (TypeError, ValueError):
+        return config.HISTORY_DAYS
+    calendar_span = max(0, (dt.date.today() - baseline).days)
+    return max(config.HISTORY_DAYS, calendar_span + 20)
 
 
 def backfill(source, horizons=DEFAULT_HORIZONS) -> int:
@@ -282,7 +295,20 @@ def backfill(source, horizons=DEFAULT_HORIZONS) -> int:
             key for key, row in results_by_key.items()
             if target.issubset(complete_horizons(row))
         }
-    bench = None  # 懒取一次(覆盖所有快照日期)
+    oldest_by_code = {}
+    for snapshot in snaps:
+        code = snapshot.get("code")
+        td = str(snapshot.get("trade_date") or "")
+        if code and len(td) == 8 and (code not in oldest_by_code or td < oldest_by_code[code]):
+            oldest_by_code[code] = td
+    fixed_window = max(horizon_list) + 1 if horizon_list else 0
+    lookback_by_code = {
+        code: max(_required_history_days(td), fixed_window)
+        for code, td in oldest_by_code.items()
+    }
+    kline_by_code = {}
+    oldest_trade_date = min(oldest_by_code.values()) if oldest_by_code else None
+    bench = _benchmark_closes(source, oldest_trade_date)
     new_rows = []
     for s in snaps:
         td = str(s.get("trade_date"))
@@ -294,8 +320,11 @@ def backfill(source, horizons=DEFAULT_HORIZONS) -> int:
         if not price0:   # 无基准锚价(None/0)无法算收益
             continue
 
-        lookback_days = max(config.HISTORY_DAYS, max(horizon_list) + 1 if horizon_list else config.HISTORY_DAYS)
-        kl = source.get_daily_kline(code, days=lookback_days)
+        if code not in kline_by_code:
+            kline_by_code[code] = source.get_daily_kline(
+                code, days=lookback_by_code.get(code, config.HISTORY_DAYS)
+            )
+        kl = kline_by_code.get(code)
         if not kl:
             continue
         dates = [str(r.get("trade_date")).split(".")[0] for r in kl]   # 升序
@@ -304,11 +333,9 @@ def backfill(source, horizons=DEFAULT_HORIZONS) -> int:
             continue
         idx0 = dates.index(td)
 
-        if bench is None:
-            bench = _benchmark_closes(source)
         base_bench = bench.get(td)
 
-        ret, mkt, excess = {}, {}, {}
+        ret, mkt, excess, horizon_trade_dates = {}, {}, {}, {}
         candidate_horizons = horizon_list if horizon_list is not None else range(1, len(closes) - idx0)
         for k in candidate_horizons:
             j = idx0 + k
@@ -317,6 +344,7 @@ def backfill(source, horizons=DEFAULT_HORIZONS) -> int:
             ret_k = float(closes[j]) / float(price0) - 1.0
             ret[str(k)] = ret_k
             td_k = dates[j]
+            horizon_trade_dates[str(k)] = td_k
             if base_bench and bench.get(td_k):
                 mkt_k = bench[td_k] / base_bench - 1.0
                 mkt[str(k)] = mkt_k
@@ -328,10 +356,12 @@ def backfill(source, horizons=DEFAULT_HORIZONS) -> int:
         current_ret_h = _horizon_set(current, "ret")
         current_mkt_h = _horizon_set(current, "mkt_ret")
         current_excess_h = _horizon_set(current, "excess")
+        current_date_h = _horizon_set(current, "horizon_trade_dates")
         new_ret = {h: v for h, v in ret.items() if int(h) not in current_ret_h}
         new_mkt = {h: v for h, v in mkt.items() if int(h) not in current_mkt_h}
         new_excess = {h: v for h, v in excess.items() if int(h) not in current_excess_h}
-        if not (new_ret or new_mkt or new_excess):
+        new_dates = {h: v for h, v in horizon_trade_dates.items() if int(h) not in current_date_h}
+        if not (new_ret or new_mkt or new_excess or new_dates):
             continue  # 无新增 horizon -> 不重复 append
 
         merged_probe = {
@@ -345,6 +375,7 @@ def backfill(source, horizons=DEFAULT_HORIZONS) -> int:
         new_rows.append({
             "trade_date": td, "code": code,
             "ret": new_ret, "mkt_ret": new_mkt, "excess": new_excess,
+            "horizon_trade_dates": new_dates,
             "complete": bool(horizon_list) and target.issubset(complete_horizons(merged_probe)),
             "filled_ts": _now_iso(),
         })
