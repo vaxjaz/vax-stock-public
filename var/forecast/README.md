@@ -29,6 +29,7 @@ D线不是全 universe 无偏样本, 不能冒充 B线。D线记录的是“被�
 | `forecast_evolution.jsonl` | 触发后15/30分钟、收盘前、最大上涨/下跌的真实行情路径, append-only。 | `services.forecast_evolution.finalize_evolutions` |
 | `current_market_health.json` | Active portfolio health state for 15-minute throttling and recovery/reopen detection; atomic and gitignored. | `services.market_health` |
 | `market_health_events.jsonl` | Versioned append-only portfolio/AI/holding/C-line/regime health events; independent of user execution. | `services.market_health` |
+| `current_closeout_status.json` | Latest D-line EOD closeout status, stage diagnostics, evidence gaps, and retry command; atomic, replaceable, and gitignored. | `services.dline_closeout` |
 | `forecasts.jsonl` | 盘中触发时冻结的结构化评价,包含 T-1 基准、盘中 lite 快照、regime、Codex 结构化判断等。 | `services.forecast_recorder.record_forecast` |
 | `forecast_results.jsonl` | 逐任务蓝图的 T+N 市场结果, append-only；不读取用户成交。 | `services.dline_evaluator.backfill_dline_results` |
 | `dline_reviews/` | 触发与合格未触发对照复核、规则证据变化通知；只提建议,不自动改参数。 | `research.dline_review` |
@@ -130,3 +131,15 @@ Core fields:
 - `usage=context_only_not_scoring`: current C/D rules may read this context, but deterministic scores are unchanged.
 
 P0: missing source is missing evidence. Do not fabricate earnings dates, company events, or industry catalysts.
+
+## D-line EOD closeout and retry
+
+`services.eod` calls `services.dline_closeout` with the explicit market `trade_date` after B-line backfill. The closeout serializes concurrent runs, finalizes coverage and evolution as an EOD fallback, backfills all mature D-line T+N rows, refreshes the derived rule review, and audits the target day's evidence.
+
+`status=done` means every untriggered blueprint has qualified full-session task coverage, every frozen trigger has a complete 15m/30m/close path, and every trigger has a T+0 official-close result. `partial_data` records real missing or incomplete evidence without fabricating it. `failed` records a stage exception. Repeated identical abnormalities notify once; a successful retry sends one recovery notification.
+
+Manual retry is idempotent and never reads user executions:
+
+```bash
+PYTHONPATH=src python -m vaxstock.services.dline_closeout --trade-date YYYYMMDD
+```

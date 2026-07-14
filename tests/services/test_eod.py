@@ -43,7 +43,7 @@ _PATHS = {"payload": "/r/2026-06-25/payload.json",
 
 _SEAMS = ["TushareSource", "collect_payload", "compact_for_claude",
           "build_claude_markdown", "store_report",
-          "record_and_backfill", "evaluate_from_files", "predictions_from_payload",
+          "record_and_backfill", "run_dline_closeout", "evaluate_from_files", "predictions_from_payload",
           "record_predictions", "enqueue_observation_job",
           "_next_trade_date"]
 
@@ -135,6 +135,16 @@ def _install_spies(secrets=None, payload=None, next_trade_date="20260626"):
         rec["eval_call"] = {"payload": payload, "source": source}
         return {"snapshots": 0, "backfilled": 0}
     eod_mod.record_and_backfill = _eval
+
+    def _dline_closeout(*, trade_date, **kwargs):
+        rec["order"].append("d_closeout")
+        rec["dline_closeout_call"] = {"trade_date": trade_date, **kwargs}
+        return {
+            "status": "done",
+            "evidence": {"task_count": 0, "trigger_count": 0, "gaps": []},
+            "errors": [],
+        }
+    eod_mod.run_dline_closeout = _dline_closeout
 
     def _pred_eval():
         rec["order"].append("pred_eval")
@@ -234,6 +244,7 @@ def test_eod_orchestration_and_passthrough():
         assert rec["eval_call"]["payload"] is _PAYLOAD
         assert rec["eval_call"]["source"]["_stub"] is True
         assert rec["regime_audit_call"] is _PAYLOAD
+        assert rec["dline_closeout_call"] == {"trade_date": "20260625"}
         # E4: E1 后先核验旧 predictions,再生成下一交易日 live predictions
         assert rec["next_trade_call"] == {"source": rec["collect_source"], "baseline": "20260625"}
         assert rec["preds_call"] == {"payload": _PAYLOAD, "target_trade_date": "20260626",
@@ -243,7 +254,7 @@ def test_eod_orchestration_and_passthrough():
                                          "target_trade_date": "20260626",
                                          "c_predictions": [{"prediction_id": "p1"}],
                                          "baseline_trade_date": "20260625"}
-        assert rec["order"] == ["regime_audit", "e1", "pred_eval", "next_trade", "pred_live",
+        assert rec["order"] == ["regime_audit", "e1", "d_closeout", "pred_eval", "next_trade", "pred_live",
                                 "pred_record", "pred_summary", "store", "d_enqueue",
                                 "layer2", "factor_weight_review", "prediction_layer2", "rule_suggestions"]
         # Layer2(E2): E4 后被调(顺带分析)

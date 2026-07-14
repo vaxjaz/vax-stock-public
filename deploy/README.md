@@ -73,3 +73,12 @@ PYTHONPATH=src python -m vaxstock.services.execution_confirmation --input script
 ```
 
 The first command performs no writes. The second appends the confirmation event, reconciles it against `close_review_<trade_date>.json`, and atomically refreshes private `holdings_state.json`, `portfolio_state.json`, and `execution_review_*`. The tracked `holdings.json` remains the initial baseline. Re-running the identical confirmation is idempotent; a reused confirmation or execution id with different data is rejected.
+
+## D-line closeout retry
+
+The next EOD runs `services.dline_closeout` after B-line backfill. Its replaceable operational status is `var/forecast/current_closeout_status.json`. `partial_data` names real missing evidence and `failed` names the failed stage; neither status fabricates intraday facts. Repeated retries are serialized and idempotent. User executions are never inputs.
+
+```bash
+set -a; . /etc/vaxstock/vaxstock.env; set +a
+PYTHONPATH=src /opt/stock-reportv2/venv/bin/python -m vaxstock.services.dline_closeout --trade-date YYYYMMDD
+```

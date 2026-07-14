@@ -430,6 +430,14 @@ Derived review:
 - 还没有 `/intraday/ask` 的查询输入/输出冻结规范。
 
 
+### D-line EOD closeout
+
+Source: `services.dline_closeout`, called by EOD with `payload.market_overview.trade_date` after B-line backfill. The target trade date is never inferred from wall-clock time.
+
+The closeout owns the ordered D-line finalization contract: freeze full-session observation coverage, freeze trigger evolution as an EOD fallback, append all newly mature `(sample_id, horizon)` results, regenerate `dline_reviews`, then audit current tasks against coverage, trigger evolution, and T+0 results. It uses an OS file lock plus the existing append-only identities, so manual and automatic retries cannot concurrently duplicate D-line result rows.
+
+Runtime status is atomically replaced at `var/forecast/current_closeout_status.json` and is gitignored. `done` means the target date's current D-line v2 evidence is complete; `partial_data` names missing/unqualified coverage, missing/incomplete evolution, or missing trigger T+0 results; `failed` records stage exceptions. Missing historical intraday evidence is never reconstructed. Identical abnormalities notify once and a later successful retry sends one recovery notification. Every status and result records that user executions are excluded.
+
 ### E_context: earnings / company events / industry forward context
 
 Source: `services.company_context`
@@ -516,6 +524,7 @@ turnover_history.parquet
 | `current_market_health.json` | 是 | 否 | 盘中节流与恢复状态，可由当日实时行情重新建立 |
 | `market_health_events.jsonl` | 否 | 是 | 按确定性 `event_id` 幂等；每条冻结规则版本和真实触发快照 |
 | `forecast_results.jsonl` | 否 | 是 | `(sample_id, horizon)` 幂等；不读取用户成交 |
+| `current_closeout_status.json` | 是 | 否 | D线日终结算状态与真实数据缺口；运行态、gitignored |
 | `dline_reviews/*` | 是 | 否 | D线触发/未触发效果派生视图，可重生成 |
 | `current_triggers.md` / `trigger_summary_<trade_date>.md` | 是 | 否 | D线触发派生视图,以 `forecasts.jsonl` 为事实源 |
 | `layer2/factor/prediction/rule *.md` | 是 | 否 | 报告可重生成, 不是原始事实源 |

@@ -110,7 +110,7 @@ tracks/__init__.py 严禁 import ai 或任何会触网/加载重依赖(akshare/p
     - [x] E2 research 分桶/前瞻IC/超额评估报告(不按样本数屏蔽,N 直接展示)
     - [x] Regime Audit: `services.regime_auditor` 落盘 raw/final/input/source,报告展示 market_regime 判定证据
     - [x] E3 人工依据报告反哺因子权重: `research.factor_weight_review` 生成人工调权复盘,只给证据不自动调参
-    - [x] D线盘中预测告警线已立(T-1基准注入 + JSON结构化预测冻结 var/forecast/forecasts.jsonl); EOD Codex 观察任务生成已接入 var/forecast/observation_tasks.jsonl; 盘中消费者与结果回填留后续 PR  # PR-A(PR#30)
+    - [x] D线闭环: EOD观察任务 -> 盘中全时段覆盖/触发冻结 -> 触发后15m/30m/收盘演变 -> T+N市场结果回填 -> 触发/合格未触发复核; `services.dline_closeout` 统一日终结算、异常状态与幂等重试。用户实际成交不参与D线正确性判断。
     - [x] E4 EOD Prediction 线:基于 T-1 EOD 真数据生成 T 日 9:30 后走势/动作预测,次日 EOD 核验,长期 day-by-day 修复用户 universe 择股框架
         - [x] E4-1 Schema + writer: `services/eod_predictor.py` + `tests/services/test_eod_predictor.py`
         - [x] E4-2 Replay bootstrap: 从既有 `factor_snapshots.jsonl` / `var/reports/*/payload.json` 重放生成 `generation_mode=replay`
