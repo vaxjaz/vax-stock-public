@@ -1,8 +1,8 @@
 # D线盘中触发汇总
 
-- updated_at: 2026-07-14T10:57:41
+- updated_at: 2026-07-14T13:03:48
 - trade_date: 2026-07-14
-- triggers: 19
+- triggers: 23
 - 口径: 仅汇总 `forecasts.jsonl` 中 `structured.source=dline_task_blueprint` 且 `dline_plan_version=d_observe_llm_v2` 的触发记录。
 - 数据源: 现价/涨跌幅/振幅/成交额来自触发时 `quote_snapshot`; MA偏离来自 `trigger_values`; C线为 `evidence_pack.C_prediction` 原始字段; LLM客观评价为触发时写入的 `reasoning`。
 - 边界: 本报告只做 D线触发复盘视图, 不给买卖建议, 不自动调参。
@@ -215,3 +215,47 @@
 - 触发依据: 说明恐慌延续并出现进一步破位，反弹假设失效。
 - LLM客观评价: D线触发: 说明恐慌延续并出现进一步破位，反弹假设失效。 观察目的: 观察盘中是否出现恐慌后的修复反弹，重点验证价格能否从MA20下方回收并避免继续破位。 主要风险: 在大盘 panic 背景下，弱反弹后再次转弱，继续沿MA20下方扩散下跌，直接否定情绪修复假设。 对C线反馈: invalidate_panic_rebound_watch 这是客观观察，不是交易指令；盘中未定论，评分和资金以EOD定稿数据为准。
 - C线反哺线索: expected_feedback_to_c=invalidate_panic_rebound_watch; baseline=20260713; task_id=20260713_20260714_002371_d_observe_llm_v2; MA20触发位置=-4.79%
+
+## 20. 603728 鸣志电器
+
+- 触发: breakdown_confirm / severity=high / fire_count=2
+- 时间: forecast_ts=2026-07-14T11:13:09; trade_time=11:13:05; trade_date=2026-07-14
+- 实时行情: 现价=54.00; 涨跌幅=-3.38%; 振幅=4.63%; 成交额=2.42亿
+- 均线偏离: MA5=-9.37%; MA20=-11.30%; MA60=-12.95%
+- C线原始预测: action=watch_only; direction=neutral; confidence=45%
+- 触发依据: 若继续明显远离中长均线且伴随波动放大，说明恐慌延续而非修复，C 线的观望理由被强化。
+- LLM客观评价: D线触发: 若继续明显远离中长均线且伴随波动放大，说明恐慌延续而非修复，C 线的观望理由被强化。 观察目的: 明天盘中验证该票在恐慌市中是否具备弱修复能力：能否重新收回短中期均线并摆脱继续走弱，还是延续下跌趋势。 主要风险: 恐慌行情下趋势仍在均线下方且近5日跌幅已大，盘中任何反弹都可能只是弱修复，核心风险是继续失守并放大下行。 对C线反馈: watch -> risk_off_confirm 这是客观观察，不是交易指令；盘中未定论，评分和资金以EOD定稿数据为准。
+- C线反哺线索: expected_feedback_to_c=watch -> risk_off_confirm; baseline=20260713; task_id=20260713_20260714_603728_d_observe_llm_v2; MA20触发位置=-11.30%
+
+## 21. 002475 立讯精密
+
+- 触发: risk_off_confirm / severity=high / fire_count=3
+- 时间: forecast_ts=2026-07-14T11:23:27; trade_time=11:23:18; trade_date=2026-07-14
+- 实时行情: 现价=58.06; 涨跌幅=-1.56%; 振幅=5.10%; 成交额=39.36亿
+- 均线偏离: MA5=-6.75%; MA20=-12.65%; MA60=-15.50%
+- C线原始预测: action=panic_rebound_watch; direction=up; confidence=50%
+- 触发依据: 表示弱势延续并向更深的趋势破位演化，反弹观察假设应降级。
+- LLM客观评价: D线触发: 表示弱势延续并向更深的趋势破位演化，反弹观察假设应降级。 观察目的: 验证在 panic 市场下，立讯精密次日是否能把前一日的超跌状态修复成可确认的短均回收，而不是仅出现低位反抽后继续维持中期破位。 主要风险: 盘中反弹只是噪声，无法收复 MA5/MA10，最终仍以弱势运行在 MA20/MA60 下方，延续下跌趋势。 对C线反馈: watch -> invalidate_rebound_bias 这是客观观察，不是交易指令；盘中未定论，评分和资金以EOD定稿数据为准。
+- C线反哺线索: expected_feedback_to_c=watch -> invalidate_rebound_bias; baseline=20260713; task_id=20260713_20260714_002475_d_observe_llm_v2; MA20触发位置=-12.65%
+
+## 22. 600522 中天科技
+
+- 触发: risk_off_confirm / severity=high / fire_count=2
+- 时间: forecast_ts=2026-07-14T11:23:29; trade_time=11:23:21; trade_date=2026-07-14
+- 实时行情: 现价=40.08; 涨跌幅=-3.00%; 振幅=5.13%; 成交额=53.19亿
+- 均线偏离: MA5=-11.52%; MA20=-25.84%; MA60=-10.79%
+- C线原始预测: action=panic_rebound_watch; direction=up; confidence=50%
+- 触发依据: 说明继续失守且波动放大，恐慌修复假设被否定，C线偏多判断需要回收。
+- LLM客观评价: D线触发: 说明继续失守且波动放大，恐慌修复假设被否定，C线偏多判断需要回收。 观察目的: 验证在市场恐慌背景下，中天科技次日是否能出现可被机械识别的超跌修复，而不是继续沿弱势均线下压。 主要风险: 恐慌市中的反弹可能只是缩量弱修复；如果无法收复短均线并且跌幅继续扩大，C线的T+1上涨假设会失效。 对C线反馈: watch -> invalidate_rebound 这是客观观察，不是交易指令；盘中未定论，评分和资金以EOD定稿数据为准。
+- C线反哺线索: expected_feedback_to_c=watch -> invalidate_rebound; baseline=20260713; task_id=20260713_20260714_600522_d_observe_llm_v2; MA20触发位置=-25.84%
+
+## 23. 002463 沪电股份
+
+- 触发: reclaim_confirm / severity=high / fire_count=4
+- 时间: forecast_ts=2026-07-14T13:03:48; trade_time=13:03:39; trade_date=2026-07-14
+- 实时行情: 现价=136.35; 涨跌幅=+9.38%; 振幅=6.74%; 成交额=86.74亿
+- 均线偏离: MA5=+4.99%; MA20=-1.95%; MA60=+11.39%
+- C线原始预测: action=panic_rebound_watch; direction=up; confidence=50%
+- 触发依据: 说明价格已从短线压制区回到可修复状态，C 线的 panic_rebound_watch 得到正向验证。
+- LLM客观评价: D线触发: 说明价格已从短线压制区回到可修复状态，C 线的 panic_rebound_watch 得到正向验证。 观察目的: 验证沪电股份在市场 panic 背景下，次日盘中是否能出现可被机械识别的情绪修复反弹，并通过收复短期均线来支撑 C 线的 T+1 看多假设。 主要风险: 反弹只是一段弱修复，无法收复短期均线，最终在 panic 市场里继续走弱并证伪 T+1 修复预期。 对C线反馈: panic_rebound_watch -> confirm_repair 这是客观观察，不是交易指令；盘中未定论，评分和资金以EOD定稿数据为准。
+- C线反哺线索: expected_feedback_to_c=panic_rebound_watch -> confirm_repair; baseline=20260713; task_id=20260713_20260714_002463_d_observe_llm_v2; MA20触发位置=-1.95%
