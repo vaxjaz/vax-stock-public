@@ -527,8 +527,30 @@ turnover_history.parquet
 | `current_closeout_status.json` | 是 | 否 | D线日终结算状态与真实数据缺口；运行态、gitignored |
 | `dline_reviews/*` | 是 | 否 | D线触发/未触发效果派生视图，可重生成 |
 | `current_triggers.md` / `trigger_summary_<trade_date>.md` | 是 | 否 | D线触发派生视图,以 `forecasts.jsonl` 为事实源 |
+| `evidence_objects.jsonl` | 否 | 是 | 每条C线预测一个不可变证据根；冻结B/C身份并引用A/D源账 |
+| `evidence_reviews.jsonl` | 否 | 是 | 绑定事实哈希的解释层；不得自动改规则 |
+| `evidence_summary_*.md` | 是 | 否 | 动态T+now、关键时间点与D线状态派生视图 |
 | `layer2/factor/prediction/rule *.md` | 是 | 否 | 报告可重生成, 不是原始事实源 |
 
+## 策略证据账本: `var/evidence`
+
+`services.evidence_ledger` 不创建第五条原始数据线。它为每条 C线预测建立稳定 `evidence_id`,只保存决策时身份、冻结动作和 A/B/C/D 源引用；收益与 D线状态在指定 `as_of_trade_date` 动态关联,因此后续 T+N 回填无需改写历史根对象。
+
+身份规则:
+
+- A报告目录交易日和股票代码必须存在。
+- C由源码确认从B快照生成,因此 `B.price_at_snapshot` 必须与 `C.features_ref.price_at_baseline` 一致。
+- 历史补跑可能使A报告内个股 `realtime.trade_date` 晚于报告交易日。该字段标记为 `a_realtime_drift`,不参与冻结C决策身份,也不得覆盖B/C价格；若A实时日期对齐但A/B/C价格冲突,该样本拒绝入账。
+- `generation_mode=live` 标为 `decision_evidence`; replay只标为 `historical_reconstruction`,不得静默混算。
+
+结果规则:
+
+- 用户可读收益只使用股票自身 `actual.ret`;指数超额只保留为审计字段。
+- 固定呈现T+1/5/10/30,并从全量成熟路径选最远点作为T+now,没有T+30上限。
+- D线按 `(target_trade_date, code, plan_version=d_observe_llm_v2)` 动态关联。`d_data_missing`、`not_selected`、`partial_data`、完整触发/未触发证据必须分开。
+- 用户成交永不进入D线或证据账本正确性判断。
+
+`evidence_reviews.jsonl` 是独立解释层。每条复盘必须绑定当时 `hydrated_facts_digest`,明确 `role=interpretation_not_fact` 与 `automatic_rule_change=false`。LLM可以提出因子交互、市场状态和失败机制假设,但不得改写事实；生产修正只能经人工审阅后以前滚 `rule_version` 生效。
 ## 下一步盘中数据层施工原则
 
 盘中数据层应保持四条线清楚分离:

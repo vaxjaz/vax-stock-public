@@ -82,3 +82,13 @@ The next EOD runs `services.dline_closeout` after B-line backfill. Its replaceab
 set -a; . /etc/vaxstock/vaxstock.env; set +a
 PYTHONPATH=src /opt/stock-reportv2/venv/bin/python -m vaxstock.services.dline_closeout --trade-date YYYYMMDD
 ```
+## Strategy evidence ledger retry
+
+EOD runs `services.evidence_ledger` after C-line result backfill and prediction freezing. It appends immutable roots and rebuilds the as-of Markdown view. Re-running the same date is idempotent. A/B/C identity conflicts are reported and omitted; missing D evidence remains explicitly missing.
+
+```bash
+set -a; . /etc/vaxstock/vaxstock.env; set +a
+PYTHONPATH=src /opt/stock-reportv2/venv/bin/python -m vaxstock.services.evidence_ledger --as-of YYYYMMDD
+```
+
+The command does not call an LLM and does not change strategy rules. Optional reviews live in a separate append-only file and require a reviewed forward-only `rule_version` before any production behavior changes.
