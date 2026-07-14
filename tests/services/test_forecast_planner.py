@@ -498,3 +498,48 @@ if __name__ == "__main__":
             failed += 1; print(f"  [ERROR] {name}: {type(e).__name__}: {e}")
     print(f"\n{len(fns)-failed}/{len(fns)} passed")
     sys.exit(1 if failed else 0)
+
+
+def test_compact_market_freezes_macro_and_ai_evidence():
+    payload = _payload()
+    payload["macro"] = {
+        "macro_regime": "🟡 中性",
+        "bullish_count": 5,
+        "bearish_count": 8,
+        "indicators": {
+            "etf_net_sub": {
+                "value_5d_yi": 87.75,
+                "value_20d_yi": -534.49,
+                "signal_5d": "✅✅",
+                "signal_20d": "❌❌",
+                "latest_date": "20260710",
+                "details_latest_day": [{"must_not": "copy"}],
+            },
+            "turnover": {
+                "turnover_rate": 0.91,
+                "percentile_3y": 87.19,
+                "signal": "❌",
+                "proxy_code": "000300.SH",
+                "latest_date": "20260710",
+            },
+        },
+        "errors": [],
+    }
+    payload["tracks"] = [{
+        "track_name": "AI算力",
+        "available": True,
+        "position_ceiling": "进攻档",
+        "summary_lines": ["NVDA已证实", "SOX开放"],
+        "vetoes": [],
+        "pending": [],
+        "signals": {"must_not": "copy"},
+    }]
+    market = fp._compact_market(payload)
+    assert market["macro"]["bullish_count"] == 5
+    assert market["macro"]["bearish_count"] == 8
+    assert market["macro"]["indicators"]["etf_net_sub"]["value_5d_yi"] == 87.75
+    assert "details_latest_day" not in market["macro"]["indicators"]["etf_net_sub"]
+    assert market["macro"]["indicators"]["turnover"]["proxy_code"] == "000300.SH"
+    assert market["ai_track"]["summary_lines"] == ["NVDA已证实", "SOX开放"]
+    assert market["ai_track"]["vetoes"] == []
+    assert "signals" not in market["ai_track"]

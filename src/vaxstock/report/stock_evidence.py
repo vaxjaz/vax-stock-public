@@ -41,9 +41,15 @@ def format_live_history(summary: Mapping[str, Any]) -> str:
     horizons = summary.get("horizons") or {}
     keys = [str(value) for value in (summary.get("key_horizons") or ("1", "5", "10", "30"))]
     latest = str(summary.get("latest_horizon") or summary.get("max_horizon") or "")
-    display = [(horizon, f"T+{horizon}") for horizon in keys]
+    display = [
+        (
+            horizon,
+            f"T+now（当前T+{horizon}）" if latest and horizon == latest else f"T+{horizon}",
+        )
+        for horizon in keys
+    ]
     if latest and latest not in keys and horizons.get(latest):
-        display.append((latest, f"最新T+{latest}"))
+        display.append((latest, f"T+now（当前T+{latest}）"))
 
     parts = []
     for horizon, label in display:
@@ -67,15 +73,20 @@ def format_live_history(summary: Mapping[str, Any]) -> str:
 def format_history_verdict(verdict: Mapping[str, Any]) -> str:
     verdict = verdict or {}
     cells = verdict.get("horizon_verdicts") or {}
+    latest = str(verdict.get("latest_horizon") or "")
+    display_horizons = ["1", "5", "10", "30"]
+    if latest and latest not in display_horizons and cells.get(latest):
+        display_horizons.append(latest)
     parts = []
-    for horizon in ("1", "5", "10", "30"):
+    for horizon in display_horizons:
         cell = cells.get(horizon) or {}
         evaluated = int(cell.get("evaluated") or 0)
         if not evaluated:
             continue
         avg_ret = cell.get("avg_ret")
         positive_rate = cell.get("positive_ret_rate")
-        detail = f"T+{horizon} {evaluated}次"
+        label = f"T+now（当前T+{horizon}）" if latest and horizon == latest else f"T+{horizon}"
+        detail = f"{label} {evaluated}次"
         if avg_ret is not None:
             detail += f"/平均收益{_pct(avg_ret)}"
         if positive_rate is not None:

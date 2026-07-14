@@ -117,9 +117,17 @@ def test_daily_action_requires_d_confirmation_and_keeps_avoid_as_no_add():
     assert "破位确认" in markdown
     assert "20日均线下方5%阈值" in markdown
     assert "今日不开新仓" in markdown
-    assert "持仓收益: -16.67%（估算-2,000.00元；成本12.000/参考价10.000）" in markdown
+    assert "**2. 当前实际盈亏**: -16.67%（估算-2,000.00元；成本12.000/参考价10.000）。" in markdown
     assert "live已核验6次，平均收益+0.76%，4/6次收益为正" in markdown
     assert "预计披露 2026-08-12" in markdown
+    labels = [
+        "**1. 今天做什么**",
+        "**2. 当前实际盈亏**",
+        "**3. 历史策略表现**",
+        "**4. 历史结果是否改变今天动作**",
+    ]
+    positions = [markdown.index(label) for label in labels]
+    assert positions == sorted(positions)
 
 
 def test_matching_c_history_conflict_blocks_add_but_not_risk_reduce():
@@ -338,3 +346,17 @@ def test_close_review_uses_verified_observation_coverage_for_not_recorded():
     assert "D线观察: 有效观察12次，首笔09:35:00，末笔14:58:00，最后价10.20" in markdown
     assert "加仓结果: D线未记录到" in markdown
     assert "风险结果: D线未记录到" in markdown
+
+
+def test_t_now_is_exposed_without_changing_decision_horizons():
+    summary = {
+        "latest_horizon": "7",
+        "horizons": {
+            "1": {"evaluated": 4, "avg_ret": -0.01, "positive_ret_rate": 0.25},
+            "7": {"evaluated": 1, "avg_ret": -0.08, "positive_ret_rate": 0.0},
+        },
+    }
+    verdict = _history_evidence_verdict(summary, _policy()["action_rules"])
+    assert verdict["latest_horizon"] == "7"
+    assert verdict["horizon_verdicts"]["7"]["avg_ret"] == -0.08
+    assert verdict["blocks_add"] is False

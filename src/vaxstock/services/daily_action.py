@@ -144,6 +144,57 @@ def _snapshot_for_target(snapshot: Dict[str, Any], target_trade_date: str | None
     return filtered
 
 
+def _enrich_market_context_from_a(snapshot: Dict[str, Any], reports_dir=None) -> Dict[str, Any]:
+    tasks = snapshot.get("tasks") or []
+    baselines = {
+        str(
+            task.get("baseline_trade_date")
+            or (task.get("evidence_pack") or {}).get("baseline_trade_date")
+            or ""
+        )
+        for task in tasks if isinstance(task, dict)
+    }
+    baseline = next(iter(baselines)) if len(baselines) == 1 else ""
+    if len(baseline) != 8 or not baseline.isdigit():
+        return snapshot
+
+    report_dir = Path(reports_dir or config.REPORTS_DIR)
+    dated_dir = f"{baseline[:4]}-{baseline[4:6]}-{baseline[6:]}"
+    payload = _read_json(report_dir / dated_dir / "payload.json")
+    payload_trade_date = _trade_date_key(
+        (payload.get("market_overview") or {}).get("trade_date")
+    )
+    if payload_trade_date != baseline:
+        return snapshot
+
+    from vaxstock.services.forecast_planner import _compact_market
+
+    source_market = _compact_market(payload)
+    for task in tasks:
+        if not isinstance(task, dict):
+            continue
+        evidence = task.setdefault("evidence_pack", {})
+        a_eod = evidence.setdefault("A_eod", {})
+        market = a_eod.setdefault("market", {})
+        if not isinstance(market, dict):
+            continue
+        for key in ("breadth", "macro"):
+            if not market.get(key) and source_market.get(key):
+                market[key] = source_market[key]
+
+        existing_ai = market.get("ai_track")
+        source_ai = source_market.get("ai_track")
+        if isinstance(source_ai, dict):
+            merged_ai = dict(source_ai)
+            if isinstance(existing_ai, dict):
+                merged_ai.update({
+                    key: value for key, value in existing_ai.items()
+                    if value is not None
+                })
+            market["ai_track"] = merged_ai
+    return snapshot
+
+
 def _enrich_history(snapshot: Dict[str, Any]) -> Dict[str, Any]:
     tasks = snapshot.get("tasks") or []
     baselines = {
@@ -203,12 +254,14 @@ def refresh_daily_action(*, tasks_path=None, output_dir=None,
                          holdings_data=None, portfolio_state=None,
                          policy_data=None, forecasts_path=None,
                          observation_status_path=None,
-                         reference_quotes=None,
+                         reference_quotes=None, reports_dir=None,
                          phase: str = "pre_market") -> Dict[str, Any]:
-    snapshot = _enrich_history(_snapshot_for_target(
+    snapshot = _snapshot_for_target(
         _read_json(tasks_path or CURRENT_TASKS_FILE),
         str(target_trade_date) if target_trade_date else None,
-    ))
+    )
+    snapshot = _enrich_market_context_from_a(snapshot, reports_dir=reports_dir)
+    snapshot = _enrich_history(snapshot)
     holdings = holdings_data if holdings_data is not None else config.load_holdings()
     portfolio = portfolio_state if portfolio_state is not None else config.load_portfolio_state()
     policy = policy_data if policy_data is not None else config.load_strategy_policy()

@@ -19,6 +19,7 @@ def test_formats_key_c_line_path_horizons():
         "evaluated": 6,
         "avg_ret": 0.0063,
         "positive_ret_count": 4,
+        "latest_horizon": "5",
         "key_horizons": ["1", "5", "10", "30"],
         "horizons": {
             "1": {"evaluated": 6, "avg_ret": 0.0063, "positive_ret_count": 4},
@@ -29,7 +30,7 @@ def test_formats_key_c_line_path_horizons():
 
     assert text == (
         "T+1 6次，平均收益+0.63%，4/6次收益为正"
-        "；T+5 2次，平均收益-0.80%，0/2次收益为正"
+        "；T+now（当前T+5） 2次，平均收益-0.80%，0/2次收益为正"
     )
 
 
@@ -46,7 +47,7 @@ def test_formats_latest_t_now_even_beyond_t30():
         },
     })
     assert "T+30 2次" in text
-    assert "最新T+47 1次" in text
+    assert "T+now（当前T+47） 1次" in text
 
 
 def test_formats_matching_history_verdict_plainly():
@@ -83,3 +84,25 @@ def test_old_summary_does_not_invent_positive_return_count():
     })
     assert text == "live已核验2次，平均收益-1.00%"
     assert "0/2" not in text
+
+
+def test_matching_history_verdict_always_shows_t_now():
+    text = format_history_verdict({
+        "latest_horizon": "7",
+        "horizon_verdicts": {
+            "1": {
+                "evaluated": 4,
+                "avg_ret": -0.01,
+                "positive_ret_rate": 0.25,
+            },
+            "7": {
+                "evaluated": 1,
+                "avg_ret": -0.08,
+                "positive_ret_rate": 0.0,
+            },
+        },
+        "verdict": "insufficient",
+    })
+    assert "T+1 4次" in text
+    assert "T+now（当前T+7） 1次" in text
+    assert "证据不足，不修正当前动作" in text

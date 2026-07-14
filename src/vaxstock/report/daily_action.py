@@ -3,6 +3,8 @@
 
 from typing import Any, Mapping
 
+from vaxstock.report.market_context import render_market_background_lines
+
 from vaxstock.report.stock_evidence import (
     format_earnings, format_history_verdict, format_live_history,
 )
@@ -19,7 +21,7 @@ _TRIGGER_LABELS = {
     "panic_rebound_probe": "恐慌修复确认",
     "breakdown_confirm": "破位确认",
     "failed_breakout": "突破失败",
-    "risk_off_confirm": "风险关闭",
+    "risk_off_confirm": "转弱减仓确认",
     "weak_rebound": "弱反弹",
     "noise_filter": "噪音过滤",
 }
@@ -87,7 +89,8 @@ def render_daily_action_markdown(plan: Mapping[str, Any]) -> str:
     lines += [
         "## 今日背景",
         "",
-        f"- 市场: {bg.get('market_regime_text') or '待验证'}；宏观: {bg.get('macro_regime') or '待验证'}；AI赛道限制: {bg.get('ai_position_ceiling') or '待验证'}。",
+        *render_market_background_lines(bg),
+        "",
         f"- 账户: 仓位 {_pct(account.get('reported_position_pct'))}，可用现金 {_amount(account.get('available_cash'))}；0.5单位 {_amount(units.get('half_unit'))}，1单位 {_amount(units.get('unit'))}。",
         f"- 数据口径: EOD基准 {bg.get('baseline_trade_date') or '待验证'}；账户估值日 {account.get('as_of_trade_date') or '待验证'}；来源 {source}。",
         *([
@@ -101,18 +104,29 @@ def render_daily_action_markdown(plan: Mapping[str, Any]) -> str:
     for idx, row in enumerate(plan.get("holdings") or [], start=1):
         tier = _TIER_LABELS.get(row.get("tier"), "待分类")
         lines.append(
-            f"{idx}. **{row.get('name') or row.get('code')}**：{row.get('action')}"
+            f"{idx}. **{row.get('name') or row.get('code')}**"
             f"（{tier}仓 {_pct(row.get('current_weight_pct'))}/{_pct(row.get('cap_pct'))}）"
+        )
+        lines.append(
+            f"   - **1. 今天做什么**: {row.get('action') or '待确认'}。"
+            f"原因: {row.get('reason') or '待确认'}。"
         )
         if row.get("pnl_pct") is not None:
             lines.append(
-                f"   - 持仓收益: {float(row['pnl_pct']):+.2f}%（估算{float(row['pnl_amount_estimate']):+,.2f}元；"
-                f"成本{float(row['cost_price']):.3f}/参考价{float(row['reference_price']):.3f}）"
+                f"   - **2. 当前实际盈亏**: {float(row['pnl_pct']):+.2f}%"
+                f"（估算{float(row['pnl_amount_estimate']):+,.2f}元；"
+                f"成本{float(row['cost_price']):.3f}/参考价{float(row['reference_price']):.3f}）。"
             )
-        lines.append(f"   - 真实历史: {format_live_history(row.get('history_summary') or {})}")
-        lines.append(f"   - 策略校正: {format_history_verdict(row.get('history_verdict') or {})}")
-        lines.append(f"   - 公司财报: {format_earnings(row.get('earnings') or {})}")
-        lines.append(f"   - 原因: {row.get('reason')}")
+        else:
+            lines.append("   - **2. 当前实际盈亏**: 待确认（成本或参考价不完整）。")
+        lines.append(
+            f"   - **3. 历史策略表现**: {format_live_history(row.get('history_summary') or {})}"
+        )
+        lines.append(
+            "   - **4. 历史结果是否改变今天动作**: "
+            f"{format_history_verdict(row.get('history_verdict') or {})}"
+        )
+        lines.append(f"   - 财报背景: {format_earnings(row.get('earnings') or {})}")
         for fact in row.get("dline_triggers") or []:
             lines.append(f"   - D线事实: {_trigger_fact_text(fact)}。")
         if plan.get("phase") == "close_review":

@@ -157,6 +157,50 @@ def _compact_metrics(metrics: Dict[str, Any]) -> Dict[str, Any]:
     return {k: metrics.get(k) for k in keys if k in metrics}
 
 
+def _compact_macro(macro: Dict[str, Any]) -> Dict[str, Any]:
+    indicators = macro.get("indicators") or {}
+    fields = {
+        "etf_net_sub": (
+            "value_5d_yi", "value_20d_yi", "signal_5d", "signal_20d", "latest_date",
+        ),
+        "margin_ratio": (
+            "ratio_pct", "percentile_3y", "signal", "latest_date", "stale",
+        ),
+        "turnover": (
+            "turnover_rate", "percentile_3y", "signal", "proxy_code", "latest_date",
+        ),
+        "hs300_erp": (
+            "pe_ttm", "yield_10y_pct", "yield_source", "erp_pct", "percentile_5y", "signal", "latest_date",
+        ),
+        "breadth": (
+            "available", "above_ma60_pct", "above_ma60_signal",
+            "above_ma200_pct", "above_ma200_signal", "ma250_bias_pct",
+            "ma250_bias_signal", "latest_date", "bias_latest_date",
+        ),
+        "m1_yoy": (
+            "value_pct", "mom_delta_pp", "percentile_10y", "signal", "latest_month",
+        ),
+        "sf_pulse": (
+            "pulse_yoy_pct", "accel_pp", "signal", "latest_month",
+        ),
+    }
+    compact_indicators = {}
+    for name, allowed in fields.items():
+        raw = indicators.get(name)
+        if not isinstance(raw, dict):
+            continue
+        compact_indicators[name] = {
+            key: raw.get(key) for key in allowed if key in raw
+        }
+    return {
+        "macro_regime": macro.get("macro_regime"),
+        "bullish_count": macro.get("bullish_count"),
+        "bearish_count": macro.get("bearish_count"),
+        "indicators": compact_indicators,
+        "errors": list(macro.get("errors") or []),
+    }
+
+
 def _compact_market(payload: Dict[str, Any]) -> Dict[str, Any]:
     overview = payload.get("market_overview") or {}
     macro = payload.get("macro") or {}
@@ -169,6 +213,8 @@ def _compact_market(payload: Dict[str, Any]) -> Dict[str, Any]:
             "available": first.get("available"),
             "position_ceiling": first.get("position_ceiling"),
             "summary_lines": first.get("summary_lines"),
+            "vetoes": first.get("vetoes"),
+            "pending": first.get("pending"),
         }
     return {
         "market_regime": payload.get("market_regime"),
@@ -180,6 +226,7 @@ def _compact_market(payload: Dict[str, Any]) -> Dict[str, Any]:
             "limit_up_count": overview.get("limit_up_count"),
             "limit_down_count": overview.get("limit_down_count"),
         },
+        "macro": _compact_macro(macro),
         "ai_track": ai_track,
     }
 

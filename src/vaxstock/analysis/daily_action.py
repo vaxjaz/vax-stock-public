@@ -10,7 +10,7 @@ _TRIGGER_LABELS = {
     "panic_rebound_probe": "恐慌修复确认",
     "breakdown_confirm": "破位确认",
     "failed_breakout": "突破失败",
-    "risk_off_confirm": "风险关闭",
+    "risk_off_confirm": "转弱减仓确认",
 }
 _PRICE_FIELDS = {
     "price_vs_ma5_pct": ("ma5", "5日均线"),
@@ -47,6 +47,13 @@ def _history_evidence_verdict(summary: Mapping[str, Any],
     tracked_horizons = list(dict.fromkeys(
         [primary_horizon, *add_veto_horizons, *position_review_horizons]
     ))
+    latest_horizon = str(
+        (summary or {}).get("latest_horizon")
+        or (summary or {}).get("max_horizon")
+        or ""
+    )
+    if latest_horizon.isdigit() and latest_horizon not in tracked_horizons:
+        tracked_horizons.append(latest_horizon)
     minimum = int(policy.get("minimum_preliminary_samples") or 5)
     stable_minimum = int(policy.get("minimum_stable_samples") or 20)
     support_rate = _number(policy.get("support_min_positive_ret_rate"))
@@ -104,6 +111,7 @@ def _history_evidence_verdict(summary: Mapping[str, Any],
         "avg_ret": primary.get("avg_ret"),
         "positive_ret_rate": primary.get("positive_ret_rate"),
         "horizon_verdicts": horizon_verdicts,
+        "latest_horizon": latest_horizon or None,
         "add_veto_horizons": add_veto_horizons,
         "blocked_horizons": blocked_horizons,
         "position_review_horizons": position_review_horizons,
@@ -217,6 +225,9 @@ def build_daily_action_plan(task_snapshot: Mapping[str, Any], holdings: Mapping[
         "market_regime": market.get("market_regime"),
         "market_regime_text": _REGIME_LABELS.get(market.get("market_regime"), market.get("market_regime") or "待验证"),
         "macro_regime": market.get("macro_regime"),
+        "breadth": dict(market.get("breadth") or {}),
+        "macro": dict(market.get("macro") or {}),
+        "ai_track": dict(ai_track),
         "ai_position_ceiling": ai_track.get("position_ceiling"),
     }
 
