@@ -19,3 +19,4 @@ __pycache__/
 *.log
 var/strategy/
 var/forecast/current_observation_status.json
+var/forecast/current_evolution_status.json

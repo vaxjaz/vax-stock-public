@@ -487,11 +487,13 @@ def test_check_dline_task_recomputes_live_ma_deviation():
 
 
 def test_notify_dline_freezes_forecast_and_pushes():
-    saved = (intra.record_forecast, intra.push_wechat, intra.push_email,
+    saved = (intra.record_forecast, intra.start_trigger_evolution,
+             intra.push_wechat, intra.push_email,
              intra._maybe_autocommit_intraday_forecast)
     out = {}
     try:
         intra.record_forecast = lambda *a, **k: out.update(forecast=a) or True
+        intra.start_trigger_evolution = lambda *a, **k: out.update(evolution=True) or {"status": "written"}
         intra._maybe_autocommit_intraday_forecast = lambda: out.update(autocommit=True) or {"status": "test"}
         intra.push_wechat = lambda title, body, pushplus_token=None: out.update(wx=(title, body)) or True
         intra.push_email = lambda title, body, smtp_conf=None: out.update(email=(title, body)) or True
@@ -529,12 +531,14 @@ def test_notify_dline_freezes_forecast_and_pushes():
         assert args[4]["source"] == "dline_task_blueprint"
         assert out.get("autocommit") is True
     finally:
-        intra.record_forecast, intra.push_wechat, intra.push_email, intra._maybe_autocommit_intraday_forecast = saved
+        (intra.record_forecast, intra.start_trigger_evolution, intra.push_wechat,
+         intra.push_email, intra._maybe_autocommit_intraday_forecast) = saved
 
 
 def test_run_consumes_dline_current_tasks():
     saved = (intra.load_rules, intra.load_dline_tasks, intra.fetch_quotes, intra.notify_dline,
-             intra.record_task_observation, intra.load_dline_trigger_facts, intra.request)
+             intra.record_task_observation, intra.record_evolution_observation,
+             intra.restore_active_evolutions, intra.load_dline_trigger_facts, intra.request)
     calls = []
     coverage_calls = []
     try:
@@ -543,6 +547,8 @@ def test_run_consumes_dline_current_tasks():
         intra.record_task_observation = lambda task, quote, **kwargs: (
             coverage_calls.append((task["code"], quote["trade_date"])) or {"status": "written"}
         )
+        intra.record_evolution_observation = lambda *args, **kwargs: {"status": "no_active", "written": 0}
+        intra.restore_active_evolutions = lambda *args, **kwargs: {"written": 0, "duplicates": 0, "skipped": 0}
         intra.load_dline_trigger_facts = lambda *args, **kwargs: {}
         intra.fetch_quotes = lambda codes: {"002475": {"code": "002475", "name": "立讯精密", "price": 96.0,
             "change_pct": -1.5, "amplitude_pct": 3.2, "amount": 2e8, "trade_date": "20260706"}}
@@ -553,11 +559,13 @@ def test_run_consumes_dline_current_tasks():
         assert coverage_calls == [("002475", "20260706")]
     finally:
         (intra.load_rules, intra.load_dline_tasks, intra.fetch_quotes, intra.notify_dline,
-         intra.record_task_observation, intra.load_dline_trigger_facts, intra.request) = saved
+         intra.record_task_observation, intra.record_evolution_observation,
+             intra.restore_active_evolutions, intra.load_dline_trigger_facts, intra.request) = saved
 # ── C2b: run() 今日触发计数 —— 同 code 多规则递增; 跨日清零 ──
 def test_run_fire_count_increments_per_code():
     saved = (intra.load_rules, intra.load_dline_tasks, intra.fetch_quotes, intra.notify,
-             intra.record_task_observation, intra.load_dline_trigger_facts, intra.request)
+             intra.record_task_observation, intra.record_evolution_observation,
+             intra.restore_active_evolutions, intra.load_dline_trigger_facts, intra.request)
     calls = []
     coverage_calls = []
     try:
@@ -567,6 +575,8 @@ def test_run_fire_count_increments_per_code():
         ]
         intra.load_dline_tasks = lambda: []
         intra.record_task_observation = lambda *args, **kwargs: {"status": "written"}
+        intra.record_evolution_observation = lambda *args, **kwargs: {"status": "no_active", "written": 0}
+        intra.restore_active_evolutions = lambda *args, **kwargs: {"written": 0, "duplicates": 0, "skipped": 0}
         intra.load_dline_trigger_facts = lambda *args, **kwargs: {}
         intra.fetch_quotes = lambda codes: {"002475": {"name": "立讯", "price": 70.0, "change_pct": 2.0}}
         intra.notify = lambda rule, quote, fire_count=None: calls.append((rule["type"], fire_count))
@@ -576,13 +586,15 @@ def test_run_fire_count_increments_per_code():
         assert sorted(fc for _, fc in calls) == [1, 2]
     finally:
         (intra.load_rules, intra.load_dline_tasks, intra.fetch_quotes, intra.notify,
-         intra.record_task_observation, intra.load_dline_trigger_facts, intra.request) = saved
+         intra.record_task_observation, intra.record_evolution_observation,
+             intra.restore_active_evolutions, intra.load_dline_trigger_facts, intra.request) = saved
 
 
 def test_run_fire_count_resets_on_new_day():
     _Stop = type("_Stop", (Exception,), {})
     saved = (intra.load_rules, intra.load_dline_tasks, intra.fetch_quotes, intra.notify,
-             intra.record_task_observation, intra.load_dline_trigger_facts, intra.request,
+             intra.record_task_observation, intra.record_evolution_observation,
+             intra.restore_active_evolutions, intra.load_dline_trigger_facts, intra.request,
              intra.dt, intra.time)
     calls = []
     rule_a = {"code": "002475", "name": "立讯", "type": "price_above", "level": 69.0, "note": "a"}
@@ -612,6 +624,8 @@ def test_run_fire_count_resets_on_new_day():
         intra.load_rules = _load
         intra.load_dline_tasks = lambda: []
         intra.record_task_observation = lambda *args, **kwargs: {"status": "written"}
+        intra.record_evolution_observation = lambda *args, **kwargs: {"status": "no_active", "written": 0}
+        intra.restore_active_evolutions = lambda *args, **kwargs: {"written": 0, "duplicates": 0, "skipped": 0}
         intra.load_dline_trigger_facts = lambda *args, **kwargs: {}
         intra.fetch_quotes = lambda codes: {"002475": {"name": "立讯", "price": 70.0, "change_pct": 2.0}}
         intra.notify = lambda rule, quote, fire_count=None: calls.append((rule["type"], fire_count))
@@ -628,7 +642,8 @@ def test_run_fire_count_resets_on_new_day():
         assert calls[-2:] == [("price_above", 1), ("pct_above", 2)]
     finally:
         (intra.load_rules, intra.load_dline_tasks, intra.fetch_quotes, intra.notify,
-         intra.record_task_observation, intra.load_dline_trigger_facts, intra.request,
+         intra.record_task_observation, intra.record_evolution_observation,
+             intra.restore_active_evolutions, intra.load_dline_trigger_facts, intra.request,
          intra.dt, intra.time) = saved
 
 
@@ -660,9 +675,12 @@ def test_close_review_target_requires_one_consistent_task_date():
 
 def test_run_close_review_delegates_to_idempotent_service():
     from vaxstock.services import daily_action
-    saved = daily_action.refresh_and_send_close_review
+    saved = (daily_action.refresh_and_send_close_review, intra.finalize_evolutions,
+             intra.finalize_observation_coverage)
     calls = []
     try:
+        intra.finalize_evolutions = lambda *args, **kwargs: {"status": "finalized", "written": 1}
+        intra.finalize_observation_coverage = lambda *args, **kwargs: {"status": "finalized", "written": 1}
         daily_action.refresh_and_send_close_review = lambda **kwargs: (
             calls.append(kwargs) or {
                 "action": {"status": "written"},
@@ -678,7 +696,8 @@ def test_run_close_review_delegates_to_idempotent_service():
         assert calls[0]["target_trade_date"] == "20260713"
         assert callable(calls[0]["reference_quote_loader"])
     finally:
-        daily_action.refresh_and_send_close_review = saved
+        (daily_action.refresh_and_send_close_review, intra.finalize_evolutions,
+         intra.finalize_observation_coverage) = saved
 
 def test_matching_dline_triggers_returns_every_matching_type():
     task = {
@@ -720,6 +739,7 @@ def test_run_restores_fired_keys_when_tasks_appear_after_startup():
     saved = (
         intra.load_rules, intra.load_dline_tasks, intra.fetch_quotes,
         intra.notify_dline, intra.record_task_observation,
+        intra.record_evolution_observation, intra.restore_active_evolutions,
         intra.load_dline_trigger_facts, intra.request,
     )
     task = _sample_dline_task()
@@ -728,6 +748,8 @@ def test_run_restores_fired_keys_when_tasks_appear_after_startup():
     try:
         intra.load_rules = lambda: []
         intra.load_dline_tasks = lambda: loads.pop(0) if loads else [task]
+        intra.record_evolution_observation = lambda *args, **kwargs: {"status": "no_active", "written": 0}
+        intra.restore_active_evolutions = lambda *args, **kwargs: {"written": 0, "duplicates": 0, "skipped": 0}
         intra.load_dline_trigger_facts = lambda target: {"002475": [{
             "task_id": task["task_id"], "trigger_type": "reclaim_confirm",
         }]}
@@ -748,5 +770,6 @@ def test_run_restores_fired_keys_when_tasks_appear_after_startup():
         (
             intra.load_rules, intra.load_dline_tasks, intra.fetch_quotes,
             intra.notify_dline, intra.record_task_observation,
+            intra.record_evolution_observation, intra.restore_active_evolutions,
             intra.load_dline_trigger_facts, intra.request,
         ) = saved

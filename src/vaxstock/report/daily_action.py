@@ -73,7 +73,37 @@ _DLINE_VERDICT_LABELS = {
     "preliminary_conflict": "初步反对当前D线条件",
     "stable_conflict": "稳定反对当前D线条件",
     "mixed": "结果混合",
+    "insufficient_intraday_path": "盘中演变样本不足",
+    "mixed_intraday_path": "盘中演变结果混合",
+    "preliminary_sustained": "初步显示触发后持续有效",
+    "stable_sustained": "稳定显示触发后持续有效",
+    "preliminary_trigger_early": "初步显示触发偏早",
+    "stable_trigger_early": "稳定显示触发偏早",
+    "preliminary_intraday_fade": "初步显示触发后盘中转弱",
+    "stable_intraday_fade": "稳定显示触发后盘中转弱",
+    "preliminary_intraday_conflict": "初步显示触发方向无效",
+    "stable_intraday_conflict": "稳定显示触发方向无效",
 }
+
+_DLINE_TRIGGER_LABELS = {
+    "breakout_confirm": "突破确认",
+    "reclaim_confirm": "收复确认",
+    "panic_rebound_probe": "恐慌修复观察",
+    "breakdown_confirm": "破位确认",
+    "failed_breakout": "突破失败",
+    "risk_off_confirm": "风险关闭",
+    "weak_rebound": "弱反弹",
+    "noise_filter": "噪音过滤",
+}
+
+
+def _dline_change_key_label(value: Any) -> str:
+    parts = str(value or "").split("|")
+    if len(parts) < 3:
+        return str(value or "待确认")
+    trigger = _DLINE_TRIGGER_LABELS.get(parts[1], parts[1])
+    scope = "盘中演变" if parts[-1] == "intraday" else f"T+{parts[-1]}"
+    return f"{trigger}（{scope}）"
 
 
 def _dline_rule_change_lines(background: Mapping[str, Any]):
@@ -82,7 +112,7 @@ def _dline_rule_change_lines(background: Mapping[str, Any]):
         return []
     parts = []
     for change in changes[:3]:
-        key = str(change.get("cell_key") or "待确认")
+        key = _dline_change_key_label(change.get("cell_key"))
         before = _DLINE_VERDICT_LABELS.get(
             str(change.get("before") or ""), str(change.get("before") or "待确认")
         )

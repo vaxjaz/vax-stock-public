@@ -30,6 +30,10 @@ from vaxstock.services.forecast_recorder import load_dline_trigger_facts, record
 from vaxstock.services.observation_coverage import (
     finalize_observation_coverage, record_task_observation,
 )
+from vaxstock.services.forecast_evolution import (
+    finalize_evolutions, record_evolution_observation,
+    restore_active_evolutions, start_trigger_evolution,
+)
 from vaxstock.sources.codex import call_codex
 
 logger = logging.getLogger(__name__)
@@ -607,6 +611,13 @@ def notify_dline(task: Dict[str, Any], quote: Dict[str, Any], blueprint: Dict[st
     }
     written = record_forecast(code, quote.get("trade_date"), f"D-line {trigger_type}: {blueprint.get('why', '')}",
                               inputs_ref, structured, reasoning, structured.get("falsify_if", ""))
+    if written:
+        evolution = start_trigger_evolution(task, trigger_type, quote)
+        if evolution.get("status") not in {"written", "duplicate"}:
+            logger.warning(
+                "D-line evolution start failed: code=%s task_id=%s result=%s",
+                code, task.get("task_id"), evolution,
+            )
     logger.info("\n%s\n%s\n%s\n%s", "=" * 40, title, body, "=" * 40)
     push_wechat(title, body, pushplus_token=_PUSHPLUS_TOKEN)
     push_email(title, body, smtp_conf=_smtp_conf())
@@ -741,6 +752,12 @@ def _run_close_review(dline_tasks: List[Dict[str, Any]]) -> Dict[str, Any]:
     if not target:
         return {"status": "skipped", "reason": "target_trade_date_missing_or_mixed"}
     from vaxstock.services.daily_action import refresh_and_send_close_review
+    evolution_result = finalize_evolutions(target)
+    if evolution_result.get("status") not in {"finalized", "missing"}:
+        logger.warning(
+            "D-line evolution finalization incomplete: target=%s result=%s",
+            target, evolution_result,
+        )
     coverage_result = finalize_observation_coverage(target)
     if coverage_result.get("status") not in {"finalized"}:
         logger.warning(
@@ -769,6 +786,7 @@ def _run_close_review(dline_tasks: List[Dict[str, Any]]) -> Dict[str, Any]:
 def run(once=False, force=False):
     rules = load_rules()
     dline_tasks = load_dline_tasks()
+    restore_active_evolutions(dline_tasks)
     fired_keys, today_fire_count = _existing_dline_runtime_state(dline_tasks)
     fire_count_day = None
 
@@ -835,6 +853,7 @@ def run(once=False, force=False):
         loaded_task_ids = {str(task.get("task_id") or "") for task in loaded_dline_tasks}
         dline_tasks = loaded_dline_tasks
         if loaded_task_ids != previous_task_ids:
+            restore_active_evolutions(dline_tasks)
             restored_keys, restored_counts = _existing_dline_runtime_state(dline_tasks)
             fired_keys.update(restored_keys)
             for code, count in restored_counts.items():
@@ -881,6 +900,12 @@ def run(once=False, force=False):
                 if coverage.get("status") == "error":
                     logger.warning("D-line coverage write failed: code=%s task_id=%s detail=%s",
                                    code, task.get("task_id"), coverage.get("detail"))
+                evolution = record_evolution_observation(
+                    task, qd, observed_at=dt.datetime.now().isoformat(timespec="seconds"),
+                )
+                if evolution.get("status") == "error":
+                    logger.warning("D-line evolution write failed: code=%s task_id=%s detail=%s",
+                                   code, task.get("task_id"), evolution.get("detail"))
                 for idx, bp, values in matching_dline_triggers(task, qd):
                     key = _dline_trigger_key(task, bp.get("trigger_type"))
                     if key in fired_keys:

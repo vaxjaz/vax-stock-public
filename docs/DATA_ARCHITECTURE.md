@@ -265,6 +265,7 @@ C-line EOD Prediction
   -> D-line async worker generates observation tasks
   -> D-line intraday trigger evaluation
   -> full-session coverage finalization
+  -> trigger-path 15m/30m/close finalization
   -> forecast_results T+N backfill
   -> trigger-vs-qualified-no-trigger review
 ```
@@ -332,6 +333,14 @@ Purpose: runtime evidence for each current D-line task. Writes are atomic and du
 Source: `services.observation_coverage.finalize_observation_coverage`.
 
 Purpose: append-only per-task coverage history. A qualified no-trigger sample must satisfy the frozen `d_full_session_v1` policy: at least 15 distinct quotes in both sessions, an opening quote by 09:40, a morning quote at/after 11:20, an afternoon quote by 13:15, a closing quote at/after 14:50, and no in-session gap above 30 minutes. These are versioned system policy thresholds, not market facts. Old sessions without this evidence remain `coverage_missing`; they are never backfilled as no-trigger samples.
+
+### `current_evolution_status.json` / `forecast_evolution.jsonl`
+
+Source: `services.forecast_evolution`, called by `services.intraday`.
+
+Purpose: after a D-line trigger, reuse the watcher's verified same-session quotes to record the first quote inside the T+15 and T+30 trading-minute windows, the last verified quote at/after 14:50, and observed min/max prices. Checkpoints have a versioned five-minute capture tolerance; a missed window remains missing and is never replaced by a later quote. The current file is atomic, private, and restart-restorable from frozen forecasts. The history file is append-only and idempotent by `(target_trade_date, task_id, trigger_type, policy_version)`.
+
+The intraday path is joined to `forecast_results.jsonl` by `(task_id, trigger_type)`. It evaluates trigger timing only; official T+N returns remain sourced from B-line EOD data. Both files explicitly exclude user executions.
 
 ### `forecasts.jsonl`
 
@@ -408,7 +417,6 @@ Derived review:
 
 仍待完成:
 
-- 还没有盘中演变记忆的独立状态文件。
 - 还没有主动盘面体检的落盘 schema。
 - 还没有 `/intraday/ask` 的查询输入/输出冻结规范。
 
@@ -495,6 +503,7 @@ turnover_history.parquet
 | `current_tasks.json` | 是 | 否 | D线当前任务快照,可由历史任务重建 |
 | `forecasts.jsonl` | 否 | 是 | 同日同票多触发是正常事件 |
 | `observation_coverage.jsonl` | 否 | 是 | 只有通过版本化全天覆盖规则，未触发才是有效样本 |
+| `forecast_evolution.jsonl` | 否 | 是 | 触发后15/30分钟及收盘前路径，按 `evolution_id` 幂等 |
 | `forecast_results.jsonl` | 否 | 是 | `(sample_id, horizon)` 幂等；不读取用户成交 |
 | `dline_reviews/*` | 是 | 否 | D线触发/未触发效果派生视图，可重生成 |
 | `current_triggers.md` / `trigger_summary_<trade_date>.md` | 是 | 否 | D线触发派生视图,以 `forecasts.jsonl` 为事实源 |
@@ -513,11 +522,9 @@ turnover_history.parquet
 
 进入下一步时建议先定义:
 
-1. 盘中演变记忆是否新建 `var/intraday/`。
-2. D线盘中演变记忆是否需要在触发后保存更多时间点。
-3. 盘中主动体检是否只记录市场级事件, 还是也记录个股级观察。
-4. `/intraday/ask` 的输入必须引用哪些已冻结事实源, 输出是否也要 append-only。
-5. 所有盘中字段必须标注实时、T-1 定稿、T 日收盘聚合滞后三类来源。
+1. 盘中主动体检是否只记录市场级事件, 还是也记录个股级观察。
+2. `/intraday/ask` 的输入必须引用哪些已冻结事实源, 输出是否也要 append-only。
+3. 所有盘中字段必须标注实时、T-1 定稿、T 日收盘聚合滞后三类来源。
 ## 私有策略派生层: `var/strategy`
 
 这一层不是新的事实样本线。它只把已冻结的 A/B/C/D 证据、真实持仓和已审核纪律压缩成用户每天阅读的操作清单。

@@ -10,6 +10,7 @@ B线 EOD 因子快照 + 真实结果回填
 C线 EOD Prediction
   -> D线 EOD 观察任务
   -> D线盘中全时段覆盖 + 触发评价
+  -> D线触发后15/30分钟与收盘前演变
   -> D线 T+N 市场结果回填
   -> 触发/合格未触发对照复核
 ```
@@ -24,6 +25,8 @@ D线不是全 universe 无偏样本, 不能冒充 B线。D线记录的是“被�
 | `current_tasks.json` | 当前目标交易日可加载的 D线观察任务快照, 由历史任务物化生成。 | `services.forecast_planner.record_observation_tasks` |
 | `current_observation_status.json` | 当前交易日逐任务行情覆盖状态, 原子覆盖写, 不作为历史结论。 | `services.observation_coverage.record_task_observation` |
 | `observation_coverage.jsonl` | 收盘冻结的逐任务覆盖证据, append-only；只有通过版本化全天覆盖规则的未触发任务才可成为结果样本。 | `services.observation_coverage.finalize_observation_coverage` |
+| `current_evolution_status.json` | 触发后盘中演变的当前原子状态,可由冻结触发恢复。 | `services.forecast_evolution` |
+| `forecast_evolution.jsonl` | 触发后15/30分钟、收盘前、最大上涨/下跌的真实行情路径, append-only。 | `services.forecast_evolution.finalize_evolutions` |
 | `forecasts.jsonl` | 盘中触发时冻结的结构化评价,包含 T-1 基准、盘中 lite 快照、regime、Codex 结构化判断等。 | `services.forecast_recorder.record_forecast` |
 | `forecast_results.jsonl` | 逐任务蓝图的 T+N 市场结果, append-only；不读取用户成交。 | `services.dline_evaluator.backfill_dline_results` |
 | `dline_reviews/` | 触发与合格未触发对照复核、规则证据变化通知；只提建议,不自动改参数。 | `research.dline_review` |
@@ -84,6 +87,8 @@ D线不是全 universe 无偏样本, 不能冒充 B线。D线记录的是“被�
 
 ## 市场结果闭环
 
+- 触发后的15/30分钟检查点只接受计划窗口后5分钟内的真实 quote；错过即标缺失。
+- 收盘检查点是14:50后最后一条已验证盘中 quote，不冒充官方EOD收盘价。
 - 已触发任务以冻结的首次触发价记录执行时点收益,同时以目标日收盘价记录与未触发组可比的统一收益。
 - 未触发任务只有在 `observation_coverage.jsonl` 通过全天覆盖规则后才纳入；历史缺覆盖数据不会被补猜。
 - `forecast_results.jsonl` 使用 B线已经机械回填的真实个股收益,按 `(sample_id, horizon)` 幂等追加。
