@@ -1,0 +1,137 @@
+{
+  "schema_version": 1,
+  "policy_version": "evidence_convergence_v1",
+  "as_of_trade_date": "20260713",
+  "status": "ready",
+  "market_context": {
+    "source_status": "aligned",
+    "trade_date": "20260713",
+    "market_regime": "panic",
+    "up_count": 801,
+    "down_count": 4683,
+    "total": 5524,
+    "limit_down_count": 211,
+    "down_ratio": 0.8477552498189718,
+    "macro_regime": "🟡 中性",
+    "above_ma60_pct": 10.552147239263803,
+    "margin_data_date": "20260710",
+    "margin_stale": true,
+    "ai_track": {
+      "track_name": "AI算力",
+      "position_ceiling": "进攻档 (赛道上限~高位, 可加)",
+      "vetoes": [],
+      "pending": []
+    }
+  },
+  "facts": {
+    "live_evidence_objects": 252,
+    "current_target_evidence_objects": 42,
+    "new_matured_c_results": 252,
+    "dline_selected_stocks": 17,
+    "dline_triggered_stocks": 13,
+    "dline_trigger_records": 13,
+    "dline_complete_evolution_paths": 0,
+    "dline_missing_evolution_paths": 13,
+    "horizon_reversal_total": 20,
+    "horizon_reversal_new": 9
+  },
+  "convergence": {
+    "thresholds": {
+      "available": true,
+      "minimum_preliminary_sessions": 5,
+      "minimum_stable_sessions": 20,
+      "support_min_hit_rate": 0.6,
+      "conflict_max_hit_rate": 0.4,
+      "source": "strategy_policy.action_rules.history_evidence",
+      "independence_rule": "same group and target_trade_date counts as one market session"
+    },
+    "groups": [
+      {
+        "group_key": "zz800_seed_v1|avoid|neutral|value",
+        "rule_version": "zz800_seed_v1",
+        "action": "avoid",
+        "direction": "neutral",
+        "decision_market_regime": "value",
+        "observations": 40,
+        "independent_sessions": 2,
+        "session_weighted_hit_rate": 0.8184143222506394,
+        "verdict": "accumulating"
+      },
+      {
+        "group_key": "zz800_seed_v1|candidate_buy|up|value",
+        "rule_version": "zz800_seed_v1",
+        "action": "candidate_buy",
+        "direction": "up",
+        "decision_market_regime": "value",
+        "observations": 4,
+        "independent_sessions": 2,
+        "session_weighted_hit_rate": 0.0,
+        "verdict": "accumulating"
+      },
+      {
+        "group_key": "zz800_seed_v1|panic_rebound_watch|up|panic",
+        "rule_version": "zz800_seed_v1",
+        "action": "panic_rebound_watch",
+        "direction": "up",
+        "decision_market_regime": "panic",
+        "observations": 83,
+        "independent_sessions": 4,
+        "session_weighted_hit_rate": 0.5073035850495804,
+        "verdict": "accumulating"
+      },
+      {
+        "group_key": "zz800_seed_v1|watch|up|value",
+        "rule_version": "zz800_seed_v1",
+        "action": "watch",
+        "direction": "up",
+        "decision_market_regime": "value",
+        "observations": 40,
+        "independent_sessions": 2,
+        "session_weighted_hit_rate": 0.24168797953964194,
+        "verdict": "accumulating"
+      }
+    ],
+    "changes": [
+      {
+        "type": "initial_baseline",
+        "summary": "建立首日证据收敛基线；当前4个策略分组均在积累，最多4个独立交易日，尚未达到5日初步证据门槛。"
+      }
+    ]
+  },
+  "special_findings": [
+    {
+      "code": "decision_outcome_environment_shift",
+      "severity": "attention",
+      "summary": "决策时市场状态为value，结果日实际状态为panic；本日结果需按环境切换样本解释，不能直接归因于个股规则。"
+    },
+    {
+      "code": "same_day_correlated_trigger_event",
+      "severity": "attention",
+      "summary": "恐慌环境下13只股票在同一交易日触发D线，属于1个相关市场事件；保留逐股结果，但收敛判断不按13个独立市场样本计数。",
+      "triggered_stock_count": 13,
+      "effective_environment_event_count": 1
+    },
+    {
+      "code": "dline_post_trigger_path_missing",
+      "severity": "data_gap",
+      "summary": "D线触发13条，完整触发后演变0条，仍有13条不能评价最佳操作时机。"
+    },
+    {
+      "code": "t1_t5_sign_reversal",
+      "severity": "attention",
+      "summary": "新增9条T+1与T+5收益方向反转证据（北方华创、沪电股份、立讯精密等）；短期结论不能外推到持有5天。"
+    }
+  ],
+  "strategy_effect": {
+    "automatic_rule_change": false,
+    "status": "review_required",
+    "summary": "发现4项需要继续验证的问题；不自动修改今日动作，下方操作仍按持仓、C线与D线纪律生成。"
+  },
+  "source_contract": {
+    "primary_return": "actual_stock_return",
+    "same_day_dependence": "one_environment_event",
+    "user_execution_used": false,
+    "llm_interpretation_used": false
+  },
+  "facts_digest": "f542af6236e64d5f861ccf286f0edec4fba5133f82a618a7d4898dbf77935c42"
+}

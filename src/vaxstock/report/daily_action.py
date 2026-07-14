@@ -125,6 +125,43 @@ def _dline_rule_change_lines(background: Mapping[str, Any]):
     as_of = background.get("dline_rule_review_as_of") or "待确认"
     return [f"- D线规则复盘变化（截至{as_of}）: " + "；".join(parts)]
 
+def _evidence_convergence_lines(report: Mapping[str, Any]):
+    if report.get("status") not in {"ready", "partial_data"}:
+        reason = report.get("reason") or "同一EOD基准日的证据收敛报告缺失"
+        return [
+            "## 证据收敛",
+            "",
+            f"- 待确认: {reason}；不使用其他日期报告替代。",
+            "",
+        ]
+    facts = report.get("facts") or {}
+    changes = (report.get("convergence") or {}).get("changes") or []
+    findings = report.get("special_findings") or []
+    effect = report.get("strategy_effect") or {}
+    change_text = "；".join(
+        str(row.get("summary")).rstrip("。；")
+        for row in changes[:4] if row.get("summary")
+    ) or "没有可确认的结论变化。"
+    finding_text = "；".join(
+        str(row.get("summary")).rstrip("。；")
+        for row in findings[:4] if row.get("summary")
+    ) or "未识别到新的环境冲突、集中触发或期限反转。"
+    return [
+        "## 证据收敛",
+        "",
+        (
+            f"- **1. 今天新增什么证据**: 成熟C线结果"
+            f"{facts.get('new_matured_c_results', 0)}条；D线选择"
+            f"{facts.get('dline_selected_stocks', 0)}只、触发"
+            f"{facts.get('dline_triggered_stocks', 0)}只、完整演变"
+            f"{facts.get('dline_complete_evolution_paths', 0)}条。"
+        ),
+        f"- **2. 哪些结论发生变化**: {change_text}",
+        f"- **3. 特殊环境或冲突**: {finding_text}",
+        f"- **4. 是否改变今天动作**: {effect.get('summary') or '待确认'}",
+        "",
+    ]
+
 def render_daily_action_markdown(plan: Mapping[str, Any]) -> str:
     bg = plan.get("background") or {}
     account = plan.get("account") or {}
@@ -159,6 +196,8 @@ def render_daily_action_markdown(plan: Mapping[str, Any]) -> str:
             f"来源 {account.get('price_source') or '待确认'}。"
         ] if plan.get("phase") == "close_review" else []),
         "",
+        *(_evidence_convergence_lines(plan.get("evidence_convergence") or {})
+          if plan.get("phase") != "close_review" else []),
         "## 持仓操作",
         "",
     ]

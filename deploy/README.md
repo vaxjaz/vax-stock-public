@@ -63,6 +63,8 @@ Safety rules:
 ## Private daily action artifact
 
 After `vaxstock-dline-plan.service` reaches a terminal status, it refreshes `var/strategy/daily_action_latest.md` and sends the idempotent `[每日操作]` pre-market plan. During the session, the watcher atomically records per-task quote coverage in gitignored `var/forecast/current_observation_status.json`. After a trigger it also records restart-safe path state in gitignored `current_evolution_status.json`. After close it freezes versioned full-session coverage into append-only `observation_coverage.jsonl` and 15/30-minute plus last-verified-close paths into append-only `forecast_evolution.jsonl`; the next EOD backfills market-only `forecast_results.jsonl` and refreshes triggered-versus-qualified-no-trigger review reports. User executions are never inputs to D-line scoring. After 15:02 it reads same-day D-line v2 facts plus that coverage evidence, writes separate `var/strategy/close_review_<target>.md` / `close_review_latest.md` artifacts without overwriting the pre-market plan, and sends a separately idempotent `[收盘复盘]` email. A D-line trigger is never treated as an executed order; execution remains pending until confirmed holdings are updated. `status=done` sends the normal plan; `partial_done` / `partial_failed` / `missing_payload` sends an explicit degraded plan with all conditional adds disabled. These files contain private account amounts, are gitignored, and are never committed. Missing account data degrades to pending rather than fabricated amounts. The EOD process still writes A/B/C reports and queues D, but no longer sends the legacy digest email itself.
+
+The daily action message includes the exact-baseline `var/evidence/convergence_<baseline>.json` brief after market context. It never substitutes a different-date latest view.
 ## Confirmed execution import
 
 Create private `script/config/execution_confirmation.json` from a user-confirmed broker execution-detail screenshot plus a complete same-trade-date holdings screenshot, then validate before applying:
@@ -85,6 +87,8 @@ PYTHONPATH=src /opt/stock-reportv2/venv/bin/python -m vaxstock.services.dline_cl
 ## Strategy evidence ledger retry
 
 EOD runs `services.evidence_ledger` after C-line result backfill and prediction freezing. It appends immutable roots and rebuilds the as-of Markdown view. Re-running the same date is idempotent. A/B/C identity conflicts are reported and omitted; missing D evidence remains explicitly missing.
+
+EOD then runs `services.evidence_convergence` against the same as-of date before the D-line planner sends the daily action email. The convergence output is deterministic and does not change production rules automatically.
 
 ```bash
 set -a; . /etc/vaxstock/vaxstock.env; set +a

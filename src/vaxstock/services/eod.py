@@ -23,6 +23,7 @@ from vaxstock.report.claude_md import build_claude_markdown, compact_for_claude
 from vaxstock.report.store import store_report
 from vaxstock.services.collect import collect_payload
 from vaxstock.services.dline_closeout import run_dline_closeout
+from vaxstock.services.evidence_convergence import run_evidence_convergence
 from vaxstock.services.evidence_ledger import run_evidence_ledger
 from vaxstock.services.eval_recorder import record_and_backfill
 from vaxstock.services.eod_predictor import predictions_from_payload, record_predictions
@@ -77,10 +78,10 @@ def run_eod() -> Dict[str, str]:
     # MR-Eval E4: 先核验已有 predictions,再基于本次 EOD 定稿 payload 生成下一交易日 live predictions。
     # 失败仅 warning,不影响报告三件套落盘/邮件/E1。
     prediction_run = _run_eod_prediction(payload, source)
+    evidence_trade_date = str(
+        ((payload or {}).get("market_overview") or {}).get("trade_date") or ""
+    ).strip()
     try:
-        evidence_trade_date = str(
-            ((payload or {}).get("market_overview") or {}).get("trade_date") or ""
-        ).strip()
         if not evidence_trade_date:
             raise ValueError("payload.market_overview.trade_date missing")
         evidence_stats = run_evidence_ledger(as_of_trade_date=evidence_trade_date)
@@ -93,6 +94,21 @@ def run_eod() -> Dict[str, str]:
         )
     except Exception as e:
         logger.warning(f"Strategy evidence ledger failed (A/B/C persistence is preserved): {str(e)[:120]}")
+    try:
+        if not evidence_trade_date:
+            raise ValueError("payload.market_overview.trade_date missing")
+        convergence_stats = run_evidence_convergence(
+            as_of_trade_date=evidence_trade_date,
+            payload=payload,
+        )
+        logger.info(
+            "Evidence convergence: status=%s mature=%s findings=%s",
+            convergence_stats.get("status"),
+            (convergence_stats.get("facts") or {}).get("new_matured_c_results"),
+            convergence_stats.get("special_findings"),
+        )
+    except Exception as e:
+        logger.warning(f"Evidence convergence failed (daily action falls back to pending): {str(e)[:120]}")
     prediction_summary = _build_prediction_summary(payload)
 
     logger.info("[4/7] 压缩为 claude_data + 注入 prediction_summary + 渲染 markdown...")

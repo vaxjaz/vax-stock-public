@@ -649,6 +649,32 @@ def hydrate_evidence_objects(
     return hydrated
 
 
+def load_hydrated_evidence(
+    *,
+    as_of_trade_date: str,
+    evidence_objects_path: Path = EVIDENCE_OBJECTS_FILE,
+    prediction_results_path: Path = PREDICTION_RESULTS_FILE,
+    factor_results_path: Path = FACTOR_RESULTS_FILE,
+    observation_tasks_path: Path = OBSERVATION_TASKS_FILE,
+    forecasts_path: Path = FORECASTS_FILE,
+    observation_coverage_path: Path = OBSERVATION_COVERAGE_FILE,
+    forecast_evolution_path: Path = FORECAST_EVOLUTION_FILE,
+    forecast_results_path: Path = FORECAST_RESULTS_FILE,
+) -> List[Dict[str, Any]]:
+    """Materialize one auditable as-of view from immutable roots and append-only results."""
+    return hydrate_evidence_objects(
+        _read_jsonl(Path(evidence_objects_path), required=True),
+        as_of_trade_date=as_of_trade_date,
+        prediction_results=_read_jsonl(Path(prediction_results_path)),
+        factor_results=_read_jsonl(Path(factor_results_path)),
+        observation_tasks=_read_jsonl(Path(observation_tasks_path)),
+        forecasts=_read_jsonl(Path(forecasts_path)),
+        observation_coverage=_read_jsonl(Path(observation_coverage_path)),
+        forecast_evolution=_read_jsonl(Path(forecast_evolution_path)),
+        forecast_results=_read_jsonl(Path(forecast_results_path)),
+    )
+
+
 def build_evidence_review(
     hydrated: Mapping[str, Any],
     *,
@@ -826,17 +852,16 @@ def run_evidence_ledger(
         observation_tasks_source_path=Path(observation_tasks_path),
     )
     write_stats = record_evidence_objects(roots, path=Path(evidence_objects_path))
-    all_roots = _read_jsonl(Path(evidence_objects_path), required=True)
-    hydrated = hydrate_evidence_objects(
-        all_roots,
+    hydrated = load_hydrated_evidence(
         as_of_trade_date=as_of,
-        prediction_results=_read_jsonl(Path(prediction_results_path)),
-        factor_results=_read_jsonl(Path(factor_results_path)),
-        observation_tasks=_read_jsonl(Path(observation_tasks_path)),
-        forecasts=_read_jsonl(Path(forecasts_path)),
-        observation_coverage=_read_jsonl(Path(observation_coverage_path)),
-        forecast_evolution=_read_jsonl(Path(forecast_evolution_path)),
-        forecast_results=_read_jsonl(Path(forecast_results_path)),
+        evidence_objects_path=Path(evidence_objects_path),
+        prediction_results_path=Path(prediction_results_path),
+        factor_results_path=Path(factor_results_path),
+        observation_tasks_path=Path(observation_tasks_path),
+        forecasts_path=Path(forecasts_path),
+        observation_coverage_path=Path(observation_coverage_path),
+        forecast_evolution_path=Path(forecast_evolution_path),
+        forecast_results_path=Path(forecast_results_path),
     )
     markdown = render_evidence_summary(hydrated, as_of_trade_date=as_of)
     dated = Path(summary_dir) / f"evidence_summary_{as_of}.md"

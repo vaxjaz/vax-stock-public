@@ -9,6 +9,8 @@ A/B/C/D source ledgers.
 | `evidence_reviews.jsonl` | append-only | Optional LLM or human interpretations bound to an exact `hydrated_facts_digest`. These rows are not facts and cannot change production rules automatically. |
 | `evidence_summary_<trade_date>.md` | derived/replaceable | Human-readable as-of view with own-stock T+1/5/10/30, dynamic T+now, action review, and D evidence status. |
 | `evidence_summary_latest.md` | derived/replaceable | Latest as-of view. |
+| `convergence_<trade_date>.json/.md` | derived/replaceable | Daily convergence brief consumed by the next pre-market action email. |
+| `convergence_latest.json/.md` | derived/replaceable | Latest convenience view; dated consumers must load the exact dated file. |
 
 ## Truth rules
 
@@ -22,6 +24,10 @@ A/B/C/D source ledgers.
 - T+now is rebuilt from every mature C result and has no T+30 ceiling.
 - D joins by `(target_trade_date, code, plan_version)` and never reads user
   executions.
+- Stocks triggered on the same target date remain separate stock outcomes, but
+  count as one environment session inside the same strategy group.
+- Decision-time and outcome-day market regimes are stored separately. A regime
+  shift is a review condition, not proof of causation.
 - LLM reviews are hypotheses/interpretations. A production change requires a
   separately reviewed, forward-only `rule_version`.
 

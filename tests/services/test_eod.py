@@ -43,7 +43,8 @@ _PATHS = {"payload": "/r/2026-06-25/payload.json",
 
 _SEAMS = ["TushareSource", "collect_payload", "compact_for_claude",
           "build_claude_markdown", "store_report",
-          "record_and_backfill", "run_dline_closeout", "run_evidence_ledger", "evaluate_from_files", "predictions_from_payload",
+          "record_and_backfill", "run_dline_closeout", "run_evidence_ledger",
+          "run_evidence_convergence", "evaluate_from_files", "predictions_from_payload",
           "record_predictions", "enqueue_observation_job",
           "_next_trade_date"]
 
@@ -181,6 +182,19 @@ def _install_spies(secrets=None, payload=None, next_trade_date="20260626"):
         }
     eod_mod.run_evidence_ledger = _evidence
 
+    def _convergence(*, as_of_trade_date, payload, **kwargs):
+        rec["order"].append("convergence")
+        rec["convergence_call"] = {
+            "as_of_trade_date": as_of_trade_date,
+            "payload": payload,
+            **kwargs,
+        }
+        return {
+            "status": "ready", "facts": {"new_matured_c_results": 1},
+            "special_findings": 0,
+        }
+    eod_mod.run_evidence_convergence = _convergence
+
     def _enqueue(payload_path, target_trade_date, c_predictions=None, baseline_trade_date=None, **kwargs):
         rec["order"].append("d_enqueue")
         rec["d_enqueue_call"] = {
@@ -260,12 +274,16 @@ def test_eod_orchestration_and_passthrough():
                                       "generation_mode": "live"}
         assert rec["record_predictions_call"] == [{"prediction_id": "p1"}]
         assert rec["evidence_call"] == {"as_of_trade_date": "20260625"}
+        assert rec["convergence_call"] == {
+            "as_of_trade_date": "20260625",
+            "payload": _PAYLOAD,
+        }
         assert rec["d_enqueue_call"] == {"payload_path": _PATHS["payload"],
                                          "target_trade_date": "20260626",
                                          "c_predictions": [{"prediction_id": "p1"}],
                                          "baseline_trade_date": "20260625"}
         assert rec["order"] == ["regime_audit", "e1", "d_closeout", "pred_eval", "next_trade", "pred_live",
-                                "pred_record", "evidence", "pred_summary", "store", "d_enqueue",
+                                "pred_record", "evidence", "convergence", "pred_summary", "store", "d_enqueue",
                                 "layer2", "factor_weight_review", "prediction_layer2", "rule_suggestions"]
         # Layer2(E2): E4 后被调(顺带分析)
         assert rec.get("layer2_called") is True

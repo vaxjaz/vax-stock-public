@@ -20,6 +20,7 @@ from vaxstock.services.observation_coverage import (
 
 CURRENT_TASKS_FILE = config.STATE_DIR / "forecast" / "current_tasks.json"
 DLINE_REVIEW_STATE_FILE = config.STATE_DIR / "forecast" / "dline_reviews" / "dline_rule_review_latest.json"
+EVIDENCE_CONVERGENCE_DIR = config.STATE_DIR / "evidence"
 STRATEGY_DIR = config.STATE_DIR / "strategy"
 MAIL_STATE_FILE = STRATEGY_DIR / "daily_action_mail_state.json"
 CLOSE_REVIEW_MAIL_STATE_FILE = STRATEGY_DIR / "close_review_mail_state.json"
@@ -238,6 +239,26 @@ def _enrich_history(snapshot: Dict[str, Any]) -> Dict[str, Any]:
     return snapshot
 
 
+def _load_evidence_convergence(baseline_trade_date: str, *, convergence_dir=None) -> Dict[str, Any]:
+    baseline = _trade_date_key(baseline_trade_date)
+    if not baseline:
+        return {
+            "status": "unavailable",
+            "reason": "baseline_trade_date_missing",
+        }
+    path = Path(convergence_dir or EVIDENCE_CONVERGENCE_DIR) / f"convergence_{baseline}.json"
+    report = _read_json(path)
+    actual = _trade_date_key(report.get("as_of_trade_date"))
+    if actual != baseline:
+        return {
+            "status": "unavailable",
+            "reason": "matching_convergence_report_missing",
+            "expected_as_of_trade_date": baseline,
+            "actual_as_of_trade_date": actual or None,
+        }
+    return report
+
+
 def load_daily_strategy_row(code: str, target_trade_date: str | None = None,
                             plan_path=None) -> Dict[str, Any]:
     plan = _read_json(plan_path or (STRATEGY_DIR / "daily_action_latest.json"))
@@ -256,6 +277,7 @@ def refresh_daily_action(*, tasks_path=None, output_dir=None,
                          policy_data=None, forecasts_path=None,
                          observation_status_path=None, dline_review_path=None,
                          reference_quotes=None, reports_dir=None,
+                         evidence_convergence_dir=None,
                          phase: str = "pre_market") -> Dict[str, Any]:
     snapshot = _snapshot_for_target(
         _read_json(tasks_path or CURRENT_TASKS_FILE),
@@ -313,6 +335,10 @@ def refresh_daily_action(*, tasks_path=None, output_dir=None,
         dline_rule_review=_read_json(dline_review_path or DLINE_REVIEW_STATE_FILE),
         phase=phase,
     )
+    if phase == "pre_market":
+        plan["evidence_convergence"] = _load_evidence_convergence(
+            baseline, convergence_dir=evidence_convergence_dir,
+        )
     markdown = render_daily_action_markdown(plan)
     target = (plan.get("background") or {}).get("target_trade_date")
     if not target:

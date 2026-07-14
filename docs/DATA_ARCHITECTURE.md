@@ -534,6 +534,7 @@ turnover_history.parquet
 
 ## 策略证据账本: `var/evidence`
 
+| `convergence_*.json/.md` | 是 | 否 | 每日证据收敛、环境切换、同日相关触发与期限反转的派生简报 |
 `services.evidence_ledger` 不创建第五条原始数据线。它为每条 C线预测建立稳定 `evidence_id`,只保存决策时身份、冻结动作和 A/B/C/D 源引用；收益与 D线状态在指定 `as_of_trade_date` 动态关联,因此后续 T+N 回填无需改写历史根对象。
 
 身份规则:
@@ -553,6 +554,10 @@ turnover_history.parquet
 `evidence_reviews.jsonl` 是独立解释层。每条复盘必须绑定当时 `hydrated_facts_digest`,明确 `role=interpretation_not_fact` 与 `automatic_rule_change=false`。LLM可以提出因子交互、市场状态和失败机制假设,但不得改写事实；生产修正只能经人工审阅后以前滚 `rule_version` 生效。
 ## 下一步盘中数据层施工原则
 
+
+`services.evidence_convergence` 在账本完成后按同一 `as_of_trade_date` 生成派生简报。同一交易日同一策略分组内的多只股票仍保留逐股收益，但只计一个独立环境会话，避免把市场共振虚增为多个独立样本。它分别展示决策时市场状态和结果日真实状态，并识别环境切换、D线演变缺口以及T+1/T+5方向反转。门槛读取版本化 `strategy_policy.action_rules.history_evidence`；门槛缺失时只报告事实，不给默认值。该层始终 `automatic_rule_change=false`。
+
+`convergence_<trade_date>.json` 是每日操作邮件的结构化来源。邮件必须按EOD基准读取同日期文件，不得用 `convergence_latest.json` 跨日替代。
 盘中数据层应保持四条线清楚分离:
 
 | 数据线 | 当前位置 | 代表含义 |
@@ -581,6 +586,8 @@ turnover_history.parquet
 - `var/strategy/execution_review_<trade_date>.md/.json`: 凌晨预案、D线触发与真实成交的对账结果。
 
 `var/strategy/` 已 gitignore,因为清单包含账户金额。D线任务 worker 到达终态后发送 `[每日操作]` 凌晨预案；盘中服务在交易日 15:02 后读取当天 `forecasts.jsonl`，另写 `close_review_*` 并发送 `[收盘复盘]`，绝不覆盖凌晨预案。两类邮件使用独立状态文件，分别按目标交易日幂等；收盘复盘成功后重复轮询只做快速跳过。`done` 为正常预案，`partial_done` / `partial_failed` / `missing_payload` 为降级预案且禁止所有条件加仓。系统不自动下单；D线触发不等于成交，成交必须由后续真实持仓确认。EOD价格可与已确认股数/现金机械重估账户,但任一持仓缺价格时不得产出金额和股数。
+
+凌晨每日操作邮件在“今日背景”之后增加“证据收敛”章节，固定展示新增证据、结论变化、特殊环境/冲突、是否改变今日动作四项。缺少同基准日收敛文件时明确标记待确认，不读取其他日期结果替代。
 
 实际成交确认由 `services.execution_confirmation` 处理。输入必须带 `user_confirmed=true`、用户确认的券商成交明细和同交易日完整持仓快照；程序不做 OCR 推断，也不自行计算券商成本。确认事件先写 `execution_records.jsonl`，随后把完整快照投影到私有 `holdings_state.json` 和 `portfolio_state.json`；仓库内 `holdings.json` 只作为首次运行基线。若进程在两份投影之间中断，使用同一输入重跑会从日志恢复且不会重复成交。股数与此前状态不一致时默认阻断；只有显式 `replace_prior_state_confirmed=true` 才允许完整券商快照替换过期本地状态。
 ### 邮件证据摘要
