@@ -8,14 +8,15 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Mapping, Optional
 
 from vaxstock import config
+from vaxstock.services.prediction_evaluator import (
+    absolute_action_expectation, absolute_action_hit,
+)
 
 PREDICTIONS_FILE = config.STATE_DIR / "prediction" / "eod_predictions.jsonl"
 RESULTS_FILE = config.STATE_DIR / "prediction" / "eod_prediction_results.jsonl"
 FACTOR_RESULTS_FILE = config.STATE_DIR / "eval" / "factor_results.jsonl"
 KEY_HORIZONS = ("1", "5", "10", "30")
-COHORT_FIELDS = (
-    "rule_version", "action", "direction", "market_regime", "macro_regime",
-)
+COHORT_FIELDS = ("rule_version", "action", "direction")
 
 
 def _read_jsonl(path) -> List[dict]:
@@ -49,13 +50,10 @@ def _prediction_horizon(prediction: Mapping[str, Any]) -> str:
 
 def cohort_signature(prediction: Mapping[str, Any]) -> tuple:
     payload = prediction.get("prediction") or {}
-    features = prediction.get("features_ref") or {}
     return (
         str(prediction.get("rule_version") or ""),
         str(payload.get("action") or ""),
         str(payload.get("direction") or ""),
-        str(features.get("market_regime") or ""),
-        str(features.get("macro_regime") or ""),
     )
 
 
@@ -124,17 +122,22 @@ def summarize_live_history(predictions: Iterable[Dict[str, Any]],
             continue
         result_by_key[(pid, path_horizon)] = row
 
-    grouped: Dict[str, Dict[str, List[Dict[str, float]]]] = {}
+    grouped: Dict[str, Dict[str, List[Dict[str, Any]]]] = {}
     for (pid, path_horizon), result in result_by_key.items():
-        code = str(prediction_by_id[pid].get("code") or "")
+        prediction = prediction_by_id[pid]
+        code = str(prediction.get("code") or "")
         actual = (result or {}).get("actual") or {}
         ret = _finite(actual.get("ret"))
         excess = _finite(actual.get("excess"))
-        if ret is None or excess is None:
+        if ret is None:
             continue
+        expectation = absolute_action_expectation(prediction.get("prediction") or {})
         grouped.setdefault(code, {}).setdefault(path_horizon, []).append({
             "ret": ret,
             "excess": excess,
+            "absolute_action_expectation": expectation,
+            "absolute_action_hit": absolute_action_hit(expectation, ret),
+            "baseline_trade_date": str(prediction.get("baseline_trade_date") or ""),
         })
 
     out: Dict[str, Dict[str, Any]] = {}
@@ -144,16 +147,48 @@ def summarize_live_history(predictions: Iterable[Dict[str, Any]],
             rows = rows_by_horizon[path_horizon]
             count = len(rows)
             positive_ret = sum(1 for row in rows if row["ret"] > 0)
-            positive_excess = sum(1 for row in rows if row["excess"] > 0)
+            excess_rows = [row for row in rows if row["excess"] is not None]
+            scored_rows = [row for row in rows if row["absolute_action_hit"] is not None]
+            expectations = {
+                row["absolute_action_expectation"] for row in rows
+                if row["absolute_action_expectation"] != "unscored"
+            }
+            expectation = next(iter(expectations)) if len(expectations) == 1 else (
+                "mixed" if expectations else "unscored"
+            )
+            hit_count = sum(1 for row in scored_rows if row["absolute_action_hit"] is True)
             horizon_summaries[path_horizon] = {
                 "horizon": path_horizon,
                 "evaluated": count,
                 "avg_ret": sum(row["ret"] for row in rows) / count,
-                "avg_excess": sum(row["excess"] for row in rows) / count,
+                "avg_excess": (
+                    sum(row["excess"] for row in excess_rows) / len(excess_rows)
+                    if excess_rows else None
+                ),
                 "positive_ret_count": positive_ret,
                 "positive_ret_rate": positive_ret / count,
-                "positive_excess_count": positive_excess,
-                "positive_excess_rate": positive_excess / count,
+                "positive_excess_count": (
+                    sum(1 for row in excess_rows if row["excess"] > 0)
+                    if excess_rows else None
+                ),
+                "positive_excess_rate": (
+                    sum(1 for row in excess_rows if row["excess"] > 0) / len(excess_rows)
+                    if excess_rows else None
+                ),
+                "absolute_action_expectation": expectation,
+                "absolute_action_evaluated": len(scored_rows),
+                "absolute_action_hit_count": hit_count,
+                "absolute_action_hit_rate": (
+                    hit_count / len(scored_rows) if scored_rows else None
+                ),
+                "sample_baseline_dates": sorted({
+                    row["baseline_trade_date"] for row in rows
+                    if row["baseline_trade_date"]
+                }),
+                "absolute_action_sample_dates": sorted({
+                    row["baseline_trade_date"] for row in scored_rows
+                    if row["baseline_trade_date"]
+                }),
             }
         primary_horizon = selected_horizon or "1"
         primary = horizon_summaries.get(primary_horizon)
@@ -164,7 +199,7 @@ def summarize_live_history(predictions: Iterable[Dict[str, Any]],
             "available": True,
             "source": "eod_predictions+eod_prediction_results",
             "generation_mode": "live",
-            "scope": "matching_current_signal" if current_signals is not None else "all_stock_history",
+            "scope": "matching_current_action" if current_signals is not None else "all_stock_history",
             "cohort": cohort_by_code.get(code),
             "cutoff_trade_date": cutoff or None,
             "prediction_count": len(prediction_ids_by_code.get(code) or ()),
@@ -226,18 +261,23 @@ def load_history_views(*, current_signals: Mapping[str, Mapping[str, Any]],
         _read_jsonl(results_path or RESULTS_FILE),
         _read_jsonl(factor_results_path or FACTOR_RESULTS_FILE),
     )
-    return {
-        "overall": summarize_live_history(
-            predictions, results, cutoff_trade_date=cutoff_trade_date,
-        ),
-        "matching": summarize_live_history(
-            predictions,
-            results,
-            cutoff_trade_date=cutoff_trade_date,
-            current_signals=current_signals,
-            require_result_trade_date=True,
-        ),
-    }
+    overall = summarize_live_history(
+        predictions, results, cutoff_trade_date=cutoff_trade_date,
+    )
+    matching = summarize_live_history(
+        predictions,
+        results,
+        cutoff_trade_date=cutoff_trade_date,
+        current_signals=current_signals,
+        require_result_trade_date=True,
+    )
+    for code, summary in matching.items():
+        all_summary = overall.get(code) or {}
+        summary["all_prediction_count"] = all_summary.get("prediction_count")
+        for horizon, cell in (summary.get("horizons") or {}).items():
+            all_cell = (all_summary.get("horizons") or {}).get(horizon) or {}
+            cell["all_evaluated"] = int(all_cell.get("evaluated") or 0)
+    return {"overall": overall, "matching": matching}
 
 
 def load_live_history(*, cutoff_trade_date: Optional[str] = None,

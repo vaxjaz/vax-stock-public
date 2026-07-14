@@ -37,7 +37,7 @@ def _date(value: Any) -> str:
 
 def format_live_history(summary: Mapping[str, Any]) -> str:
     if not summary or not summary.get("available") or not summary.get("evaluated"):
-        return "真实历史结果待积累"
+        return "全部C线历史结果待积累"
     horizons = summary.get("horizons") or {}
     keys = [str(value) for value in (summary.get("key_horizons") or ("1", "5", "10", "30"))]
     latest = str(summary.get("latest_horizon") or summary.get("max_horizon") or "")
@@ -62,12 +62,12 @@ def format_live_history(summary: Mapping[str, Any]) -> str:
             detail += f"，{int(cell['positive_ret_count'])}/{cell_count}次收益为正"
         parts.append(detail)
     if parts:
-        return "；".join(parts)
+        return "全部C线历史：" + "；".join(parts)
     count = int(summary["evaluated"])
     text = f"live已核验{count}次，平均收益{_pct(summary.get('avg_ret'))}"
     if summary.get("positive_ret_count") is not None:
         text += f"，{int(summary['positive_ret_count'])}/{count}次收益为正"
-    return text
+    return "全部C线历史：" + text
 
 
 def format_history_verdict(verdict: Mapping[str, Any]) -> str:
@@ -77,51 +77,58 @@ def format_history_verdict(verdict: Mapping[str, Any]) -> str:
     display_horizons = ["1", "5", "10", "30"]
     if latest and latest not in display_horizons and cells.get(latest):
         display_horizons.append(latest)
+
     parts = []
     for horizon in display_horizons:
         cell = cells.get(horizon) or {}
+        path_evaluated = int(cell.get("path_evaluated") or 0)
         evaluated = int(cell.get("evaluated") or 0)
-        if not evaluated:
+        if not path_evaluated and not evaluated:
             continue
-        avg_ret = cell.get("avg_ret")
-        positive_rate = cell.get("positive_ret_rate")
         label = f"T+now（当前T+{horizon}）" if latest and horizon == latest else f"T+{horizon}"
-        detail = f"{label} {evaluated}次"
-        if avg_ret is not None:
-            detail += f"/平均收益{_pct(avg_ret)}"
-        if positive_rate is not None:
-            detail += f"/正收益率{_pct(positive_rate, signed=False)}"
-        parts.append(detail)
-
-    if not parts:
-        horizon = str(verdict.get("horizon") or "1")
-        evaluated = int(verdict.get("evaluated") or 0)
-        avg_ret = verdict.get("avg_ret")
-        positive_rate = verdict.get("positive_ret_rate")
+        all_evaluated = int(cell.get("all_evaluated") or 0)
         if evaluated:
-            detail = f"T+{horizon} {evaluated}次"
-            if avg_ret is not None:
-                detail += f"/平均收益{_pct(avg_ret)}"
-            if positive_rate is not None:
-                detail += f"/正收益率{_pct(positive_rate, signed=False)}"
-            parts.append(detail)
+            sample_scope = f"同动作{evaluated}/{all_evaluated}次" if all_evaluated else f"同动作{evaluated}次"
+            detail = f"{label} {sample_scope}"
+            if cell.get("avg_ret") is not None:
+                detail += f"/平均收益{_pct(cell.get('avg_ret'))}"
+            hit_count = int(cell.get("absolute_action_hit_count") or 0)
+            hit_rate = cell.get("absolute_action_hit_rate")
+            detail += f"/动作命中{hit_count}/{evaluated}"
+            if hit_rate is not None:
+                detail += f"（{_pct(hit_rate, signed=False)}）"
+            dates = [str(value) for value in (cell.get("sample_dates") or []) if value]
+            if dates:
+                shown = dates if len(dates) <= 5 else [*dates[:4], f"等{len(dates)}日"]
+                detail += "/样本日" + "、".join(shown)
+        else:
+            sample_scope = f"同动作路径{path_evaluated}/{all_evaluated}次" if all_evaluated else f"同动作路径{path_evaluated}次"
+            detail = f"{label} {sample_scope}"
+            if cell.get("avg_ret") is not None:
+                detail += f"/平均收益{_pct(cell.get('avg_ret'))}"
+            detail += "/当前C线动作不定义涨跌命中"
+            dates = [str(value) for value in (cell.get("path_sample_dates") or []) if value]
+            if dates:
+                shown = dates if len(dates) <= 5 else [*dates[:4], f"等{len(dates)}日"]
+                detail += "/样本日" + "、".join(shown)
+        parts.append(detail)
 
     state = str(verdict.get("verdict") or "insufficient")
     labels = {
-        "insufficient": "证据不足，不修正当前动作",
-        "preliminary_support": "初步支持，只维持原加仓上限",
-        "stable_support": "较强支持，只维持原加仓上限",
-        "preliminary_conflict": "初步反对，禁止加仓",
-        "stable_conflict": "较强反对，禁止加仓",
+        "insufficient": "样本不足，不改变今天动作",
+        "unscored": "当前C线动作只观察，等待D线，不做正确率评分",
+        "preliminary_support": "初步支持今天动作，不提高操作力度",
+        "stable_support": "较强支持今天动作，不提高操作力度",
+        "preliminary_conflict": "初步反对今天动作；若原计划允许加仓，则禁止加仓",
+        "stable_conflict": "较强反对今天动作；若原计划允许加仓，则禁止加仓",
         "mixed": "结果混合，不提高操作力度",
     }
-    prefix = "同类C线" + ("、".join(parts) if parts else "暂无成熟样本")
+    prefix = "与今天相同动作的C线历史：" + ("；".join(parts) if parts else "暂无成熟样本")
     text = f"{prefix}；{labels.get(state, '结论待验证')}"
     if verdict.get("position_review_required"):
         review = "/".join(f"T+{value}" for value in verdict.get("review_horizons") or [])
         text += f"；{review}达到稳定证据，仓位规则待人工复盘"
     return text
-
 
 def format_earnings(earnings: Mapping[str, Any]) -> str:
     earnings = earnings or {}

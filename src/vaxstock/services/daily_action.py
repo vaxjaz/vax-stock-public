@@ -230,7 +230,7 @@ def _enrich_history(snapshot: Dict[str, Any]) -> Dict[str, Any]:
             "available": False,
             "source": "eod_predictions+eod_prediction_results",
             "generation_mode": "live",
-            "scope": "matching_current_signal",
+            "scope": "matching_current_action",
             "cutoff_trade_date": baseline,
             "evaluated": 0,
         }

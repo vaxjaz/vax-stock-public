@@ -225,8 +225,8 @@ Prediction 线验证的是:
 - append-only。
 - 同 `(prediction_id, horizon)` 已存在则跳过。
 - 每次 EOD 归并全部历史预测与 B 线结果，补齐每条预测从 T+1 到当前已成熟 T+N 的连续交易日路径，不以 T+30 截断。
-- 缺真实 `ret`、`mkt_ret` 或 `excess` 时不写假结果。
-- 只有预测原始 horizon 计入正式方向/动作命中；后续路径标记为 `post_prediction_path`，只作演变证据。
+- 缺真实 `ret` 时不写假结果；`mkt_ret/excess` 缺失时保留为 `null`，不阻断股票自身绝对收益核验。
+- 只有预测原始 horizon 计入正式命中；后续路径标记为 `post_prediction_path`。用户策略读取按每个 T+N 独立复核，不把不同 horizon 混成一个命中率。
 
 核心字段:
 
@@ -239,8 +239,12 @@ Prediction 线验证的是:
 | `evaluation.evaluation_role` | 原始预测核验或后续路径证据 |
 | `evaluation.direction_hit` | 方向是否命中 |
 | `evaluation.positive_excess` | 是否正超额 |
-| `evaluation.action_hit` | action 是否符合实际超额方向 |
-| `evaluation.deviation` | 偏离类型 |
+| `evaluation.action_hit` | 旧版超额收益动作命中，仅保留为研究参考 |
+| `evaluation.deviation` | 旧版超额收益偏离类型 |
+| `evaluation.absolute_action_expectation` | `positive/non_positive/unscored`，由冻结 action/direction 确定 |
+| `evaluation.absolute_action_hit` | 原始 horizon 上，动作是否符合股票自身收益正负 |
+| `evaluation.path_absolute_action_alignment` | 后续 T+N 路径是否仍符合原动作预期 |
+| `evaluation.absolute_deviation` | 绝对收益口径的偏离类型 |
 
 ### Prediction 报告
 
@@ -502,7 +506,8 @@ turnover_history.parquet
 每日操作邮件与D线盘中邮件共用以下口径：
 
 - 真实历史结果只统计 `generation_mode=live` 且已成熟的 C线真实路径；固定展示 T+1/5/10/30，并始终追加最新 T+N，`replay` 与 `pending` 不进入平均实际收益和正收益次数。相对指数收益仅保留在研究数据，不进入用户邮件和策略校正。
-- 策略校正只使用与当前 C 预测相同 `rule_version/action/direction/market_regime/macro_regime` 的历史样本；T+1/T+5 明确反对可禁止加仓，T+10/T+30 稳定证据只发起仓位规则人工复盘；样本不足不修正，任何历史证据不得阻止 D 线风险减仓。
+- C线动作复核只使用相同 `rule_version/action/direction` 的历史样本；`market_regime/macro_regime` 仅作背景，不在小样本下硬切分。邮件同时展示同动作样本数/全部样本数、样本日期、平均绝对收益和动作命中率。
+- `candidate_buy/watch/panic_rebound_watch` 以后续绝对收益 `>0` 为命中，`avoid` 以 `<=0` 为命中；`watch_only/panic_rebound_probe/no_prediction` 不判对错，只记录路径并等待 D 线。T+1/T+5 明确反对可禁止加仓，T+10/T+30 稳定证据只发起仓位规则人工复盘；样本不足不修正，任何历史证据不得阻止 D 线风险减仓。
 - 财报事实来自 `tushare.fina_indicator`，仅展示真实返回字段。
 - 预计披露日来自 `tushare.disclosure_date.pre_date`；同时保留 `end_date/actual_date/modify_date` 供审计。预约日可能修订，邮件必须明确标注；接口缺失或字段契约不完整时显示“待公布”。
 - `var/strategy/daily_action_latest.json` 是私有派生计划，供盘中邮件读取同一份“今日策略”；与 Markdown 一样 gitignore，不进入 A-D 事实样本。

@@ -134,12 +134,15 @@ def test_matching_c_history_conflict_blocks_add_but_not_risk_reduce():
     task = _task("600001", "watch", "up")
     task["evidence_pack"]["C_matching_history_summary"] = {
         "available": True,
-        "scope": "matching_current_signal",
+        "scope": "matching_current_action",
         "horizons": {
             "1": {
                 "evaluated": 6,
                 "avg_ret": -0.005,
-                "positive_ret_rate": 2 / 6,
+                "absolute_action_expectation": "positive",
+                "absolute_action_evaluated": 6,
+                "absolute_action_hit_count": 2,
+                "absolute_action_hit_rate": 2 / 6,
             }
         },
     }
@@ -155,18 +158,18 @@ def test_matching_c_history_conflict_blocks_add_but_not_risk_reduce():
     assert row["conditional_add"] is None
     assert row["risk_reduce"] is not None
     markdown = render_daily_action_markdown(plan)
-    assert "初步反对，禁止加仓" in markdown
+    assert "初步反对今天动作" in markdown
 
 
 def test_t5_conflict_blocks_add_and_stable_t10_requests_position_review():
     task = _task("600001", "watch", "up")
     task["evidence_pack"]["C_matching_history_summary"] = {
         "available": True,
-        "scope": "matching_current_signal",
+        "scope": "matching_current_action",
         "horizons": {
-            "1": {"evaluated": 6, "avg_ret": 0.01, "positive_ret_rate": 4 / 6},
-            "5": {"evaluated": 6, "avg_ret": -0.02, "positive_ret_rate": 2 / 6},
-            "10": {"evaluated": 20, "avg_ret": -0.03, "positive_ret_rate": 0.30},
+            "1": {"evaluated": 6, "avg_ret": 0.01, "absolute_action_expectation": "positive", "absolute_action_evaluated": 6, "absolute_action_hit_count": 4, "absolute_action_hit_rate": 4 / 6},
+            "5": {"evaluated": 6, "avg_ret": -0.02, "absolute_action_expectation": "positive", "absolute_action_evaluated": 6, "absolute_action_hit_count": 2, "absolute_action_hit_rate": 2 / 6},
+            "10": {"evaluated": 20, "avg_ret": -0.03, "absolute_action_expectation": "positive", "absolute_action_evaluated": 20, "absolute_action_hit_count": 6, "absolute_action_hit_rate": 0.30},
         },
     }
     snapshot = {"target_trade_dates": ["20260713"], "tasks": [task]}
@@ -188,7 +191,7 @@ def test_t5_conflict_blocks_add_and_stable_t10_requests_position_review():
 def test_long_horizon_conflict_requests_review_without_blocking_add():
     summary = {
         "horizons": {
-            "10": {"evaluated": 20, "avg_ret": -0.03, "positive_ret_rate": 0.30},
+            "10": {"evaluated": 20, "avg_ret": -0.03, "absolute_action_expectation": "positive", "absolute_action_evaluated": 20, "absolute_action_hit_count": 6, "absolute_action_hit_rate": 0.30},
         }
     }
     verdict = _history_evidence_verdict(summary, _policy()["action_rules"])
@@ -223,7 +226,10 @@ def test_history_verdict_uses_absolute_return_not_benchmark_excess():
             "1": {
                 "evaluated": 6,
                 "avg_ret": -0.01,
-                "positive_ret_rate": 2 / 6,
+                "absolute_action_expectation": "positive",
+                "absolute_action_evaluated": 6,
+                "absolute_action_hit_count": 2,
+                "absolute_action_hit_rate": 2 / 6,
                 "avg_excess": 0.10,
                 "positive_excess_rate": 1.0,
             },
@@ -232,6 +238,23 @@ def test_history_verdict_uses_absolute_return_not_benchmark_excess():
     verdict = _history_evidence_verdict(summary, _policy()["action_rules"])
     assert verdict["verdict"] == "preliminary_conflict"
     assert verdict["blocks_add"] is True
+
+def test_avoid_action_is_supported_by_non_positive_absolute_returns():
+    summary = {
+        "horizons": {
+            "1": {
+                "evaluated": 5,
+                "avg_ret": -0.02,
+                "absolute_action_expectation": "non_positive",
+                "absolute_action_evaluated": 5,
+                "absolute_action_hit_count": 4,
+                "absolute_action_hit_rate": 0.8,
+            },
+        },
+    }
+    verdict = _history_evidence_verdict(summary, _policy()["action_rules"])
+    assert verdict["verdict"] == "preliminary_support"
+    assert verdict["blocks_add"] is False
 
 def test_close_review_risk_trigger_overrides_add_and_marks_execution_unconfirmed():
     task = _task("600001", "watch", "up")

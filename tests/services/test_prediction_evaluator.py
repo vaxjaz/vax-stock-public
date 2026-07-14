@@ -45,6 +45,7 @@ def test_evaluate_prediction_positive_bucket_hit():
     idx = pe.build_factor_result_index([_factor_result(ret=0.03, mkt_ret=0.01, excess=0.02)])
     row = pe.evaluate_prediction(_prediction(), idx, evaluated_at="2026-07-03T05:10:00")
     assert row["prediction_id"] == "20260701_20260702_002475_zz800_seed_v1_replay"
+    assert row["schema_version"] == 2
     assert row["horizon"] == "1"
     assert row["actual"] == {
         "trade_date": "20260702",
@@ -57,6 +58,9 @@ def test_evaluate_prediction_positive_bucket_hit():
     assert row["evaluation"]["positive_excess"] is True
     assert row["evaluation"]["action_hit"] is True
     assert row["evaluation"]["deviation"] == "as_expected"
+    assert row["evaluation"]["absolute_action_hit_basis"] == "stock_return_sign"
+    assert row["evaluation"]["absolute_action_expectation"] == "positive"
+    assert row["evaluation"]["absolute_action_hit"] is True
 
 
 def test_evaluate_prediction_non_positive_bucket_missed_positive_excess():
@@ -67,14 +71,22 @@ def test_evaluate_prediction_non_positive_bucket_missed_positive_excess():
     assert row["evaluation"]["positive_excess"] is True
     assert row["evaluation"]["action_hit"] is False
     assert row["evaluation"]["deviation"] == "missed_positive_excess"
+    assert row["evaluation"]["absolute_action_expectation"] == "non_positive"
+    assert row["evaluation"]["absolute_action_hit"] is False
+    assert row["evaluation"]["absolute_deviation"] == "avoided_but_stock_was_positive"
 
 
-def test_evaluate_prediction_skips_missing_or_incomplete_result():
+def test_evaluate_prediction_uses_absolute_return_without_benchmark():
     pred = _prediction()
     assert pe.evaluate_prediction(pred, pe.build_factor_result_index([])) is None
-    # 有 ret 但缺 excess, 不写假 action 核验
-    idx = pe.build_factor_result_index([{"trade_date": "20260701", "code": "002475", "ret": {"1": 0.01}}])
-    assert pe.evaluate_prediction(pred, idx) is None
+    idx = pe.build_factor_result_index([{
+        "trade_date": "20260701", "code": "002475", "ret": {"1": 0.01},
+    }])
+    row = pe.evaluate_prediction(pred, idx)
+    assert row["actual"]["mkt_ret"] is None
+    assert row["actual"]["excess"] is None
+    assert row["evaluation"]["action_hit"] is None
+    assert row["evaluation"]["absolute_action_hit"] is True
 
 
 def test_evaluate_predictions_merges_incremental_factor_results():
@@ -115,18 +127,18 @@ def test_evaluate_predictions_records_every_mature_path_without_ceiling():
     assert path["action_hit"] is None
     assert path["path_direction_alignment"] is False
     assert path["path_action_alignment"] is False
+    assert path["path_absolute_action_alignment"] is False
     assert out[-1]["horizon"] == "31"
     assert out[-1]["evaluation"]["evaluation_role"] == "post_prediction_path"
 
 
-def test_evaluate_prediction_requires_benchmark_for_complete_path():
-    idx = pe.build_factor_result_index([{
-        "trade_date": "20260701",
-        "code": "002475",
-        "ret": {"1": 0.01},
-        "excess": {"1": 0.02},
-    }])
-    assert pe.evaluate_prediction(_prediction(), idx) is None
+def test_uncertain_observation_action_is_not_scored():
+    idx = pe.build_factor_result_index([_factor_result(ret=0.01)])
+    pred = _prediction(action="watch_only", direction="neutral", bucket="uncertain")
+    row = pe.evaluate_prediction(pred, idx)
+    assert row["evaluation"]["absolute_action_expectation"] == "unscored"
+    assert row["evaluation"]["absolute_action_hit"] is None
+    assert row["evaluation"]["absolute_deviation"] == "not_scored"
 
 
 def test_evaluate_from_files_appends_only_newly_mature_horizons():

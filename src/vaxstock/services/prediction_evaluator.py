@@ -21,8 +21,12 @@ from vaxstock.services.eod_predictor import PREDICTIONS_FILE
 logger = logging.getLogger(__name__)
 
 PREDICTION_RESULTS_FILE = config.STATE_DIR / "prediction" / "eod_prediction_results.jsonl"
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 DEFAULT_HORIZON = "1"
+POSITIVE_RETURN_ACTIONS = frozenset({
+    "candidate_buy", "watch", "panic_rebound_watch",
+})
+NON_POSITIVE_RETURN_ACTIONS = frozenset({"avoid"})
 
 
 def _now_iso() -> str:
@@ -113,6 +117,42 @@ def complete_horizons(actual_box: Dict[str, Dict[str, Any]]) -> List[str]:
             values.append(text)
     return sorted(values, key=int)
 
+def return_horizons(actual_box: Dict[str, Dict[str, Any]]) -> List[str]:
+    """Return every positive horizon with a real stock return.
+
+    Absolute-return review must not disappear merely because the benchmark is
+    unavailable. Relative fields remain optional audit context.
+    """
+    values = []
+    for key, value in (actual_box.get("ret") or {}).items():
+        text = str(key)
+        if text.isdigit() and int(text) >= 1 and _to_float(value) is not None:
+            values.append(text)
+    return sorted(values, key=int)
+
+
+def absolute_action_expectation(prediction_payload: Dict[str, Any]) -> str:
+    """Map a frozen C-line action to its explicit absolute-return expectation."""
+    payload = prediction_payload or {}
+    action = str(payload.get("action") or "")
+    direction = str(payload.get("direction") or "neutral")
+    if action in POSITIVE_RETURN_ACTIONS and direction == "up":
+        return "positive"
+    if action in NON_POSITIVE_RETURN_ACTIONS:
+        return "non_positive"
+    return "unscored"
+
+
+def absolute_action_hit(expectation: str, ret: Optional[float]) -> Optional[bool]:
+    """Score the frozen action from the stock's own return, never the index."""
+    if ret is None:
+        return None
+    if expectation == "positive":
+        return ret > 0
+    if expectation == "non_positive":
+        return ret <= 0
+    return None
+
 
 def _direction_hit(direction: str, ret: Optional[float]) -> Optional[bool]:
     """方向命中: up/down 用绝对收益判定; neutral 不作方向性评分。"""
@@ -147,11 +187,23 @@ def _deviation(bucket: str, positive_excess: Optional[bool], action_hit: Optiona
         return "missed_positive_excess"
     return "unexpected"
 
+def _absolute_deviation(expectation: str, hit: Optional[bool]) -> str:
+    if hit is True:
+        return "as_expected"
+    if hit is None:
+        return "not_scored"
+    if expectation == "positive":
+        return "expected_positive_but_non_positive"
+    if expectation == "non_positive":
+        return "avoided_but_stock_was_positive"
+    return "unexpected"
+
+
 
 def evaluate_prediction(prediction: Dict[str, Any], factor_index: Dict[Tuple[str, str], Dict[str, Dict[str, Any]]], *,
                         horizon: Optional[str] = None,
                         evaluated_at: Optional[str] = None) -> Optional[dict]:
-    """核验单条 prediction; 缺真实收益/超额则返回 None, 不写假结果。"""
+    """核验单条 prediction; 缺真实收益则返回 None, 不写假结果。"""
     if not isinstance(prediction, dict):
         return None
     pid = prediction.get("prediction_id")
@@ -170,15 +222,17 @@ def evaluate_prediction(prediction: Dict[str, Any], factor_index: Dict[Tuple[str
     ret = _to_float((actual_box.get("ret") or {}).get(h))
     mkt_ret = _to_float((actual_box.get("mkt_ret") or {}).get(h))
     excess = _to_float((actual_box.get("excess") or {}).get(h))
-    if ret is None or mkt_ret is None or excess is None:
+    if ret is None:
         return None
 
     pred = prediction.get("prediction") or {}
     direction = str(pred.get("direction") or "neutral")
     bucket = str(pred.get("expected_excess_bucket") or "unknown")
-    positive_excess = excess > 0
+    positive_excess = excess > 0 if excess is not None else None
     direction_hit = _direction_hit(direction, ret)
     action_hit = _action_hit(bucket, positive_excess)
+    absolute_expectation = absolute_action_expectation(pred)
+    absolute_hit = absolute_action_hit(absolute_expectation, ret)
     is_target_horizon = h == target_horizon
     evaluation_role = "target_horizon" if is_target_horizon else "post_prediction_path"
     actual_trade_date = (actual_box.get("horizon_trade_dates") or {}).get(h)
@@ -205,10 +259,19 @@ def evaluate_prediction(prediction: Dict[str, Any], factor_index: Dict[Tuple[str
             "evaluation_role": evaluation_role,
             "direction_hit": direction_hit if is_target_horizon else None,
             "positive_excess": positive_excess,
+            "action_hit_basis": "benchmark_excess_legacy_reference",
             "action_hit": action_hit if is_target_horizon else None,
             "path_direction_alignment": direction_hit,
             "path_action_alignment": action_hit,
             "deviation": _deviation(bucket, positive_excess, action_hit) if is_target_horizon else "post_prediction_path",
+            "absolute_action_hit_basis": "stock_return_sign",
+            "absolute_action_expectation": absolute_expectation,
+            "absolute_action_hit": absolute_hit if is_target_horizon else None,
+            "path_absolute_action_alignment": absolute_hit,
+            "absolute_deviation": (
+                _absolute_deviation(absolute_expectation, absolute_hit)
+                if is_target_horizon else "post_prediction_path"
+            ),
             "error_type": None,
         },
     }
@@ -224,7 +287,7 @@ def evaluate_predictions(predictions: Iterable[Dict[str, Any]], factor_results: 
         baseline = str((pred or {}).get("baseline_trade_date") or "").strip()
         code = str((pred or {}).get("code") or "").strip()
         actual_box = factor_index.get((baseline, code)) or {}
-        horizons = [str(horizon)] if horizon is not None else complete_horizons(actual_box)
+        horizons = [str(horizon)] if horizon is not None else return_horizons(actual_box)
         for path_horizon in horizons:
             row = evaluate_prediction(
                 pred,

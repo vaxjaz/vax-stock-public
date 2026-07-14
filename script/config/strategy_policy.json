@@ -1,8 +1,8 @@
 {
-  "_说明": "用户确认的交易纪律 v2。历史校正按股票自身收益，不以跑赢指数作为操作依据。",
-  "schema_version": 1,
-  "policy_version": "discipline_v2_absolute_return",
-  "effective_from": "20260713",
+  "_说明": "用户确认的交易纪律 v3。C线复核按同规则版本、同原始动作、同方向分组，只用股票自身收益判定动作命中；市场和宏观仅作背景。",
+  "schema_version": 2,
+  "policy_version": "discipline_v3_c_absolute_action_review",
+  "effective_from": "20260714",
   "position_units_pct": {
     "half_unit": 2.5,
     "unit": 5.0
@@ -48,8 +48,8 @@
       "position_review_horizons": [10, 30],
       "minimum_preliminary_samples": 5,
       "minimum_stable_samples": 20,
-      "support_min_positive_ret_rate": 0.6,
-      "conflict_max_positive_ret_rate": 0.4,
+      "support_min_absolute_action_hit_rate": 0.6,
+      "conflict_max_absolute_action_hit_rate": 0.4,
       "conflict_effect": "block_conditional_add",
       "support_effect": "keep_existing_unit",
       "risk_reduce_can_be_blocked": false

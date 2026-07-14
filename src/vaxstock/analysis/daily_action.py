@@ -56,43 +56,73 @@ def _history_evidence_verdict(summary: Mapping[str, Any],
         tracked_horizons.append(latest_horizon)
     minimum = int(policy.get("minimum_preliminary_samples") or 5)
     stable_minimum = int(policy.get("minimum_stable_samples") or 20)
-    support_rate = _number(policy.get("support_min_positive_ret_rate"))
-    conflict_rate = _number(policy.get("conflict_max_positive_ret_rate"))
+    support_rate = _number(
+        policy.get("support_min_absolute_action_hit_rate")
+        if policy.get("support_min_absolute_action_hit_rate") is not None
+        else policy.get("support_min_positive_ret_rate")
+    )
+    conflict_rate = _number(
+        policy.get("conflict_max_absolute_action_hit_rate")
+        if policy.get("conflict_max_absolute_action_hit_rate") is not None
+        else policy.get("conflict_max_positive_ret_rate")
+    )
     support_rate = 0.60 if support_rate is None else support_rate
     conflict_rate = 0.40 if conflict_rate is None else conflict_rate
 
     horizon_verdicts = {}
     for horizon in tracked_horizons:
         cell = ((summary or {}).get("horizons") or {}).get(horizon) or {}
-        evaluated = int(cell.get("evaluated") or 0)
+        path_evaluated = int(cell.get("evaluated") or 0)
+        evaluated = int(cell.get("absolute_action_evaluated") or 0)
         avg_ret = _number(cell.get("avg_ret"))
-        positive_rate = _number(cell.get("positive_ret_rate"))
+        hit_rate = _number(cell.get("absolute_action_hit_rate"))
+        expectation = str(cell.get("absolute_action_expectation") or "")
         verdict = "insufficient"
-        if evaluated >= minimum and avg_ret is not None and positive_rate is not None:
+        if expectation == "unscored" and path_evaluated:
+            verdict = "unscored"
+        elif evaluated >= minimum and avg_ret is not None and hit_rate is not None:
             strength = "stable" if evaluated >= stable_minimum else "preliminary"
-            if avg_ret > 0 and positive_rate >= support_rate:
+            mean_supports = (
+                avg_ret > 0 if expectation == "positive"
+                else avg_ret <= 0 if expectation == "non_positive"
+                else False
+            )
+            mean_conflicts = (
+                avg_ret <= 0 if expectation == "positive"
+                else avg_ret > 0 if expectation == "non_positive"
+                else False
+            )
+            if mean_supports and hit_rate >= support_rate:
                 verdict = f"{strength}_support"
-            elif avg_ret < 0 and positive_rate <= conflict_rate:
+            elif mean_conflicts and hit_rate <= conflict_rate:
                 verdict = f"{strength}_conflict"
             else:
                 verdict = "mixed"
         horizon_verdicts[horizon] = {
             "verdict": verdict,
             "horizon": horizon,
+            "path_evaluated": path_evaluated,
             "evaluated": evaluated,
             "avg_ret": avg_ret,
-            "positive_ret_rate": positive_rate,
+            "absolute_action_expectation": expectation or None,
+            "absolute_action_hit_count": int(cell.get("absolute_action_hit_count") or 0),
+            "absolute_action_hit_rate": hit_rate,
+            "all_evaluated": int(cell.get("all_evaluated") or 0),
+            "sample_dates": list(cell.get("absolute_action_sample_dates") or []),
+            "path_sample_dates": list(cell.get("sample_baseline_dates") or []),
         }
 
     priority = (
         "stable_conflict", "preliminary_conflict", "stable_support",
-        "preliminary_support", "mixed", "insufficient",
+        "preliminary_support", "mixed", "unscored", "insufficient",
     )
     action_states = {
         horizon_verdicts[horizon]["verdict"]
         for horizon in add_veto_horizons if horizon in horizon_verdicts
     }
-    verdict = next(state for state in priority if state in action_states)
+    verdict = next(
+        (state for state in priority if state in action_states), "insufficient"
+    )
     blocked_horizons = [
         horizon for horizon in add_veto_horizons
         if horizon_verdicts.get(horizon, {}).get("verdict")
@@ -109,7 +139,9 @@ def _history_evidence_verdict(summary: Mapping[str, Any],
         "horizon": primary_horizon,
         "evaluated": primary.get("evaluated", 0),
         "avg_ret": primary.get("avg_ret"),
-        "positive_ret_rate": primary.get("positive_ret_rate"),
+        "absolute_action_expectation": primary.get("absolute_action_expectation"),
+        "absolute_action_hit_count": primary.get("absolute_action_hit_count", 0),
+        "absolute_action_hit_rate": primary.get("absolute_action_hit_rate"),
         "horizon_verdicts": horizon_verdicts,
         "latest_horizon": latest_horizon or None,
         "add_veto_horizons": add_veto_horizons,
@@ -123,10 +155,9 @@ def _history_evidence_verdict(summary: Mapping[str, Any],
             bool(blocked_horizons)
             and policy.get("conflict_effect", "block_conditional_add") == "block_conditional_add"
         ),
-        "scope": (summary or {}).get("scope") or "matching_current_signal",
+        "scope": (summary or {}).get("scope") or "matching_current_action",
         "cohort": (summary or {}).get("cohort"),
     }
-
 
 def _first_trigger(blueprints: Iterable[Mapping[str, Any]], allowed) -> Optional[Mapping[str, Any]]:
     allowed_set = set(allowed or [])
@@ -305,7 +336,7 @@ def build_daily_action_plan(task_snapshot: Mapping[str, Any], holdings: Mapping[
         elif history_blocks_add:
             action = "持有观察，不加仓"
             reason = (
-                f"同类C线T+{'/T+'.join(history_verdict.get('blocked_horizons') or [])}"
+                f"同动作C线T+{'/T+'.join(history_verdict.get('blocked_horizons') or [])}"
                 "历史反对当前加仓，D线转强只重新评估"
             )
         elif add_eligible:
