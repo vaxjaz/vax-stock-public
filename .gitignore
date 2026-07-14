@@ -20,3 +20,4 @@ __pycache__/
 var/strategy/
 var/forecast/current_observation_status.json
 var/forecast/current_evolution_status.json
+var/forecast/current_market_health.json

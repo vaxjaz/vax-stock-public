@@ -98,7 +98,7 @@ tracks/__init__.py 严禁 import ai 或任何会触网/加载重依赖(akshare/p
     - [x] C2a intraday 迁包 + codex/notify 抽离 + 盘中铁律硬校验器
     - [x] C2b codex 注入大盘背景/概念/触发次数
     - [x] C2c T-1基准注入 + 校验器白名单 + D线 forecast 冻结  # PR-A(PR#30)
-    - [ ] C2d 盘中演变记忆 + 主动盘面体检 + /intraday/ask 咨询端点(C2c 未尽的演变记忆归此)
+    - [~] C2d 盘中演变记忆 + 主动盘面体检已完成; `/intraday/ask` 咨询端点待做
     - [x] B1+2 macro 迁包(骨架+5维: ETF/M1/融资/换手/ERP)
     - [x] B3 macro 维度5(全市场 breadth MA60/200 + MA250乖离)  # PR#27
     - [x] B4 macro 第7维 社融脉冲(sf_month 权限已确认✅)  # PR#28, 维度7迁入, macro 7维齐

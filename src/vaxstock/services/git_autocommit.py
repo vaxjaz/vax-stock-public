@@ -41,6 +41,7 @@ STAGE_PATHS: Dict[str, Tuple[str, ...]] = {
         "var/forecast/observation_jobs.jsonl",
         "var/forecast/observation_coverage.jsonl",
         "var/forecast/forecast_evolution.jsonl",
+        "var/forecast/market_health_events.jsonl",
         "var/forecast/forecast_results.jsonl",
         "var/forecast/dline_reviews",
     ),
@@ -59,6 +60,7 @@ STAGE_PATHS: Dict[str, Tuple[str, ...]] = {
         "var/forecast/current_tasks.md",
         "var/forecast/observation_tasks.jsonl",
         "var/forecast/forecasts.jsonl",
+        "var/forecast/market_health_events.jsonl",
     ),
     "all": (
         "var/reports",
@@ -150,6 +152,7 @@ def _is_intraday_generated_path(path: str) -> bool:
         "var/forecast/current_tasks.md",
         "var/forecast/observation_tasks.jsonl",
         "var/forecast/forecasts.jsonl",
+        "var/forecast/market_health_events.jsonl",
     }
 
 

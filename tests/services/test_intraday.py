@@ -538,9 +538,12 @@ def test_notify_dline_freezes_forecast_and_pushes():
 def test_run_consumes_dline_current_tasks():
     saved = (intra.load_rules, intra.load_dline_tasks, intra.fetch_quotes, intra.notify_dline,
              intra.record_task_observation, intra.record_evolution_observation,
-             intra.restore_active_evolutions, intra.load_dline_trigger_facts, intra.request)
+             intra.restore_active_evolutions, intra.load_dline_trigger_facts,
+             intra.run_market_health_check, intra.notify_market_health, intra.request)
     calls = []
     coverage_calls = []
+    health_calls = []
+    health_notifications = []
     try:
         intra.load_rules = lambda: []
         intra.load_dline_tasks = lambda: [_sample_dline_task()]
@@ -549,6 +552,13 @@ def test_run_consumes_dline_current_tasks():
         )
         intra.record_evolution_observation = lambda *args, **kwargs: {"status": "no_active", "written": 0}
         intra.restore_active_evolutions = lambda *args, **kwargs: {"written": 0, "duplicates": 0, "skipped": 0}
+        intra.run_market_health_check = lambda **kwargs: (
+            health_calls.append(kwargs) or {
+                "status": "written",
+                "notifications": [{"event_type": "portfolio_synchronized_drop"}],
+            }
+        )
+        intra.notify_market_health = lambda events: health_notifications.extend(events)
         intra.load_dline_trigger_facts = lambda *args, **kwargs: {}
         intra.fetch_quotes = lambda codes: {"002475": {"code": "002475", "name": "立讯精密", "price": 96.0,
             "change_pct": -1.5, "amplitude_pct": 3.2, "amount": 2e8, "trade_date": "20260706"}}
@@ -557,15 +567,21 @@ def test_run_consumes_dline_current_tasks():
         intra.run(once=True, force=True)
         assert calls == [("002475", "breakdown_confirm", 1)]
         assert coverage_calls == [("002475", "20260706")]
+        assert len(health_calls) == 1
+        assert health_calls[0]["force"] is True
+        assert health_calls[0]["quotes"]["002475"]["price"] == 96.0
+        assert health_notifications == [{"event_type": "portfolio_synchronized_drop"}]
     finally:
         (intra.load_rules, intra.load_dline_tasks, intra.fetch_quotes, intra.notify_dline,
          intra.record_task_observation, intra.record_evolution_observation,
-             intra.restore_active_evolutions, intra.load_dline_trigger_facts, intra.request) = saved
+             intra.restore_active_evolutions, intra.load_dline_trigger_facts,
+             intra.run_market_health_check, intra.notify_market_health, intra.request) = saved
 # ── C2b: run() 今日触发计数 —— 同 code 多规则递增; 跨日清零 ──
 def test_run_fire_count_increments_per_code():
     saved = (intra.load_rules, intra.load_dline_tasks, intra.fetch_quotes, intra.notify,
              intra.record_task_observation, intra.record_evolution_observation,
-             intra.restore_active_evolutions, intra.load_dline_trigger_facts, intra.request)
+             intra.restore_active_evolutions, intra.load_dline_trigger_facts,
+             intra.run_market_health_check, intra.notify_market_health, intra.request)
     calls = []
     coverage_calls = []
     try:
@@ -577,6 +593,8 @@ def test_run_fire_count_increments_per_code():
         intra.record_task_observation = lambda *args, **kwargs: {"status": "written"}
         intra.record_evolution_observation = lambda *args, **kwargs: {"status": "no_active", "written": 0}
         intra.restore_active_evolutions = lambda *args, **kwargs: {"written": 0, "duplicates": 0, "skipped": 0}
+        intra.run_market_health_check = lambda **kwargs: {"status": "no_change", "notifications": []}
+        intra.notify_market_health = lambda events: None
         intra.load_dline_trigger_facts = lambda *args, **kwargs: {}
         intra.fetch_quotes = lambda codes: {"002475": {"name": "立讯", "price": 70.0, "change_pct": 2.0}}
         intra.notify = lambda rule, quote, fire_count=None: calls.append((rule["type"], fire_count))
@@ -587,14 +605,16 @@ def test_run_fire_count_increments_per_code():
     finally:
         (intra.load_rules, intra.load_dline_tasks, intra.fetch_quotes, intra.notify,
          intra.record_task_observation, intra.record_evolution_observation,
-             intra.restore_active_evolutions, intra.load_dline_trigger_facts, intra.request) = saved
+             intra.restore_active_evolutions, intra.load_dline_trigger_facts,
+             intra.run_market_health_check, intra.notify_market_health, intra.request) = saved
 
 
 def test_run_fire_count_resets_on_new_day():
     _Stop = type("_Stop", (Exception,), {})
     saved = (intra.load_rules, intra.load_dline_tasks, intra.fetch_quotes, intra.notify,
              intra.record_task_observation, intra.record_evolution_observation,
-             intra.restore_active_evolutions, intra.load_dline_trigger_facts, intra.request,
+             intra.restore_active_evolutions, intra.load_dline_trigger_facts,
+             intra.run_market_health_check, intra.notify_market_health, intra.request,
              intra.dt, intra.time)
     calls = []
     rule_a = {"code": "002475", "name": "立讯", "type": "price_above", "level": 69.0, "note": "a"}
@@ -626,6 +646,8 @@ def test_run_fire_count_resets_on_new_day():
         intra.record_task_observation = lambda *args, **kwargs: {"status": "written"}
         intra.record_evolution_observation = lambda *args, **kwargs: {"status": "no_active", "written": 0}
         intra.restore_active_evolutions = lambda *args, **kwargs: {"written": 0, "duplicates": 0, "skipped": 0}
+        intra.run_market_health_check = lambda **kwargs: {"status": "no_change", "notifications": []}
+        intra.notify_market_health = lambda events: None
         intra.load_dline_trigger_facts = lambda *args, **kwargs: {}
         intra.fetch_quotes = lambda codes: {"002475": {"name": "立讯", "price": 70.0, "change_pct": 2.0}}
         intra.notify = lambda rule, quote, fire_count=None: calls.append((rule["type"], fire_count))
@@ -643,7 +665,8 @@ def test_run_fire_count_resets_on_new_day():
     finally:
         (intra.load_rules, intra.load_dline_tasks, intra.fetch_quotes, intra.notify,
          intra.record_task_observation, intra.record_evolution_observation,
-             intra.restore_active_evolutions, intra.load_dline_trigger_facts, intra.request,
+             intra.restore_active_evolutions, intra.load_dline_trigger_facts,
+             intra.run_market_health_check, intra.notify_market_health, intra.request,
          intra.dt, intra.time) = saved
 
 
@@ -740,7 +763,8 @@ def test_run_restores_fired_keys_when_tasks_appear_after_startup():
         intra.load_rules, intra.load_dline_tasks, intra.fetch_quotes,
         intra.notify_dline, intra.record_task_observation,
         intra.record_evolution_observation, intra.restore_active_evolutions,
-        intra.load_dline_trigger_facts, intra.request,
+        intra.load_dline_trigger_facts, intra.run_market_health_check,
+        intra.notify_market_health, intra.request,
     )
     task = _sample_dline_task()
     loads = [[], [task]]
@@ -750,6 +774,8 @@ def test_run_restores_fired_keys_when_tasks_appear_after_startup():
         intra.load_dline_tasks = lambda: loads.pop(0) if loads else [task]
         intra.record_evolution_observation = lambda *args, **kwargs: {"status": "no_active", "written": 0}
         intra.restore_active_evolutions = lambda *args, **kwargs: {"written": 0, "duplicates": 0, "skipped": 0}
+        intra.run_market_health_check = lambda **kwargs: {"status": "no_change", "notifications": []}
+        intra.notify_market_health = lambda events: None
         intra.load_dline_trigger_facts = lambda target: {"002475": [{
             "task_id": task["task_id"], "trigger_type": "reclaim_confirm",
         }]}
@@ -771,5 +797,6 @@ def test_run_restores_fired_keys_when_tasks_appear_after_startup():
             intra.load_rules, intra.load_dline_tasks, intra.fetch_quotes,
             intra.notify_dline, intra.record_task_observation,
             intra.record_evolution_observation, intra.restore_active_evolutions,
-            intra.load_dline_trigger_facts, intra.request,
+            intra.load_dline_trigger_facts, intra.run_market_health_check,
+            intra.notify_market_health, intra.request,
         ) = saved

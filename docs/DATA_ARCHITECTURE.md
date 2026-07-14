@@ -395,6 +395,16 @@ The intraday path is joined to `forecast_results.jsonl` by `(task_id, trigger_ty
 
 - 盘中消费者已由 `services.intraday` 读取 `current_tasks.json` 执行 D线触发 DSL,触发后写 `forecasts.jsonl`。
 - When `GIT_AUTOCOMMIT_ENABLED=1`, `services.intraday` also calls `git_autocommit --stage intraday` after a forecast row is written, because the watcher is long-running and has no per-alert systemd `ExecStartPost`.
+### `current_market_health.json` / `market_health_events.jsonl`
+
+Source: `services.market_health`, called by the existing `services.intraday` polling loop.
+
+Purpose: a deterministic portfolio-wide health check independent of user executions. The watcher evaluates it at most once every 15 minutes (`MARKET_HEALTH_INTERVAL_SECONDS`, default `900`) while the normal trading-time loop is active. `current_market_health.json` is an atomic, gitignored runtime state used for throttling and recovery/reopen detection. `market_health_events.jsonl` is append-only evidence keyed by a deterministic `event_id`.
+
+Verified trigger inputs are limited to same-trade-date `/quote` fields (`price`, `change_pct`, `amplitude_pct`, `trade_time`, `source`), configured holding concepts, frozen C-line direction from current D-line tasks, and realtime `regime` from `/market`. Intraday-stale `/market.overview` breadth is explicitly excluded. The check refuses to conclude when quote dates are mixed, a quote is more than 20 minutes old or more than 2 minutes in the future, fewer than three holding quotes are valid, or holding quote coverage is below 50%; missing data never receives a neutral/default value.
+
+Policy `market_health_v1` records its exact thresholds in every event: portfolio synchronized move at 3% with at least 3 holdings and 40% coverage; AI-holding synchronized move at 3% with at least 2 AI holdings and 50% of valid AI holdings; individual shock at `change_pct <= -7%` or `amplitude_pct >= 9%`; C-line direction contradiction at 5%; and verified regime transitions. Only a newly opened high-severity signal or a transition into `panic` is notified. Persistent signals are silent, recovery is recorded, and a later recurrence opens a new episode. All events audit `evaluation.user_execution_used=false`.
+
 ### `forecast_results.jsonl`
 
 Source: `services.dline_evaluator.backfill_dline_results`, called by EOD after B-line return backfill.
@@ -417,7 +427,6 @@ Derived review:
 
 仍待完成:
 
-- 还没有主动盘面体检的落盘 schema。
 - 还没有 `/intraday/ask` 的查询输入/输出冻结规范。
 
 
@@ -504,6 +513,8 @@ turnover_history.parquet
 | `forecasts.jsonl` | 否 | 是 | 同日同票多触发是正常事件 |
 | `observation_coverage.jsonl` | 否 | 是 | 只有通过版本化全天覆盖规则，未触发才是有效样本 |
 | `forecast_evolution.jsonl` | 否 | 是 | 触发后15/30分钟及收盘前路径，按 `evolution_id` 幂等 |
+| `current_market_health.json` | 是 | 否 | 盘中节流与恢复状态，可由当日实时行情重新建立 |
+| `market_health_events.jsonl` | 否 | 是 | 按确定性 `event_id` 幂等；每条冻结规则版本和真实触发快照 |
 | `forecast_results.jsonl` | 否 | 是 | `(sample_id, horizon)` 幂等；不读取用户成交 |
 | `dline_reviews/*` | 是 | 否 | D线触发/未触发效果派生视图，可重生成 |
 | `current_triggers.md` / `trigger_summary_<trade_date>.md` | 是 | 否 | D线触发派生视图,以 `forecasts.jsonl` 为事实源 |

@@ -27,6 +27,8 @@ D线不是全 universe 无偏样本, 不能冒充 B线。D线记录的是“被�
 | `observation_coverage.jsonl` | 收盘冻结的逐任务覆盖证据, append-only；只有通过版本化全天覆盖规则的未触发任务才可成为结果样本。 | `services.observation_coverage.finalize_observation_coverage` |
 | `current_evolution_status.json` | 触发后盘中演变的当前原子状态,可由冻结触发恢复。 | `services.forecast_evolution` |
 | `forecast_evolution.jsonl` | 触发后15/30分钟、收盘前、最大上涨/下跌的真实行情路径, append-only。 | `services.forecast_evolution.finalize_evolutions` |
+| `current_market_health.json` | Active portfolio health state for 15-minute throttling and recovery/reopen detection; atomic and gitignored. | `services.market_health` |
+| `market_health_events.jsonl` | Versioned append-only portfolio/AI/holding/C-line/regime health events; independent of user execution. | `services.market_health` |
 | `forecasts.jsonl` | 盘中触发时冻结的结构化评价,包含 T-1 基准、盘中 lite 快照、regime、Codex 结构化判断等。 | `services.forecast_recorder.record_forecast` |
 | `forecast_results.jsonl` | 逐任务蓝图的 T+N 市场结果, append-only；不读取用户成交。 | `services.dline_evaluator.backfill_dline_results` |
 | `dline_reviews/` | 触发与合格未触发对照复核、规则证据变化通知；只提建议,不自动改参数。 | `research.dline_review` |

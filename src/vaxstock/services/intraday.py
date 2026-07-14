@@ -34,6 +34,9 @@ from vaxstock.services.forecast_evolution import (
     finalize_evolutions, record_evolution_observation,
     restore_active_evolutions, start_trigger_evolution,
 )
+from vaxstock.services.market_health import (
+    render_market_health_notification, run_market_health_check,
+)
 from vaxstock.sources.codex import call_codex
 
 logger = logging.getLogger(__name__)
@@ -558,6 +561,16 @@ def _format_dline_alert_body(code: str, name: str, task: Dict[str, Any], quote: 
     ])
 
 
+def notify_market_health(events: List[Dict[str, Any]]) -> None:
+    if not events:
+        return
+    title = "[盘面体检] 高风险异常"
+    body = render_market_health_notification(events)
+    logger.info("\n%s\n%s\n%s\n%s", "=" * 40, title, body, "=" * 40)
+    push_wechat(title, body, pushplus_token=_PUSHPLUS_TOKEN)
+    push_email(title, body, smtp_conf=_smtp_conf())
+
+
 def notify_dline(task: Dict[str, Any], quote: Dict[str, Any], blueprint: Dict[str, Any],
                  values: Dict[str, Any], fire_count=None):
     """Send a D-line alert and freeze the trigger as a forecast row."""
@@ -797,7 +810,8 @@ def run(once=False, force=False):
     def _active_codes():
         legacy_codes = {r.get("code") for r in rules if r.get("code")}
         dline_codes = {t.get("code") for t in dline_tasks if t.get("code")}
-        return sorted(legacy_codes | dline_codes)
+        holding_codes = set(config.load_holdings())
+        return sorted(legacy_codes | dline_codes | holding_codes)
 
     codes = _active_codes()
     logger.info("intraday watch started. legacy_rules=%s dline_tasks=%s codes=%s", len(rules), len(dline_tasks), codes)
@@ -875,6 +889,25 @@ def run(once=False, force=False):
                     line.append(f"{qd.get('name', c)} {qd.get('price')}({qd.get('change_pct', 0):+.1f}%)")
             if line:
                 logger.info(" | ".join(line))
+
+            try:
+                health = run_market_health_check(
+                    quotes=data,
+                    holdings=config.load_holdings(),
+                    tasks=dline_tasks,
+                    market_ctx_loader=fetch_market_ctx,
+                    force=force,
+                )
+                if health.get("notifications"):
+                    notify_market_health(health["notifications"])
+                if health.get("status") in {
+                    "insufficient_data", "invalid_state",
+                    "invalid_observed_at", "invalid_events",
+                }:
+                    logger.warning("market health check did not conclude: %s", health)
+            except Exception as exc:
+                logger.warning("market health check failed: %s: %s",
+                               type(exc).__name__, str(exc)[:160])
 
             for rule in rules:
                 if rule.get("fired"):
