@@ -1,8 +1,8 @@
 # D线盘中触发汇总
 
-- updated_at: 2026-07-14T13:03:48
+- updated_at: 2026-07-14T13:08:58
 - trade_date: 2026-07-14
-- triggers: 23
+- triggers: 24
 - 口径: 仅汇总 `forecasts.jsonl` 中 `structured.source=dline_task_blueprint` 且 `dline_plan_version=d_observe_llm_v2` 的触发记录。
 - 数据源: 现价/涨跌幅/振幅/成交额来自触发时 `quote_snapshot`; MA偏离来自 `trigger_values`; C线为 `evidence_pack.C_prediction` 原始字段; LLM客观评价为触发时写入的 `reasoning`。
 - 边界: 本报告只做 D线触发复盘视图, 不给买卖建议, 不自动调参。
@@ -259,3 +259,14 @@
 - 触发依据: 说明价格已从短线压制区回到可修复状态，C 线的 panic_rebound_watch 得到正向验证。
 - LLM客观评价: D线触发: 说明价格已从短线压制区回到可修复状态，C 线的 panic_rebound_watch 得到正向验证。 观察目的: 验证沪电股份在市场 panic 背景下，次日盘中是否能出现可被机械识别的情绪修复反弹，并通过收复短期均线来支撑 C 线的 T+1 看多假设。 主要风险: 反弹只是一段弱修复，无法收复短期均线，最终在 panic 市场里继续走弱并证伪 T+1 修复预期。 对C线反馈: panic_rebound_watch -> confirm_repair 这是客观观察，不是交易指令；盘中未定论，评分和资金以EOD定稿数据为准。
 - C线反哺线索: expected_feedback_to_c=panic_rebound_watch -> confirm_repair; baseline=20260713; task_id=20260713_20260714_002463_d_observe_llm_v2; MA20触发位置=-1.95%
+
+## 24. 600580 卧龙电驱
+
+- 触发: weak_rebound / severity=medium / fire_count=1
+- 时间: forecast_ts=2026-07-14T13:08:58; trade_time=13:08:51; trade_date=2026-07-14
+- 实时行情: 现价=31.60; 涨跌幅=+1.15%; 振幅=4.00%; 成交额=6.47亿
+- 均线偏离: MA5=-5.50%; MA20=-8.06%; MA60=-16.10%
+- C线原始预测: action=panic_rebound_watch; direction=up; confidence=50%
+- 触发依据: 说明只有技术性反抽，尚未形成有效修复，C线的上行假设需要保留折扣。
+- LLM客观评价: D线触发: 说明只有技术性反抽，尚未形成有效修复，C线的上行假设需要保留折扣。 观察目的: 验证卧龙电驱在panic市场中是否出现真正的情绪修复：从当前均线下方弱势结构转向收复短均线，而不是只有无量反抽或继续下跌。 主要风险: 盘中只出现短暂反弹但量能不足，无法收复MA5/MA10，最终仍维持在MA20下方弱势运行，导致C线的panic_rebound_watch假设失效。 对C线反馈: watch -> confidence_down 这是客观观察，不是交易指令；盘中未定论，评分和资金以EOD定稿数据为准。
+- C线反哺线索: expected_feedback_to_c=watch -> confidence_down; baseline=20260713; task_id=20260713_20260714_600580_d_observe_llm_v2; MA20触发位置=-8.06%
