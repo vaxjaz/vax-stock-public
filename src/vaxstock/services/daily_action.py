@@ -3,6 +3,7 @@
 
 import datetime as dt
 import json
+import math
 from pathlib import Path
 from typing import Any, Dict
 
@@ -47,6 +48,57 @@ def _read_json(path) -> Dict[str, Any]:
     except Exception:
         return {}
 
+
+def _positive_number(value):
+    if isinstance(value, bool) or value is None or value == "":
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return number if math.isfinite(number) and number > 0 else None
+
+
+def _trade_date_key(value) -> str:
+    text = str(value or "").strip().replace("-", "")
+    return text if len(text) == 8 and text.isdigit() else ""
+
+
+def validate_close_quotes(reference_quotes, target_trade_date, holding_codes) -> Dict[str, Any]:
+    """Accept only same-target Sina quotes returned by stock-api /quote."""
+    raw = reference_quotes if isinstance(reference_quotes, dict) else {}
+    target = _trade_date_key(target_trade_date)
+    prices = {}
+    metadata = {}
+    pending = []
+    for code in sorted({str(value) for value in holding_codes or [] if value}):
+        quote = raw.get(code)
+        if not isinstance(quote, dict):
+            pending.append(f"close_quote.{code}.missing")
+            continue
+        quote_date = _trade_date_key(quote.get("trade_date"))
+        if not target or quote_date != target:
+            pending.append(f"close_quote.{code}.trade_date_mismatch")
+            continue
+        if str(quote.get("source") or "").strip().lower() != "sina":
+            pending.append(f"close_quote.{code}.source_invalid")
+            continue
+        price = _positive_number(quote.get("price"))
+        if price is None:
+            pending.append(f"close_quote.{code}.price_invalid")
+            continue
+        prices[code] = price
+        metadata[code] = {
+            "trade_date": quote_date,
+            "trade_time": str(quote.get("trade_time") or "").strip() or None,
+            "source": "sina",
+        }
+    return {
+        "prices": prices,
+        "metadata": metadata,
+        "pending": pending,
+        "complete": not pending and bool(prices),
+    }
 
 def _write_json(path, data: Dict[str, Any]) -> None:
     p = Path(path)
@@ -151,6 +203,7 @@ def refresh_daily_action(*, tasks_path=None, output_dir=None,
                          holdings_data=None, portfolio_state=None,
                          policy_data=None, forecasts_path=None,
                          observation_status_path=None,
+                         reference_quotes=None,
                          phase: str = "pre_market") -> Dict[str, Any]:
     snapshot = _enrich_history(_snapshot_for_target(
         _read_json(tasks_path or CURRENT_TASKS_FILE),
@@ -176,9 +229,20 @@ def refresh_daily_action(*, tasks_path=None, output_dir=None,
             portfolio, holdings, task_prices, as_of_trade_date=baseline
         )
 
-    capacity = build_position_capacity(portfolio, holdings, policy)
     target_dates = {str(value) for value in (snapshot.get("target_trade_dates") or []) if value}
     trigger_target = str(target_trade_date or (next(iter(target_dates)) if len(target_dates) == 1 else ""))
+    if phase == "close_review":
+        close_quotes = validate_close_quotes(reference_quotes, trigger_target, holdings.keys())
+        portfolio = revalue_portfolio_state(
+            portfolio, holdings, close_quotes["prices"],
+            as_of_trade_date=trigger_target,
+            source="close_quote_revalued_from_confirmed_cash_and_holdings",
+        )
+        portfolio["price_trade_date"] = trigger_target if close_quotes["prices"] else None
+        portfolio["price_source"] = "stock-api /quote (sina)" if close_quotes["prices"] else None
+        portfolio["close_quote_metadata"] = close_quotes["metadata"]
+        portfolio["close_quote_pending"] = close_quotes["pending"]
+    capacity = build_position_capacity(portfolio, holdings, policy)
     trigger_facts = load_dline_trigger_facts(
         trigger_target, forecasts_path=forecasts_path or FORECASTS_FILE,
     ) if phase == "close_review" and trigger_target else {}
@@ -308,7 +372,8 @@ def refresh_and_send_daily_action(*, target_trade_date=None, degraded: bool = Fa
 
 
 def refresh_and_send_close_review(*, target_trade_date, mail_state_path=None,
-                                  send_func=None, **refresh_kwargs) -> Dict[str, Any]:
+                                  send_func=None, reference_quote_loader=None,
+                                  **refresh_kwargs) -> Dict[str, Any]:
     target = str(target_trade_date or "").strip()
     if not target:
         return {
@@ -321,6 +386,8 @@ def refresh_and_send_close_review(*, target_trade_date, mail_state_path=None,
             "action": {"status": "skipped_already_sent", "target_trade_date": target},
             "mail": {"status": "already_sent", "sent": False, "target_trade_date": target},
         }
+    if reference_quote_loader is not None and "reference_quotes" not in refresh_kwargs:
+        refresh_kwargs["reference_quotes"] = reference_quote_loader()
     action_result = refresh_daily_action(
         target_trade_date=target,
         phase="close_review",

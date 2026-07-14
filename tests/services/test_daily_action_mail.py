@@ -151,6 +151,9 @@ def test_close_review_fast_skips_before_regenerating_when_already_sent():
             )
             result = daily_action.refresh_and_send_close_review(
                 target_trade_date="20260713", mail_state_path=state_path,
+                reference_quote_loader=lambda: (_ for _ in ()).throw(
+                    AssertionError("must not fetch quotes after mail was sent")
+                ),
             )
         assert result["action"]["status"] == "skipped_already_sent"
         assert result["mail"]["status"] == "already_sent"

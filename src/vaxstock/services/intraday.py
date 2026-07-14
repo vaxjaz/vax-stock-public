@@ -739,7 +739,18 @@ def _run_close_review(dline_tasks: List[Dict[str, Any]]) -> Dict[str, Any]:
     if not target:
         return {"status": "skipped", "reason": "target_trade_date_missing_or_mixed"}
     from vaxstock.services.daily_action import refresh_and_send_close_review
-    result = refresh_and_send_close_review(target_trade_date=target)
+    codes = sorted(
+        {str(task.get("code") or "") for task in dline_tasks if task.get("code")}
+        | set(config.load_holdings())
+    )
+
+    def _load_close_quotes():
+        return fetch_quotes(codes) or {}
+
+    result = refresh_and_send_close_review(
+        target_trade_date=target,
+        reference_quote_loader=_load_close_quotes,
+    )
     logger.info("Close review completed: target=%s action=%s mail=%s", target,
                 (result.get("action") or {}).get("status"), result.get("mail"))
     return result

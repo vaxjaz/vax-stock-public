@@ -674,7 +674,9 @@ def test_run_close_review_delegates_to_idempotent_service():
             {"target_trade_date": "20260713"},
         ])
         assert result["mail"]["status"] == "sent"
-        assert calls == [{"target_trade_date": "20260713"}]
+        assert len(calls) == 1
+        assert calls[0]["target_trade_date"] == "20260713"
+        assert callable(calls[0]["reference_quote_loader"])
     finally:
         daily_action.refresh_and_send_close_review = saved
 

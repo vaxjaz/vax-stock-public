@@ -65,7 +65,8 @@ def _unit_capacity(requested_amount: float, max_add_amount: float,
 def revalue_portfolio_state(portfolio_state: Mapping[str, Any],
                             holdings: Mapping[str, Mapping[str, Any]],
                             reference_prices: Mapping[str, Any], *,
-                            as_of_trade_date: str) -> Dict[str, Any]:
+                            as_of_trade_date: str,
+                            source: str = "eod_revalued_from_confirmed_cash_and_holdings") -> Dict[str, Any]:
     """用已确认现金/股数和新EOD价格机械重估账户；缺任一价格则不产出总资产。"""
     out = dict(portfolio_state or {})
     pending = []
@@ -85,7 +86,7 @@ def revalue_portfolio_state(portfolio_state: Mapping[str, Any],
         market_value += shares * price
 
     out["as_of_trade_date"] = str(as_of_trade_date or "") or None
-    out["source"] = "eod_revalued_from_confirmed_cash_and_holdings"
+    out["source"] = source
     out["base_snapshot_captured_at"] = portfolio_state.get("captured_at")
     out["reference_prices"] = dict(reference_prices or {})
     out["revaluation_pending"] = pending
@@ -170,6 +171,8 @@ def build_position_capacity(portfolio_state: Mapping[str, Any],
             key: _money(total_assets * pct / 100.0) if total_assets is not None else None
             for key, pct in unit_pcts.items()
         },
+        "price_trade_date": portfolio_state.get("price_trade_date"),
+        "price_source": portfolio_state.get("price_source"),
     }
 
     prices = reference_prices if reference_prices is not None else (portfolio_state.get("reference_prices") or {})
