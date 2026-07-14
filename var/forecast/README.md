@@ -9,8 +9,9 @@ A线 EOD 原始地基数据
 B线 EOD 因子快照 + 真实结果回填
 C线 EOD Prediction
   -> D线 EOD 观察任务
-  -> D线盘中触发评价
-  -> D线结果回填(后续)
+  -> D线盘中全时段覆盖 + 触发评价
+  -> D线 T+N 市场结果回填
+  -> 触发/合格未触发对照复核
 ```
 
 D线不是全 universe 无偏样本, 不能冒充 B线。D线记录的是“被观察/被触发的盘中情境”。
@@ -21,7 +22,11 @@ D线不是全 universe 无偏样本, 不能冒充 B线。D线记录的是“被�
 |---|---|---|
 | `observation_tasks.jsonl` | EOD 后由 Codex 基于 A/B/C 证据生成的次日观察任务历史, append-only。 | `services.forecast_planner.record_observation_tasks` |
 | `current_tasks.json` | 当前目标交易日可加载的 D线观察任务快照, 由历史任务物化生成。 | `services.forecast_planner.record_observation_tasks` |
+| `current_observation_status.json` | 当前交易日逐任务行情覆盖状态, 原子覆盖写, 不作为历史结论。 | `services.observation_coverage.record_task_observation` |
+| `observation_coverage.jsonl` | 收盘冻结的逐任务覆盖证据, append-only；只有通过版本化全天覆盖规则的未触发任务才可成为结果样本。 | `services.observation_coverage.finalize_observation_coverage` |
 | `forecasts.jsonl` | 盘中触发时冻结的结构化评价,包含 T-1 基准、盘中 lite 快照、regime、Codex 结构化判断等。 | `services.forecast_recorder.record_forecast` |
+| `forecast_results.jsonl` | 逐任务蓝图的 T+N 市场结果, append-only；不读取用户成交。 | `services.dline_evaluator.backfill_dline_results` |
+| `dline_reviews/` | 触发与合格未触发对照复核、规则证据变化通知；只提建议,不自动改参数。 | `research.dline_review` |
 
 ## `observation_tasks.jsonl`
 
@@ -77,13 +82,21 @@ D线不是全 universe 无偏样本, 不能冒充 B线。D线记录的是“被�
 | `reasoning` | 模型摘要,已通过盘中铁律校验。 |
 | `falsify_if` | 顶层证伪条件冗余字段,便于快速读取。 |
 
+## 市场结果闭环
+
+- 已触发任务以冻结的首次触发价记录执行时点收益,同时以目标日收盘价记录与未触发组可比的统一收益。
+- 未触发任务只有在 `observation_coverage.jsonl` 通过全天覆盖规则后才纳入；历史缺覆盖数据不会被补猜。
+- `forecast_results.jsonl` 使用 B线已经机械回填的真实个股收益,按 `(sample_id, horizon)` 幂等追加。
+- 规则复核按 `(plan_version, trigger_type, horizon)` 比较已触发与合格未触发；样本不足只展示数量,不下结论。
+- 用户是否买卖、成交价和账户盈亏均不参与 D线正确性判断；结果记录固定审计 `user_execution_used=false`。
+
 ## 使用原则
 
 - D线只记录盘中观察和触发情境, 不能混入 B线全样本。
 - Codex 可生成观察逻辑和触发后解释, 但输出必须 JSON schema 化。
 - 缺 A/B/C 证据时标待验证或跳过, 不补默认中性值。
 - 盘中新评分、具体买卖价、臆测资金流向一律禁止。
-- 后续 D线结果回填应新增独立文件, 不修改 `observation_tasks.jsonl` 或 `forecasts.jsonl` 原文。
+- D线结果回填只追加独立文件, 不修改 `observation_tasks.jsonl` 或 `forecasts.jsonl` 原文。
 
 ## `E_context` in observation tasks
 

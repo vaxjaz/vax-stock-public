@@ -65,6 +65,36 @@ def _coverage_fact_text(fact: Mapping[str, Any]) -> str:
     return f"有效观察{count}次，首笔{first}，末笔{last}，最后价{price}"
 
 
+_DLINE_VERDICT_LABELS = {
+    "new_evidence": "首次形成有效结论",
+    "insufficient_counterfactual": "有效对照样本不足",
+    "preliminary_support": "初步支持当前D线条件",
+    "stable_support": "稳定支持当前D线条件",
+    "preliminary_conflict": "初步反对当前D线条件",
+    "stable_conflict": "稳定反对当前D线条件",
+    "mixed": "结果混合",
+}
+
+
+def _dline_rule_change_lines(background: Mapping[str, Any]):
+    changes = list(background.get("dline_rule_changes") or [])
+    if not changes:
+        return []
+    parts = []
+    for change in changes[:3]:
+        key = str(change.get("cell_key") or "待确认")
+        before = _DLINE_VERDICT_LABELS.get(
+            str(change.get("before") or ""), str(change.get("before") or "待确认")
+        )
+        after = _DLINE_VERDICT_LABELS.get(
+            str(change.get("after") or ""), str(change.get("after") or "待确认")
+        )
+        parts.append(f"{key}: {before} -> {after}")
+    if len(changes) > 3:
+        parts.append(f"另{len(changes) - 3}项")
+    as_of = background.get("dline_rule_review_as_of") or "待确认"
+    return [f"- D线规则复盘变化（截至{as_of}）: " + "；".join(parts)]
+
 def render_daily_action_markdown(plan: Mapping[str, Any]) -> str:
     bg = plan.get("background") or {}
     account = plan.get("account") or {}
@@ -90,6 +120,7 @@ def render_daily_action_markdown(plan: Mapping[str, Any]) -> str:
         "## 今日背景",
         "",
         *render_market_background_lines(bg),
+        *_dline_rule_change_lines(bg),
         "",
         f"- 账户: 仓位 {_pct(account.get('reported_position_pct'))}，可用现金 {_amount(account.get('available_cash'))}；0.5单位 {_amount(units.get('half_unit'))}，1单位 {_amount(units.get('unit'))}。",
         f"- 数据口径: EOD基准 {bg.get('baseline_trade_date') or '待验证'}；账户估值日 {account.get('as_of_trade_date') or '待验证'}；来源 {source}。",

@@ -224,6 +224,7 @@ def build_daily_action_plan(task_snapshot: Mapping[str, Any], holdings: Mapping[
                             degraded: bool = False,
                             dline_trigger_facts: Optional[Mapping[str, Iterable[Mapping[str, Any]]]] = None,
                             dline_coverage: Optional[Mapping[str, Any]] = None,
+                            dline_rule_review: Optional[Mapping[str, Any]] = None,
                             phase: str = "pre_market") -> Dict[str, Any]:
     """生成只面向真实持仓的每日操作计划；不读取网络，不自动开新仓。"""
     tasks = task_snapshot.get("tasks") or []
@@ -260,6 +261,8 @@ def build_daily_action_plan(task_snapshot: Mapping[str, Any], holdings: Mapping[
         "macro": dict(market.get("macro") or {}),
         "ai_track": dict(ai_track),
         "ai_position_ceiling": ai_track.get("position_ceiling"),
+        "dline_rule_changes": list((dline_rule_review or {}).get("changes") or []),
+        "dline_rule_review_as_of": (dline_rule_review or {}).get("as_of_trade_date"),
     }
 
     rows = []

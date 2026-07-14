@@ -27,7 +27,9 @@ from vaxstock.services._intraday_rules import enforce_intraday_rules
 from vaxstock.services._t1_baseline import load_t1_baseline
 from vaxstock.report.stock_evidence import format_earnings, format_live_history, format_today_strategy
 from vaxstock.services.forecast_recorder import load_dline_trigger_facts, record_forecast
-from vaxstock.services.observation_coverage import record_task_observation
+from vaxstock.services.observation_coverage import (
+    finalize_observation_coverage, record_task_observation,
+)
 from vaxstock.sources.codex import call_codex
 
 logger = logging.getLogger(__name__)
@@ -739,6 +741,12 @@ def _run_close_review(dline_tasks: List[Dict[str, Any]]) -> Dict[str, Any]:
     if not target:
         return {"status": "skipped", "reason": "target_trade_date_missing_or_mixed"}
     from vaxstock.services.daily_action import refresh_and_send_close_review
+    coverage_result = finalize_observation_coverage(target)
+    if coverage_result.get("status") not in {"finalized"}:
+        logger.warning(
+            "D-line coverage finalization incomplete: target=%s result=%s",
+            target, coverage_result,
+        )
     codes = sorted(
         {str(task.get("code") or "") for task in dline_tasks if task.get("code")}
         | set(config.load_holdings())

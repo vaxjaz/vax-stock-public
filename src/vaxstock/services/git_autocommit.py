@@ -39,6 +39,9 @@ STAGE_PATHS: Dict[str, Tuple[str, ...]] = {
         "var/prediction",
         "var/forecast/current_job.json",
         "var/forecast/observation_jobs.jsonl",
+        "var/forecast/observation_coverage.jsonl",
+        "var/forecast/forecast_results.jsonl",
+        "var/forecast/dline_reviews",
     ),
     # D-line planner owns task history and the current readable task snapshot.
     "dline": (

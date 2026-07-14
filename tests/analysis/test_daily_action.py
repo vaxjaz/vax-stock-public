@@ -383,3 +383,28 @@ def test_t_now_is_exposed_without_changing_decision_horizons():
     assert verdict["latest_horizon"] == "7"
     assert verdict["horizon_verdicts"]["7"]["avg_ret"] == -0.08
     assert verdict["blocks_add"] is False
+
+
+def test_daily_action_surfaces_only_dline_rule_state_changes():
+    snapshot = {
+        "target_trade_dates": ["20260713"],
+        "tasks": [_task("600001", "watch", "up")],
+    }
+    holdings = {"600001": {"name": "A", "shares": 1000, "cost": 12.0}}
+    review = {
+        "as_of_trade_date": "20260710",
+        "changes": [{
+            "cell_key": "d_observe_llm_v2|reclaim_confirm|5",
+            "before": "insufficient_counterfactual",
+            "after": "preliminary_support",
+            "suggestion": "keep_rule",
+        }],
+    }
+    plan = build_daily_action_plan(
+        snapshot, holdings, _capacity(), _policy(),
+        dline_rule_review=review,
+    )
+    markdown = render_daily_action_markdown(plan)
+    assert plan["background"]["dline_rule_changes"] == review["changes"]
+    assert "D线规则复盘变化（截至20260710）" in markdown
+    assert "有效对照样本不足 -> 初步支持当前D线条件" in markdown

@@ -264,6 +264,9 @@ C-line EOD Prediction
   -> D-line EOD job enqueue (current_job)
   -> D-line async worker generates observation tasks
   -> D-line intraday trigger evaluation
+  -> full-session coverage finalization
+  -> forecast_results T+N backfill
+  -> trigger-vs-qualified-no-trigger review
 ```
 
 ### `observation_jobs.jsonl` / `current_job.json`
@@ -322,7 +325,13 @@ Purpose: materialized active tasks for the target session. It is not append-only
 
 Source: `services.observation_coverage.record_task_observation`, called by `services.intraday` after a same-session quote is verified.
 
-Purpose: runtime evidence for each current D-line task: observation count, first/last observation timestamps, first/last quote times, and the final observed price. Writes are atomic and duplicate observation keys are idempotent. A stale quote whose `trade_date` does not equal the task `target_trade_date` is rejected. This current-session file is gitignored; dated close-review JSON copies the evidence needed for audit.
+Purpose: runtime evidence for each current D-line task. Writes are atomic and duplicate quote keys are idempotent. A stale quote whose `trade_date` does not equal the task `target_trade_date` is rejected. This current-session file is gitignored and is not itself a historical sample.
+
+### `observation_coverage.jsonl`
+
+Source: `services.observation_coverage.finalize_observation_coverage`.
+
+Purpose: append-only per-task coverage history. A qualified no-trigger sample must satisfy the frozen `d_full_session_v1` policy: at least 15 distinct quotes in both sessions, an opening quote by 09:40, a morning quote at/after 11:20, an afternoon quote by 13:15, a closing quote at/after 14:50, and no in-session gap above 30 minutes. These are versioned system policy thresholds, not market facts. Old sessions without this evidence remain `coverage_missing`; they are never backfilled as no-trigger samples.
 
 ### `forecasts.jsonl`
 
@@ -373,11 +382,32 @@ Purpose: runtime evidence for each current D-line task: observation count, first
 
 `services.intraday` keeps observing a task after its first trigger and deduplicates notifications by `(task_id, trigger_type)`. On restart it restores those keys from frozen D-line facts. The close review distinguishes `recorded`, `not_recorded`, and `coverage_missing`; missing coverage never becomes a false “not triggered” conclusion.
 
-当前缺口:
+当前状态:
 
 - 盘中消费者已由 `services.intraday` 读取 `current_tasks.json` 执行 D线触发 DSL,触发后写 `forecasts.jsonl`。
 - When `GIT_AUTOCOMMIT_ENABLED=1`, `services.intraday` also calls `git_autocommit --stage intraday` after a forecast row is written, because the watcher is long-running and has no per-alert systemd `ExecStartPost`.
-- 还没有 `forecast_results.jsonl`。
+### `forecast_results.jsonl`
+
+Source: `services.dline_evaluator.backfill_dline_results`, called by EOD after B-line return backfill.
+
+Purpose: append-only D-line outcomes keyed by `(sample_id, horizon)`. Each trigger blueprint is one sample. Triggered samples use the first frozen trigger price; qualified no-trigger samples use the target EOD close and are admitted only with full-session coverage. T+N own-stock returns come from `factor_snapshots.jsonl` plus merged `factor_results.jsonl`. User executions are explicitly excluded (`evaluation.user_execution_used=false`).
+
+Decision scoring:
+
+- Positive triggers (`breakout_confirm/reclaim_confirm/panic_rebound_probe`): fired is correct when return is positive; qualified no-fire is correct when return is non-positive.
+- Risk triggers (`breakdown_confirm/failed_breakout/risk_off_confirm`): fired is correct when return is non-positive; qualified no-fire is correct when return is positive.
+- `weak_rebound/noise_filter` remain unscored.
+- Triggered and no-trigger groups are compared on the same target-close T+N basis. Trigger-price returns are retained separately for executable timing evaluation.
+
+Derived review:
+
+- `var/forecast/dline_reviews/dline_review_<trade_date>.md`
+- `var/forecast/dline_reviews/dline_rule_review_latest.json`
+
+`research.dline_review` groups by `(plan_version, trigger_type, horizon)`. Rule conclusions require at least five triggered and five qualified no-trigger samples; twenty per side is the stable threshold. It writes suggestions and state changes but never changes production parameters automatically. A verdict-state change is surfaced in the next daily-action email.
+
+仍待完成:
+
 - 还没有盘中演变记忆的独立状态文件。
 - 还没有主动盘面体检的落盘 schema。
 - 还没有 `/intraday/ask` 的查询输入/输出冻结规范。
@@ -464,6 +494,9 @@ turnover_history.parquet
 | `observation_tasks.jsonl` | 否 | 是 | D线任务历史,按 `task_id` 幂等 |
 | `current_tasks.json` | 是 | 否 | D线当前任务快照,可由历史任务重建 |
 | `forecasts.jsonl` | 否 | 是 | 同日同票多触发是正常事件 |
+| `observation_coverage.jsonl` | 否 | 是 | 只有通过版本化全天覆盖规则，未触发才是有效样本 |
+| `forecast_results.jsonl` | 否 | 是 | `(sample_id, horizon)` 幂等；不读取用户成交 |
+| `dline_reviews/*` | 是 | 否 | D线触发/未触发效果派生视图，可重生成 |
 | `current_triggers.md` / `trigger_summary_<trade_date>.md` | 是 | 否 | D线触发派生视图,以 `forecasts.jsonl` 为事实源 |
 | `layer2/factor/prediction/rule *.md` | 是 | 否 | 报告可重生成, 不是原始事实源 |
 
@@ -481,7 +514,7 @@ turnover_history.parquet
 进入下一步时建议先定义:
 
 1. 盘中演变记忆是否新建 `var/intraday/`。
-2. `forecast_results.jsonl` 是否由 EOD 后的真实收益统一回填。
+2. D线盘中演变记忆是否需要在触发后保存更多时间点。
 3. 盘中主动体检是否只记录市场级事件, 还是也记录个股级观察。
 4. `/intraday/ask` 的输入必须引用哪些已冻结事实源, 输出是否也要 append-only。
 5. 所有盘中字段必须标注实时、T-1 定稿、T 日收盘聚合滞后三类来源。

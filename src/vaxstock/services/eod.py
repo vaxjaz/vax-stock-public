@@ -54,6 +54,29 @@ def run_eod() -> Dict[str, str]:
     except Exception as e:
         logger.warning(f"MR-Eval 快照/回填失败(不影响落盘): {str(e)[:120]}")
 
+    # D-line self-review is market-data-only and never reads user executions.
+    try:
+        from vaxstock.services.dline_evaluator import backfill_dline_results
+        from vaxstock.research.dline_review import run_dline_review
+        dline_trade_date = str(
+            ((payload or {}).get("market_overview") or {}).get("trade_date") or ""
+        )
+        dline_stats = backfill_dline_results(
+            as_of_trade_date=dline_trade_date or None,
+        )
+        dline_review = run_dline_review(
+            write=True,
+            as_of_trade_date=dline_trade_date or None,
+        )
+        logger.info(
+            "D-line result backfill: written=%s coverage=%s review_cells=%s changes=%s",
+            dline_stats.get("written"),
+            (dline_stats.get("coverage_finalization") or {}).get("status"),
+            len(dline_review.get("cells") or []),
+            len(dline_review.get("changes") or []),
+        )
+    except Exception as e:
+        logger.warning(f"D-line 结果回填/效果复盘失败(不影响A/B/C落盘): {str(e)[:120]}")
     # MR-Eval E4: 先核验已有 predictions,再基于本次 EOD 定稿 payload 生成下一交易日 live predictions。
     # 失败仅 warning,不影响报告三件套落盘/邮件/E1。
     prediction_run = _run_eod_prediction(payload, source)

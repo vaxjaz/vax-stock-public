@@ -19,6 +19,7 @@ from vaxstock.services.observation_coverage import (
 )
 
 CURRENT_TASKS_FILE = config.STATE_DIR / "forecast" / "current_tasks.json"
+DLINE_REVIEW_STATE_FILE = config.STATE_DIR / "forecast" / "dline_reviews" / "dline_rule_review_latest.json"
 STRATEGY_DIR = config.STATE_DIR / "strategy"
 MAIL_STATE_FILE = STRATEGY_DIR / "daily_action_mail_state.json"
 CLOSE_REVIEW_MAIL_STATE_FILE = STRATEGY_DIR / "close_review_mail_state.json"
@@ -253,7 +254,7 @@ def refresh_daily_action(*, tasks_path=None, output_dir=None,
                          target_trade_date=None, degraded: bool = False,
                          holdings_data=None, portfolio_state=None,
                          policy_data=None, forecasts_path=None,
-                         observation_status_path=None,
+                         observation_status_path=None, dline_review_path=None,
                          reference_quotes=None, reports_dir=None,
                          phase: str = "pre_market") -> Dict[str, Any]:
     snapshot = _snapshot_for_target(
@@ -309,6 +310,7 @@ def refresh_daily_action(*, tasks_path=None, output_dir=None,
         degraded=degraded,
         dline_trigger_facts=trigger_facts,
         dline_coverage=coverage,
+        dline_rule_review=_read_json(dline_review_path or DLINE_REVIEW_STATE_FILE),
         phase=phase,
     )
     markdown = render_daily_action_markdown(plan)
