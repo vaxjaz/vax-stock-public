@@ -1,5 +1,5 @@
 {
-  "current_regime": "panic",
+  "current_regime": "value",
   "raw_history": [
     {
       "trade_date": "20260625",
@@ -56,7 +56,11 @@
     {
       "trade_date": "20260714",
       "raw": "momentum"
+    },
+    {
+      "trade_date": "20260715",
+      "raw": "value"
     }
   ],
-  "last_updated": "2026-07-15T05:00:05.740167"
+  "last_updated": "2026-07-16T05:00:08.058541"
 }
