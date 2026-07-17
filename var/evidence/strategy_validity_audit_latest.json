@@ -1,0 +1,1030 @@
+{
+  "as_of_trade_date": "20260716",
+  "audit_policy_version": "strategy_validity_v1",
+  "c_line": {
+    "by_mode_and_fixed_horizon": {
+      "live:T+1": {
+        "absolute_action_hit_rate": 0.44715447154471544,
+        "average_stock_return": -0.016396756659023518,
+        "independent_target_dates": 4,
+        "positive_action_hits": 55,
+        "prediction_samples": 168,
+        "result_cells": 168,
+        "scored_cells": 123
+      },
+      "live:T+10": {
+        "absolute_action_hit_rate": 0.5952380952380952,
+        "average_stock_return": -0.08175201431783437,
+        "independent_target_dates": 1,
+        "positive_action_hits": 25,
+        "prediction_samples": 42,
+        "result_cells": 42,
+        "scored_cells": 42
+      },
+      "live:T+30": {
+        "absolute_action_hit_rate": null,
+        "average_stock_return": null,
+        "independent_target_dates": 0,
+        "positive_action_hits": 0,
+        "prediction_samples": 0,
+        "result_cells": 0,
+        "scored_cells": 0
+      },
+      "live:T+5": {
+        "absolute_action_hit_rate": 0.27710843373493976,
+        "average_stock_return": -0.0521640286022275,
+        "independent_target_dates": 4,
+        "positive_action_hits": 23,
+        "prediction_samples": 168,
+        "result_cells": 168,
+        "scored_cells": 83
+      },
+      "live_preopen:T+1": {
+        "absolute_action_hit_rate": 0.44715447154471544,
+        "average_stock_return": -0.016396756659023518,
+        "independent_target_dates": 4,
+        "positive_action_hits": 55,
+        "prediction_samples": 168,
+        "result_cells": 168,
+        "scored_cells": 123
+      },
+      "live_preopen:T+10": {
+        "absolute_action_hit_rate": null,
+        "average_stock_return": null,
+        "independent_target_dates": 0,
+        "positive_action_hits": 0,
+        "prediction_samples": 0,
+        "result_cells": 0,
+        "scored_cells": 0
+      },
+      "live_preopen:T+30": {
+        "absolute_action_hit_rate": null,
+        "average_stock_return": null,
+        "independent_target_dates": 0,
+        "positive_action_hits": 0,
+        "prediction_samples": 0,
+        "result_cells": 0,
+        "scored_cells": 0
+      },
+      "live_preopen:T+5": {
+        "absolute_action_hit_rate": 0.27710843373493976,
+        "average_stock_return": -0.0521640286022275,
+        "independent_target_dates": 4,
+        "positive_action_hits": 23,
+        "prediction_samples": 168,
+        "result_cells": 168,
+        "scored_cells": 83
+      },
+      "replay:T+1": {
+        "absolute_action_hit_rate": null,
+        "average_stock_return": null,
+        "independent_target_dates": 0,
+        "positive_action_hits": 0,
+        "prediction_samples": 0,
+        "result_cells": 0,
+        "scored_cells": 0
+      },
+      "replay:T+10": {
+        "absolute_action_hit_rate": 0.39759036144578314,
+        "average_stock_return": -0.08410838466872822,
+        "independent_target_dates": 3,
+        "positive_action_hits": 33,
+        "prediction_samples": 126,
+        "result_cells": 126,
+        "scored_cells": 83
+      },
+      "replay:T+30": {
+        "absolute_action_hit_rate": null,
+        "average_stock_return": null,
+        "independent_target_dates": 0,
+        "positive_action_hits": 0,
+        "prediction_samples": 0,
+        "result_cells": 0,
+        "scored_cells": 0
+      },
+      "replay:T+5": {
+        "absolute_action_hit_rate": null,
+        "average_stock_return": null,
+        "independent_target_dates": 0,
+        "positive_action_hits": 0,
+        "prediction_samples": 0,
+        "result_cells": 0,
+        "scored_cells": 0
+      }
+    },
+    "identity_and_counting": {
+      "conflicting_prediction_ids": 0,
+      "conflicting_result_keys": 0,
+      "duplicate_result_rows": 0,
+      "duplicate_rows": 0,
+      "evaluation_mismatches": 0,
+      "generation_modes": {
+        "live": 420,
+        "replay": 208
+      },
+      "included_rows": 628,
+      "invalid_date_order": 0,
+      "live_generated_at_or_after_open": 42,
+      "live_generated_before_open": 378,
+      "live_generation_time_unverifiable": 0,
+      "missing_prediction_id_rows": 0,
+      "orphan_result_cells": 0,
+      "result_rows_included": 2260,
+      "unique_prediction_horizon_cells": 2260,
+      "unique_predictions": 628,
+      "unknown_generation_mode": 0
+    },
+    "live_t1_by_action": {
+      "avoid": {
+        "absolute_action_hit_rate": 0.8181818181818182,
+        "average_stock_return": -0.03737723463230587,
+        "independent_target_dates": 2,
+        "positive_action_hits": 27,
+        "prediction_samples": 33,
+        "result_cells": 33,
+        "scored_cells": 33
+      },
+      "candidate_buy": {
+        "absolute_action_hit_rate": 0.0,
+        "average_stock_return": -0.05542458649584763,
+        "independent_target_dates": 2,
+        "positive_action_hits": 0,
+        "prediction_samples": 7,
+        "result_cells": 7,
+        "scored_cells": 7
+      },
+      "panic_rebound_probe": {
+        "absolute_action_hit_rate": null,
+        "average_stock_return": -0.0036428847586004545,
+        "independent_target_dates": 2,
+        "positive_action_hits": 0,
+        "prediction_samples": 33,
+        "result_cells": 33,
+        "scored_cells": 0
+      },
+      "panic_rebound_watch": {
+        "absolute_action_hit_rate": 0.5384615384615384,
+        "average_stock_return": 0.002569538838878264,
+        "independent_target_dates": 2,
+        "positive_action_hits": 21,
+        "prediction_samples": 39,
+        "result_cells": 39,
+        "scored_cells": 39
+      },
+      "watch": {
+        "absolute_action_hit_rate": 0.1590909090909091,
+        "average_stock_return": -0.034646379413458946,
+        "independent_target_dates": 2,
+        "positive_action_hits": 7,
+        "prediction_samples": 44,
+        "result_cells": 44,
+        "scored_cells": 44
+      },
+      "watch_only": {
+        "absolute_action_hit_rate": null,
+        "average_stock_return": 0.03426746717756938,
+        "independent_target_dates": 2,
+        "positive_action_hits": 0,
+        "prediction_samples": 12,
+        "result_cells": 12,
+        "scored_cells": 0
+      }
+    },
+    "operation_effectiveness_verdict": "unverified_non_executable_return_anchor",
+    "return_contract": {
+      "operation_price_executable": false,
+      "price_path": "baseline_eod_close_to_horizon_eod_close",
+      "reason": "预测在baseline收盘后生成，现有收益包含目标日开盘前价格变化；可用于方向复核，不能证明9:30后可执行操作收益。",
+      "source": "factor_results.ret joined by baseline_trade_date+code+horizon"
+    },
+    "t_plus_now_by_mode": {
+      "live": {
+        "absolute_action_hit_rate": 0.3896551724137931,
+        "average_stock_return": -0.06304074562678397,
+        "independent_target_dates": 10,
+        "positive_action_hits": 113,
+        "prediction_samples": 420,
+        "result_cells": 420,
+        "scored_cells": 290
+      },
+      "live_preopen": {
+        "absolute_action_hit_rate": 0.3548387096774194,
+        "average_stock_return": -0.06096171577222281,
+        "independent_target_dates": 9,
+        "positive_action_hits": 88,
+        "prediction_samples": 378,
+        "result_cells": 378,
+        "scored_cells": 248
+      },
+      "replay": {
+        "absolute_action_hit_rate": 0.4303030303030303,
+        "average_stock_return": -0.10005360700351061,
+        "independent_target_dates": 5,
+        "positive_action_hits": 71,
+        "prediction_samples": 208,
+        "result_cells": 208,
+        "scored_cells": 165
+      }
+    },
+    "unscored_live_t1_actions": {
+      "panic_rebound_probe": 33,
+      "watch_only": 12
+    }
+  },
+  "d_line": {
+    "evolution_missing_close": 0,
+    "gross_timing_evidence": {
+      "breakdown_confirm:immediate": {
+        "average_gross_benefit_vs_no_action": 0.002990148904408222,
+        "independent_target_dates": 1,
+        "positive_gross_benefit_rate": 0.6666666666666666,
+        "samples": 6,
+        "transaction_cost_included": false,
+        "verdict": "evidence_insufficient"
+      },
+      "breakdown_confirm:wait_15m": {
+        "average_gross_benefit_vs_no_action": 0.01846683203270094,
+        "independent_target_dates": 1,
+        "positive_gross_benefit_rate": 0.8,
+        "samples": 5,
+        "transaction_cost_included": false,
+        "verdict": "evidence_insufficient"
+      },
+      "breakdown_confirm:wait_30m": {
+        "average_gross_benefit_vs_no_action": 0.0173308368802644,
+        "independent_target_dates": 1,
+        "positive_gross_benefit_rate": 0.8,
+        "samples": 5,
+        "transaction_cost_included": false,
+        "verdict": "evidence_insufficient"
+      },
+      "breakout_confirm:immediate": {
+        "average_gross_benefit_vs_no_action": 0.004523364485981229,
+        "independent_target_dates": 1,
+        "positive_gross_benefit_rate": 1.0,
+        "samples": 1,
+        "transaction_cost_included": false,
+        "verdict": "evidence_insufficient"
+      },
+      "breakout_confirm:wait_15m": {
+        "average_gross_benefit_vs_no_action": -0.012095588235294219,
+        "independent_target_dates": 1,
+        "positive_gross_benefit_rate": 0.0,
+        "samples": 1,
+        "transaction_cost_included": false,
+        "verdict": "evidence_insufficient"
+      },
+      "breakout_confirm:wait_30m": {
+        "average_gross_benefit_vs_no_action": -0.02269503546099294,
+        "independent_target_dates": 1,
+        "positive_gross_benefit_rate": 0.0,
+        "samples": 1,
+        "transaction_cost_included": false,
+        "verdict": "evidence_insufficient"
+      },
+      "failed_breakout:immediate": {
+        "average_gross_benefit_vs_no_action": -0.05429645342562606,
+        "independent_target_dates": 1,
+        "positive_gross_benefit_rate": 0.0,
+        "samples": 1,
+        "transaction_cost_included": false,
+        "verdict": "evidence_insufficient"
+      },
+      "failed_breakout:wait_15m": {
+        "average_gross_benefit_vs_no_action": -0.004502995794722908,
+        "independent_target_dates": 1,
+        "positive_gross_benefit_rate": 0.0,
+        "samples": 1,
+        "transaction_cost_included": false,
+        "verdict": "evidence_insufficient"
+      },
+      "failed_breakout:wait_30m": {
+        "average_gross_benefit_vs_no_action": 0.0122436827806931,
+        "independent_target_dates": 1,
+        "positive_gross_benefit_rate": 1.0,
+        "samples": 1,
+        "transaction_cost_included": false,
+        "verdict": "evidence_insufficient"
+      }
+    },
+    "identity_and_counting": {
+      "conflicting_evolution_keys": 0,
+      "conflicting_result_keys": 0,
+      "duplicate_evolution_rows": 0,
+      "duplicate_result_rows": 0,
+      "evolution_rows_included": 17,
+      "independent_target_dates": 1,
+      "result_rows_included": 376,
+      "trigger_events_by_date": {
+        "20260716": 17
+      },
+      "triggered_stock_days": 13,
+      "unique_sample_horizon_cells": 376,
+      "unique_trigger_events": 17
+    },
+    "result_evidence_by_trigger_and_horizon": {
+      "breakdown_confirm:T+0": {
+        "average_evaluation_return": -0.0068123091476428735,
+        "decision_hit_rate": null,
+        "decision_hits": 0,
+        "decision_samples": 23,
+        "independent_target_dates": 5,
+        "result_cells": 23,
+        "scored_cells": 0,
+        "stock_days": 23
+      },
+      "breakdown_confirm:T+1": {
+        "average_evaluation_return": -0.01756416164244213,
+        "decision_hit_rate": 0.5294117647058824,
+        "decision_hits": 9,
+        "decision_samples": 17,
+        "independent_target_dates": 4,
+        "result_cells": 17,
+        "scored_cells": 17,
+        "stock_days": 17
+      },
+      "breakdown_confirm:T+2": {
+        "average_evaluation_return": -0.0269273438143407,
+        "decision_hit_rate": 0.75,
+        "decision_hits": 9,
+        "decision_samples": 12,
+        "independent_target_dates": 3,
+        "result_cells": 12,
+        "scored_cells": 12,
+        "stock_days": 12
+      },
+      "breakdown_confirm:T+3": {
+        "average_evaluation_return": -0.024631097201238808,
+        "decision_hit_rate": 0.5555555555555556,
+        "decision_hits": 5,
+        "decision_samples": 9,
+        "independent_target_dates": 2,
+        "result_cells": 9,
+        "scored_cells": 9,
+        "stock_days": 9
+      },
+      "breakdown_confirm:T+4": {
+        "average_evaluation_return": 0.012151663083885655,
+        "decision_hit_rate": 0.5,
+        "decision_hits": 1,
+        "decision_samples": 2,
+        "independent_target_dates": 1,
+        "result_cells": 2,
+        "scored_cells": 2,
+        "stock_days": 2
+      },
+      "breakdown_confirm:T+5": {
+        "average_evaluation_return": -0.06202934387344461,
+        "decision_hit_rate": 1.0,
+        "decision_hits": 2,
+        "decision_samples": 2,
+        "independent_target_dates": 1,
+        "result_cells": 2,
+        "scored_cells": 2,
+        "stock_days": 2
+      },
+      "breakdown_confirm:T+6": {
+        "average_evaluation_return": 0.0019855341720880215,
+        "decision_hit_rate": 0.5,
+        "decision_hits": 1,
+        "decision_samples": 2,
+        "independent_target_dates": 1,
+        "result_cells": 2,
+        "scored_cells": 2,
+        "stock_days": 2
+      },
+      "breakdown_confirm:T+7": {
+        "average_evaluation_return": 0.0012933906809868834,
+        "decision_hit_rate": 0.5,
+        "decision_hits": 1,
+        "decision_samples": 2,
+        "independent_target_dates": 1,
+        "result_cells": 2,
+        "scored_cells": 2,
+        "stock_days": 2
+      },
+      "breakdown_confirm:T+8": {
+        "average_evaluation_return": -0.021300129744338203,
+        "decision_hit_rate": 1.0,
+        "decision_hits": 2,
+        "decision_samples": 2,
+        "independent_target_dates": 1,
+        "result_cells": 2,
+        "scored_cells": 2,
+        "stock_days": 2
+      },
+      "breakout_confirm:T+0": {
+        "average_evaluation_return": -0.007149730892245532,
+        "decision_hit_rate": null,
+        "decision_hits": 0,
+        "decision_samples": 5,
+        "independent_target_dates": 3,
+        "result_cells": 5,
+        "scored_cells": 0,
+        "stock_days": 5
+      },
+      "breakout_confirm:T+1": {
+        "average_evaluation_return": -0.043195358433052805,
+        "decision_hit_rate": 0.0,
+        "decision_hits": 0,
+        "decision_samples": 4,
+        "independent_target_dates": 2,
+        "result_cells": 4,
+        "scored_cells": 4,
+        "stock_days": 4
+      },
+      "breakout_confirm:T+2": {
+        "average_evaluation_return": -0.07506136503756444,
+        "decision_hit_rate": 0.25,
+        "decision_hits": 1,
+        "decision_samples": 4,
+        "independent_target_dates": 2,
+        "result_cells": 4,
+        "scored_cells": 4,
+        "stock_days": 4
+      },
+      "breakout_confirm:T+3": {
+        "average_evaluation_return": -0.07501731450972157,
+        "decision_hit_rate": 0.25,
+        "decision_hits": 1,
+        "decision_samples": 4,
+        "independent_target_dates": 2,
+        "result_cells": 4,
+        "scored_cells": 4,
+        "stock_days": 4
+      },
+      "breakout_confirm:T+4": {
+        "average_evaluation_return": -0.08681279497694035,
+        "decision_hit_rate": 0.0,
+        "decision_hits": 0,
+        "decision_samples": 3,
+        "independent_target_dates": 1,
+        "result_cells": 3,
+        "scored_cells": 3,
+        "stock_days": 3
+      },
+      "breakout_confirm:T+5": {
+        "average_evaluation_return": -0.12108001870419804,
+        "decision_hit_rate": 0.0,
+        "decision_hits": 0,
+        "decision_samples": 3,
+        "independent_target_dates": 1,
+        "result_cells": 3,
+        "scored_cells": 3,
+        "stock_days": 3
+      },
+      "breakout_confirm:T+6": {
+        "average_evaluation_return": -0.1280623552359221,
+        "decision_hit_rate": 0.0,
+        "decision_hits": 0,
+        "decision_samples": 3,
+        "independent_target_dates": 1,
+        "result_cells": 3,
+        "scored_cells": 3,
+        "stock_days": 3
+      },
+      "breakout_confirm:T+7": {
+        "average_evaluation_return": -0.11052742312115482,
+        "decision_hit_rate": 0.3333333333333333,
+        "decision_hits": 1,
+        "decision_samples": 3,
+        "independent_target_dates": 1,
+        "result_cells": 3,
+        "scored_cells": 3,
+        "stock_days": 3
+      },
+      "breakout_confirm:T+8": {
+        "average_evaluation_return": -0.12944140828079884,
+        "decision_hit_rate": 0.0,
+        "decision_hits": 0,
+        "decision_samples": 3,
+        "independent_target_dates": 1,
+        "result_cells": 3,
+        "scored_cells": 3,
+        "stock_days": 3
+      },
+      "failed_breakout:T+0": {
+        "average_evaluation_return": 0.037655921639452083,
+        "decision_hit_rate": null,
+        "decision_hits": 0,
+        "decision_samples": 2,
+        "independent_target_dates": 2,
+        "result_cells": 2,
+        "scored_cells": 0,
+        "stock_days": 2
+      },
+      "failed_breakout:T+1": {
+        "average_evaluation_return": 0.022198353025420836,
+        "decision_hit_rate": 0.0,
+        "decision_hits": 0,
+        "decision_samples": 1,
+        "independent_target_dates": 1,
+        "result_cells": 1,
+        "scored_cells": 1,
+        "stock_days": 1
+      },
+      "failed_breakout:T+2": {
+        "average_evaluation_return": 0.02685284640171859,
+        "decision_hit_rate": 0.0,
+        "decision_hits": 0,
+        "decision_samples": 1,
+        "independent_target_dates": 1,
+        "result_cells": 1,
+        "scored_cells": 1,
+        "stock_days": 1
+      },
+      "failed_breakout:T+3": {
+        "average_evaluation_return": 0.011099176512710196,
+        "decision_hit_rate": 1.0,
+        "decision_hits": 1,
+        "decision_samples": 1,
+        "independent_target_dates": 1,
+        "result_cells": 1,
+        "scored_cells": 1,
+        "stock_days": 1
+      },
+      "noise_filter:T+0": {
+        "average_evaluation_return": 0.019768886463957285,
+        "decision_hit_rate": null,
+        "decision_hits": 0,
+        "decision_samples": 6,
+        "independent_target_dates": 4,
+        "result_cells": 6,
+        "scored_cells": 0,
+        "stock_days": 6
+      },
+      "noise_filter:T+1": {
+        "average_evaluation_return": 0.016987229741240544,
+        "decision_hit_rate": null,
+        "decision_hits": 0,
+        "decision_samples": 6,
+        "independent_target_dates": 4,
+        "result_cells": 6,
+        "scored_cells": 0,
+        "stock_days": 6
+      },
+      "noise_filter:T+2": {
+        "average_evaluation_return": 0.0015689156362447942,
+        "decision_hit_rate": null,
+        "decision_hits": 0,
+        "decision_samples": 5,
+        "independent_target_dates": 3,
+        "result_cells": 5,
+        "scored_cells": 0,
+        "stock_days": 5
+      },
+      "noise_filter:T+3": {
+        "average_evaluation_return": 0.011444838697213133,
+        "decision_hit_rate": null,
+        "decision_hits": 0,
+        "decision_samples": 2,
+        "independent_target_dates": 2,
+        "result_cells": 2,
+        "scored_cells": 0,
+        "stock_days": 2
+      },
+      "noise_filter:T+4": {
+        "average_evaluation_return": -0.0066244733454972615,
+        "decision_hit_rate": null,
+        "decision_hits": 0,
+        "decision_samples": 2,
+        "independent_target_dates": 2,
+        "result_cells": 2,
+        "scored_cells": 0,
+        "stock_days": 2
+      },
+      "noise_filter:T+5": {
+        "average_evaluation_return": -0.05131273145313542,
+        "decision_hit_rate": null,
+        "decision_hits": 0,
+        "decision_samples": 2,
+        "independent_target_dates": 2,
+        "result_cells": 2,
+        "scored_cells": 0,
+        "stock_days": 2
+      },
+      "noise_filter:T+6": {
+        "average_evaluation_return": -0.00653858330880408,
+        "decision_hit_rate": null,
+        "decision_hits": 0,
+        "decision_samples": 2,
+        "independent_target_dates": 2,
+        "result_cells": 2,
+        "scored_cells": 0,
+        "stock_days": 2
+      },
+      "noise_filter:T+7": {
+        "average_evaluation_return": -0.0003548831215195447,
+        "decision_hit_rate": null,
+        "decision_hits": 0,
+        "decision_samples": 2,
+        "independent_target_dates": 2,
+        "result_cells": 2,
+        "scored_cells": 0,
+        "stock_days": 2
+      },
+      "noise_filter:T+8": {
+        "average_evaluation_return": -0.07361189890968667,
+        "decision_hit_rate": null,
+        "decision_hits": 0,
+        "decision_samples": 1,
+        "independent_target_dates": 1,
+        "result_cells": 1,
+        "scored_cells": 0,
+        "stock_days": 1
+      },
+      "panic_rebound_probe:T+0": {
+        "average_evaluation_return": -0.009028378613453535,
+        "decision_hit_rate": null,
+        "decision_hits": 0,
+        "decision_samples": 11,
+        "independent_target_dates": 3,
+        "result_cells": 11,
+        "scored_cells": 0,
+        "stock_days": 11
+      },
+      "panic_rebound_probe:T+1": {
+        "average_evaluation_return": -0.028298511133835122,
+        "decision_hit_rate": 0.36363636363636365,
+        "decision_hits": 4,
+        "decision_samples": 11,
+        "independent_target_dates": 3,
+        "result_cells": 11,
+        "scored_cells": 11,
+        "stock_days": 11
+      },
+      "panic_rebound_probe:T+2": {
+        "average_evaluation_return": -0.033301670292706066,
+        "decision_hit_rate": 0.14285714285714285,
+        "decision_hits": 1,
+        "decision_samples": 7,
+        "independent_target_dates": 2,
+        "result_cells": 7,
+        "scored_cells": 7,
+        "stock_days": 7
+      },
+      "panic_rebound_probe:T+3": {
+        "average_evaluation_return": -0.05849960408955349,
+        "decision_hit_rate": 0.3333333333333333,
+        "decision_hits": 1,
+        "decision_samples": 3,
+        "independent_target_dates": 1,
+        "result_cells": 3,
+        "scored_cells": 3,
+        "stock_days": 3
+      },
+      "panic_rebound_probe:T+4": {
+        "average_evaluation_return": -0.10114013098789491,
+        "decision_hit_rate": 0.0,
+        "decision_hits": 0,
+        "decision_samples": 3,
+        "independent_target_dates": 1,
+        "result_cells": 3,
+        "scored_cells": 3,
+        "stock_days": 3
+      },
+      "panic_rebound_probe:T+5": {
+        "average_evaluation_return": -0.06767088743927337,
+        "decision_hit_rate": 0.3333333333333333,
+        "decision_hits": 1,
+        "decision_samples": 3,
+        "independent_target_dates": 1,
+        "result_cells": 3,
+        "scored_cells": 3,
+        "stock_days": 3
+      },
+      "panic_rebound_probe:T+6": {
+        "average_evaluation_return": -0.06951051618649251,
+        "decision_hit_rate": 0.3333333333333333,
+        "decision_hits": 1,
+        "decision_samples": 3,
+        "independent_target_dates": 1,
+        "result_cells": 3,
+        "scored_cells": 3,
+        "stock_days": 3
+      },
+      "panic_rebound_probe:T+7": {
+        "average_evaluation_return": -0.06396927681464615,
+        "decision_hit_rate": 0.3333333333333333,
+        "decision_hits": 1,
+        "decision_samples": 3,
+        "independent_target_dates": 1,
+        "result_cells": 3,
+        "scored_cells": 3,
+        "stock_days": 3
+      },
+      "reclaim_confirm:T+0": {
+        "average_evaluation_return": -0.00850658095500235,
+        "decision_hit_rate": null,
+        "decision_hits": 0,
+        "decision_samples": 12,
+        "independent_target_dates": 4,
+        "result_cells": 12,
+        "scored_cells": 0,
+        "stock_days": 12
+      },
+      "reclaim_confirm:T+1": {
+        "average_evaluation_return": -0.041418921209269786,
+        "decision_hit_rate": 0.3333333333333333,
+        "decision_hits": 4,
+        "decision_samples": 12,
+        "independent_target_dates": 4,
+        "result_cells": 12,
+        "scored_cells": 12,
+        "stock_days": 12
+      },
+      "reclaim_confirm:T+2": {
+        "average_evaluation_return": -0.046158822742588285,
+        "decision_hit_rate": 0.2222222222222222,
+        "decision_hits": 2,
+        "decision_samples": 9,
+        "independent_target_dates": 3,
+        "result_cells": 9,
+        "scored_cells": 9,
+        "stock_days": 9
+      },
+      "reclaim_confirm:T+3": {
+        "average_evaluation_return": -0.08470887835705873,
+        "decision_hit_rate": 0.0,
+        "decision_hits": 0,
+        "decision_samples": 5,
+        "independent_target_dates": 2,
+        "result_cells": 5,
+        "scored_cells": 5,
+        "stock_days": 5
+      },
+      "reclaim_confirm:T+4": {
+        "average_evaluation_return": -0.12186594736320262,
+        "decision_hit_rate": 0.0,
+        "decision_hits": 0,
+        "decision_samples": 5,
+        "independent_target_dates": 2,
+        "result_cells": 5,
+        "scored_cells": 5,
+        "stock_days": 5
+      },
+      "reclaim_confirm:T+5": {
+        "average_evaluation_return": -0.1281113178193166,
+        "decision_hit_rate": 0.0,
+        "decision_hits": 0,
+        "decision_samples": 5,
+        "independent_target_dates": 2,
+        "result_cells": 5,
+        "scored_cells": 5,
+        "stock_days": 5
+      },
+      "reclaim_confirm:T+6": {
+        "average_evaluation_return": -0.12520955886664004,
+        "decision_hit_rate": 0.0,
+        "decision_hits": 0,
+        "decision_samples": 5,
+        "independent_target_dates": 2,
+        "result_cells": 5,
+        "scored_cells": 5,
+        "stock_days": 5
+      },
+      "reclaim_confirm:T+7": {
+        "average_evaluation_return": -0.13611036418606604,
+        "decision_hit_rate": 0.0,
+        "decision_hits": 0,
+        "decision_samples": 5,
+        "independent_target_dates": 2,
+        "result_cells": 5,
+        "scored_cells": 5,
+        "stock_days": 5
+      },
+      "reclaim_confirm:T+8": {
+        "average_evaluation_return": -0.1584093872229465,
+        "decision_hit_rate": 0.0,
+        "decision_hits": 0,
+        "decision_samples": 1,
+        "independent_target_dates": 1,
+        "result_cells": 1,
+        "scored_cells": 1,
+        "stock_days": 1
+      },
+      "risk_off_confirm:T+0": {
+        "average_evaluation_return": 0.023151535093717285,
+        "decision_hit_rate": null,
+        "decision_hits": 0,
+        "decision_samples": 4,
+        "independent_target_dates": 3,
+        "result_cells": 4,
+        "scored_cells": 0,
+        "stock_days": 4
+      },
+      "risk_off_confirm:T+1": {
+        "average_evaluation_return": 0.0004886532417581468,
+        "decision_hit_rate": 0.75,
+        "decision_hits": 3,
+        "decision_samples": 4,
+        "independent_target_dates": 3,
+        "result_cells": 4,
+        "scored_cells": 4,
+        "stock_days": 4
+      },
+      "risk_off_confirm:T+2": {
+        "average_evaluation_return": -0.019724692980963725,
+        "decision_hit_rate": 1.0,
+        "decision_hits": 3,
+        "decision_samples": 3,
+        "independent_target_dates": 2,
+        "result_cells": 3,
+        "scored_cells": 3,
+        "stock_days": 3
+      },
+      "risk_off_confirm:T+3": {
+        "average_evaluation_return": -0.04350781781101298,
+        "decision_hit_rate": 1.0,
+        "decision_hits": 1,
+        "decision_samples": 1,
+        "independent_target_dates": 1,
+        "result_cells": 1,
+        "scored_cells": 1,
+        "stock_days": 1
+      },
+      "risk_off_confirm:T+4": {
+        "average_evaluation_return": -0.08565601631543174,
+        "decision_hit_rate": 1.0,
+        "decision_hits": 1,
+        "decision_samples": 1,
+        "independent_target_dates": 1,
+        "result_cells": 1,
+        "scored_cells": 1,
+        "stock_days": 1
+      },
+      "risk_off_confirm:T+5": {
+        "average_evaluation_return": -0.06934058463630188,
+        "decision_hit_rate": 1.0,
+        "decision_hits": 1,
+        "decision_samples": 1,
+        "independent_target_dates": 1,
+        "result_cells": 1,
+        "scored_cells": 1,
+        "stock_days": 1
+      },
+      "risk_off_confirm:T+6": {
+        "average_evaluation_return": -0.10095173351461595,
+        "decision_hit_rate": 1.0,
+        "decision_hits": 1,
+        "decision_samples": 1,
+        "independent_target_dates": 1,
+        "result_cells": 1,
+        "scored_cells": 1,
+        "stock_days": 1
+      },
+      "risk_off_confirm:T+7": {
+        "average_evaluation_return": -0.12236573759347391,
+        "decision_hit_rate": 1.0,
+        "decision_hits": 1,
+        "decision_samples": 1,
+        "independent_target_dates": 1,
+        "result_cells": 1,
+        "scored_cells": 1,
+        "stock_days": 1
+      },
+      "weak_rebound:T+0": {
+        "average_evaluation_return": -0.006914087271720395,
+        "decision_hit_rate": null,
+        "decision_hits": 0,
+        "decision_samples": 35,
+        "independent_target_dates": 6,
+        "result_cells": 35,
+        "scored_cells": 0,
+        "stock_days": 35
+      },
+      "weak_rebound:T+1": {
+        "average_evaluation_return": 0.002518036913487223,
+        "decision_hit_rate": null,
+        "decision_hits": 0,
+        "decision_samples": 26,
+        "independent_target_dates": 5,
+        "result_cells": 26,
+        "scored_cells": 0,
+        "stock_days": 26
+      },
+      "weak_rebound:T+2": {
+        "average_evaluation_return": 0.017904126660948212,
+        "decision_hit_rate": null,
+        "decision_hits": 0,
+        "decision_samples": 19,
+        "independent_target_dates": 4,
+        "result_cells": 19,
+        "scored_cells": 0,
+        "stock_days": 19
+      },
+      "weak_rebound:T+3": {
+        "average_evaluation_return": 0.01281619988284804,
+        "decision_hit_rate": null,
+        "decision_hits": 0,
+        "decision_samples": 11,
+        "independent_target_dates": 3,
+        "result_cells": 11,
+        "scored_cells": 0,
+        "stock_days": 11
+      },
+      "weak_rebound:T+4": {
+        "average_evaluation_return": -0.05247086723643197,
+        "decision_hit_rate": null,
+        "decision_hits": 0,
+        "decision_samples": 7,
+        "independent_target_dates": 2,
+        "result_cells": 7,
+        "scored_cells": 0,
+        "stock_days": 7
+      },
+      "weak_rebound:T+5": {
+        "average_evaluation_return": -0.020724285348148217,
+        "decision_hit_rate": null,
+        "decision_hits": 0,
+        "decision_samples": 7,
+        "independent_target_dates": 2,
+        "result_cells": 7,
+        "scored_cells": 0,
+        "stock_days": 7
+      },
+      "weak_rebound:T+6": {
+        "average_evaluation_return": -0.016277230107189955,
+        "decision_hit_rate": null,
+        "decision_hits": 0,
+        "decision_samples": 7,
+        "independent_target_dates": 2,
+        "result_cells": 7,
+        "scored_cells": 0,
+        "stock_days": 7
+      },
+      "weak_rebound:T+7": {
+        "average_evaluation_return": -0.040793010596243864,
+        "decision_hit_rate": null,
+        "decision_hits": 0,
+        "decision_samples": 7,
+        "independent_target_dates": 2,
+        "result_cells": 7,
+        "scored_cells": 0,
+        "stock_days": 7
+      },
+      "weak_rebound:T+8": {
+        "average_evaluation_return": 0.11297004945574096,
+        "decision_hit_rate": null,
+        "decision_hits": 0,
+        "decision_samples": 2,
+        "independent_target_dates": 1,
+        "result_cells": 2,
+        "scored_cells": 0,
+        "stock_days": 2
+      }
+    },
+    "timing_contract": {
+      "baseline": "no_action_until_same_day_close",
+      "positive_trigger": "close_price / execution_price - 1",
+      "risk_trigger": "execution_price / close_price - 1",
+      "transaction_cost_included": false,
+      "user_execution_used": false
+    },
+    "unscored_evolution_events": 9
+  },
+  "facts_digest": "fd1c23bca878163f969cdc11c7527adfa13cf8642538262b6e8018206177e1fc",
+  "gates": [
+    {
+      "detail": "源文件、日期、模式或事前生成时点不合格共42项",
+      "gate": "source_truth",
+      "status": "fail"
+    },
+    {
+      "detail": "相同身份但内容冲突的键共0个",
+      "gate": "honest_counting",
+      "status": "pass"
+    },
+    {
+      "detail": "C线收益起点不可执行；D线为触发价毛收益，尚未扣交易成本",
+      "gate": "consistent_evaluation",
+      "status": "partial"
+    },
+    {
+      "detail": "C线只能复核方向；D线按真实触发价比较，但独立日期仍有限",
+      "gate": "operation_value",
+      "status": "insufficient"
+    },
+    {
+      "detail": "D线当前独立目标交易日1个",
+      "gate": "cross_time_stability",
+      "status": "insufficient"
+    }
+  ],
+  "mail_policy": {
+    "allow_c_direction_statistics": true,
+    "allow_c_operation_profit_claim": false,
+    "allow_d_effectiveness_claim": false,
+    "allow_d_trigger_facts": true,
+    "hide_raw_matured_cell_count": true
+  },
+  "overall_verdict": "strategy_effectiveness_unproven",
+  "schema_version": 1,
+  "source_digests": {
+    "forecast_evolution": "339eb7f09c180313b2fbe19871c75c91a8271cf92df184d27f97856815c6780a",
+    "forecast_results": "6bc13d1e1ba1ec039b6967a3cffc89f671f1b6652315f9d6a56717e5948adcbb",
+    "prediction_results": "caf6f5a42c4a844f2dd828d18779dd448bb7b1b3f3d0e6eb50456006b3be9ae2",
+    "predictions": "16c6e28dfe5d73c643b4e55a45e2ffaeef650f7f8ac8e890af2188967c35d380"
+  },
+  "source_errors": []
+}
