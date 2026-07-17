@@ -53,7 +53,7 @@ def _payload():
     }
 
 
-def _row(index, *, triggered, complete=0, t1=0.01, t5=None):
+def _row(index, *, triggered, complete=0, late_limited=0, t1=0.01, t5=None):
     fixed = {
         "1": {
             "status": "mature",
@@ -95,6 +95,7 @@ def _row(index, *, triggered, complete=0, t1=0.01, t5=None):
             "task_id": f"task-{index}",
             "trigger_count": 1 if triggered else 0,
             "complete_evolution_count": complete,
+            "late_limited_evolution_count": late_limited,
         },
     }
 
@@ -158,7 +159,7 @@ def test_t1_t5_reversal_is_explicit_and_rendered():
 
 def test_daily_action_mail_contains_convergence_chapter():
     convergence = build_evidence_convergence(
-        [_row(1, triggered=True)],
+        [_row(1, triggered=True, complete=1, late_limited=1)],
         as_of_trade_date="20260713",
         payload=_payload(),
         strategy_policy=_policy(),
@@ -176,6 +177,7 @@ def test_daily_action_mail_contains_convergence_chapter():
     assert "## 证据收敛" in markdown
     assert "**1. 今天新增什么证据**" in markdown
     assert "**4. 是否改变今天动作**" in markdown
+    assert "可评价演变1条（其中晚盘触发仅检查可达节点1条）" in markdown
 
 
 def test_daily_action_only_loads_matching_baseline_convergence():

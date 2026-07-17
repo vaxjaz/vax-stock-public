@@ -19,10 +19,11 @@ FORECAST_DIR = config.STATE_DIR / "forecast"
 CURRENT_EVOLUTION_FILE = FORECAST_DIR / "current_evolution_status.json"
 EVOLUTION_HISTORY_FILE = FORECAST_DIR / "forecast_evolution.jsonl"
 SCHEMA_VERSION = 1
-POLICY_VERSION = "d_intraday_evolution_v1"
+POLICY_VERSION = "d_intraday_evolution_v2"
 CHECKPOINT_SECONDS = {"15m": 15 * 60, "30m": 30 * 60}
 CHECKPOINT_MAX_DELAY_SECONDS = 5 * 60
 CLOSE_EARLIEST = "14:50:00"
+MARKET_CLOSE = "15:00:00"
 SESSION_WINDOWS = (
     ("09:25:00", "11:30:00"),
     ("13:00:00", "15:02:00"),
@@ -178,6 +179,38 @@ def _return_from(trigger_price: Optional[float], price: Optional[float]) -> Opti
     return price / trigger_price - 1.0
 
 
+def assess_evolution_quality(trigger: Mapping[str, Any],
+                             checkpoints: Mapping[str, Any]) -> Dict[str, Any]:
+    """Require only checkpoints that can occur before the same-session close."""
+    remaining = _trading_elapsed_seconds(trigger.get("trade_time"), MARKET_CLOSE)
+    requirements = {
+        label: remaining is None or remaining >= threshold
+        for label, threshold in CHECKPOINT_SECONDS.items()
+    }
+    available = {
+        "15m": "15m" in checkpoints,
+        "30m": "30m" in checkpoints,
+        "close": "close" in checkpoints,
+    }
+    complete = available["close"] and all(
+        available[label] or not required
+        for label, required in requirements.items()
+    )
+    return {
+        "policy_version": POLICY_VERSION,
+        "checkpoint_15m_available": available["15m"],
+        "checkpoint_30m_available": available["30m"],
+        "close_available": available["close"],
+        "checkpoint_15m_required": requirements["15m"],
+        "checkpoint_30m_required": requirements["30m"],
+        "same_session_seconds_after_trigger": remaining,
+        "not_applicable_checkpoints": [
+            label for label, required in requirements.items() if not required
+        ],
+        "complete": complete,
+    }
+
+
 def _final_row(raw: Mapping[str, Any], *, finalized_at: str) -> Dict[str, Any]:
     trigger = dict(raw.get("trigger") or {})
     trigger_price = _number(trigger.get("price"))
@@ -216,20 +249,7 @@ def _final_row(raw: Mapping[str, Any], *, finalized_at: str) -> Dict[str, Any]:
     else:
         favourable = adverse = None
 
-    quality = {
-        "policy_version": POLICY_VERSION,
-        "checkpoint_15m_available": "15m" in checkpoints,
-        "checkpoint_30m_available": "30m" in checkpoints,
-        "close_available": "close" in checkpoints,
-    }
-    quality["complete"] = all(
-        quality[key]
-        for key in (
-            "checkpoint_15m_available",
-            "checkpoint_30m_available",
-            "close_available",
-        )
-    )
+    quality = assess_evolution_quality(trigger, checkpoints)
     return {
         "schema_version": SCHEMA_VERSION,
         "evolution_id": raw.get("evolution_id"),

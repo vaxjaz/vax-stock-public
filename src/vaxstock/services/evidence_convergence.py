@@ -308,6 +308,10 @@ def build_evidence_convergence(
         int((row.get("d_evidence") or {}).get("complete_evolution_count") or 0)
         for row in selected
     )
+    late_limited_paths = sum(
+        int((row.get("d_evidence") or {}).get("late_limited_evolution_count") or 0)
+        for row in selected
+    )
     decision_regimes = sorted({
         str(((row.get("frozen_c_prediction") or {}).get("features_ref") or {}).get("market_regime"))
         for row in current
@@ -370,6 +374,7 @@ def build_evidence_convergence(
         "dline_triggered_stocks": len(triggered),
         "dline_trigger_records": trigger_records,
         "dline_complete_evolution_paths": complete_paths,
+        "dline_late_limited_evolution_paths": late_limited_paths,
         "dline_missing_evolution_paths": missing_paths,
         "horizon_reversal_total": len(reversals),
         "horizon_reversal_new": len(new_reversals),
@@ -426,14 +431,18 @@ def render_evidence_convergence(report: Mapping[str, Any]) -> str:
     finding_text = "；".join(
         str(row.get("summary")).rstrip("。；") for row in findings[:4]
     )
+    late_limited = int(facts.get("dline_late_limited_evolution_paths") or 0)
+    evolution_suffix = (
+        f"（其中晚盘触发仅检查可达节点{late_limited}条）" if late_limited else ""
+    )
     lines = [
         f"# {as_of} 证据收敛简报",
         "",
         (
             f"- 今日新增: 成熟C线结果{facts.get('new_matured_c_results', 0)}条；"
             f"D线选择{facts.get('dline_selected_stocks', 0)}只、触发"
-            f"{facts.get('dline_triggered_stocks', 0)}只、完整演变"
-            f"{facts.get('dline_complete_evolution_paths', 0)}条。"
+            f"{facts.get('dline_triggered_stocks', 0)}只、可评价演变"
+            f"{facts.get('dline_complete_evolution_paths', 0)}条{evolution_suffix}。"
         ),
         "- 结论变化: " + (change_text or "没有可确认的结论变化。"),
         "- 特殊情况: " + (

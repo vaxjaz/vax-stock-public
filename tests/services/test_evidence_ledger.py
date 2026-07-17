@@ -234,6 +234,22 @@ def test_dline_distinguishes_missing_not_selected_and_partial_without_execution(
     assert complete["status"] == "triggered_complete"
     assert complete["user_execution_used"] is False
 
+    late_trigger = hydrate_evidence_objects(
+        [root], as_of_trade_date="20260713", prediction_results=[],
+        observation_tasks=[task],
+        forecasts=[{"inputs_ref": {"dline_task_id": "task-1"}, "structured": {"trigger_type": "risk"}}],
+        forecast_evolution=[{
+            "task_id": "task-1",
+            "trigger_type": "risk",
+            "trigger": {"trade_time": "14:47:48"},
+            "checkpoints": {"close": {"trade_time": "14:58:03", "price": 30.0}},
+            "quality": {"complete": False},
+        }],
+    )[0]["d_evidence"]
+    assert late_trigger["status"] == "triggered_complete"
+    assert late_trigger["complete_evolution_count"] == 1
+    assert late_trigger["late_limited_evolution_count"] == 1
+
 
 if __name__ == "__main__":
     tests = [value for name, value in sorted(globals().items()) if name.startswith("test_")]

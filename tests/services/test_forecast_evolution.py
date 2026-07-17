@@ -121,6 +121,31 @@ def test_evolution_uses_trading_minutes_across_lunch_and_does_not_fake_missed_ch
     assert "30m" not in row["checkpoints"]
 
 
+def test_late_trigger_marks_unreachable_checkpoints_not_applicable():
+    with tempfile.TemporaryDirectory() as tmp:
+        status = Path(tmp) / "current.json"
+        history = Path(tmp) / "evolution.jsonl"
+        start_trigger_evolution(
+            _task(), "breakdown_confirm", _quote("14:47:48", 100.0),
+            status_path=status, history_path=history,
+        )
+        record_evolution_observation(
+            _task(), _quote("14:58:03", 99.0), status_path=status,
+        )
+        finalized = finalize_evolutions(
+            "20260714", status_path=status, history_path=history,
+            finalized_at="2026-07-14T15:03:00",
+        )
+        row = json.loads(history.read_text(encoding="utf-8").strip())
+
+    assert finalized["written"] == 1
+    assert row["quality"]["complete"] is True
+    assert row["quality"]["checkpoint_15m_required"] is False
+    assert row["quality"]["checkpoint_30m_required"] is False
+    assert row["quality"]["not_applicable_checkpoints"] == ["15m", "30m"]
+    assert row["checkpoints"]["close"]["price"] == 99.0
+
+
 def test_evolution_rejects_unverified_time_and_wrong_trade_date():
     with tempfile.TemporaryDirectory() as tmp:
         status = Path(tmp) / "current.json"

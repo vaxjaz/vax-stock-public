@@ -31,6 +31,7 @@ from vaxstock.services.dline_evaluator import (
 from vaxstock.services.forecast_evolution import (
     CURRENT_EVOLUTION_FILE,
     EVOLUTION_HISTORY_FILE,
+    assess_evolution_quality,
     finalize_evolutions,
 )
 from vaxstock.services.forecast_recorder import DLINE_PLAN_VERSION
@@ -238,10 +239,22 @@ def _audit_evidence(*, target: str, tasks: List[Dict[str, Any]], forecasts: List
             coverage_required.add(task_id)
     evolution_present = trigger_keys.intersection(evolutions)
     evolution_missing = trigger_keys.difference(evolutions)
-    evolution_incomplete = {
-        key for key in evolution_present
-        if not bool(((evolutions[key].get("quality") or {}).get("complete")))
-    }
+    evolution_incomplete = set()
+    late_limited_evolution = set()
+    for key in evolution_present:
+        row = evolutions[key]
+        quality = row.get("quality") or {}
+        if bool(quality.get("complete")):
+            if quality.get("not_applicable_checkpoints"):
+                late_limited_evolution.add(key)
+            continue
+        reassessed = assess_evolution_quality(
+            row.get("trigger") or {}, row.get("checkpoints") or {},
+        )
+        if not bool(reassessed.get("complete")):
+            evolution_incomplete.add(key)
+        elif reassessed.get("not_applicable_checkpoints"):
+            late_limited_evolution.add(key)
 
     gaps: List[Dict[str, Any]] = []
     if not task_ids:
@@ -279,6 +292,7 @@ def _audit_evidence(*, target: str, tasks: List[Dict[str, Any]], forecasts: List
         "qualified_coverage_count": len(coverage_present - coverage_unqualified),
         "evolution_count": len(evolution_present),
         "complete_evolution_count": len(evolution_present - evolution_incomplete),
+        "late_limited_evolution_count": len(late_limited_evolution),
         "trigger_t0_result_count": len(trigger_keys.intersection(result_keys)),
         "gaps": gaps,
         "user_execution_used": False,
@@ -351,19 +365,23 @@ def _delivery_succeeded(value: Any) -> bool:
 
 def _notification_text(status: str, target: str, evidence: Mapping[str, Any],
                        errors: List[Dict[str, Any]], *, recovered: bool = False) -> str:
+    evolution_text = f"可评价演变 {evidence.get('complete_evolution_count', 0)}"
+    late_limited = int(evidence.get("late_limited_evolution_count") or 0)
+    if late_limited:
+        evolution_text += f"（其中晚盘触发仅检查可达节点 {late_limited}）"
     if recovered:
         return "\n".join([
             f"D线 {target} 日终结算已恢复。",
             f"任务 {evidence.get('task_count', 0)}，触发 {evidence.get('trigger_count', 0)}，"
             f"完整覆盖 {evidence.get('qualified_coverage_count', 0)}，"
-            f"完整演变 {evidence.get('complete_evolution_count', 0)}。",
+            f"{evolution_text}。",
             "结果回填与策略复核已重新执行；未使用任何用户实际成交数据。",
         ])
     lines = [
         f"D线 {target} 日终结算状态：{status}",
         f"任务 {evidence.get('task_count', 0)}，触发 {evidence.get('trigger_count', 0)}，"
         f"完整覆盖 {evidence.get('qualified_coverage_count', 0)}，"
-        f"完整演变 {evidence.get('complete_evolution_count', 0)}，"
+        f"{evolution_text}，"
         f"触发T+0结果 {evidence.get('trigger_t0_result_count', 0)}。",
     ]
     for gap in evidence.get("gaps") or []:

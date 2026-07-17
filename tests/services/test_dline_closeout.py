@@ -172,6 +172,36 @@ def test_closeout_is_complete_and_idempotent_when_evidence_exists():
     assert notifications == []
 
 
+def test_closeout_accepts_legacy_late_trigger_without_unreachable_checkpoints():
+    with tempfile.TemporaryDirectory() as tmp:
+        paths = _paths(Path(tmp))
+        task = _task("600001", "breakdown_confirm")
+        _seed_complete(paths, task)
+        legacy_late = _evolution(task, complete=False)
+        legacy_late.update({
+            "trigger": {"trade_time": "14:47:48", "price": 100.0},
+            "checkpoints": {
+                "trigger": {"trade_time": "14:47:48", "price": 100.0},
+                "close": {"trade_time": "14:58:03", "price": 99.0},
+            },
+        })
+        _write_jsonl(paths["evolution_path"], [legacy_late])
+        notifications = []
+
+        result = run_dline_closeout(
+            trade_date="20260714",
+            notifier=lambda title, body: notifications.append((title, body)),
+            now="2026-07-15T05:00:00",
+            **paths,
+        )
+
+    assert result["status"] == "done"
+    assert result["evidence"]["complete_evolution_count"] == 1
+    assert result["evidence"]["late_limited_evolution_count"] == 1
+    assert result["evidence"]["gaps"] == []
+    assert notifications == []
+
+
 def test_closeout_reports_real_gaps_once_without_blocking_trigger_result():
     with tempfile.TemporaryDirectory() as tmp:
         paths = _paths(Path(tmp))

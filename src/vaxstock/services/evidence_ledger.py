@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple
 
 from vaxstock import config
+from vaxstock.services.forecast_evolution import assess_evolution_quality
 from vaxstock.services.prediction_evaluator import (
     absolute_action_expectation, absolute_action_hit,
 )
@@ -586,10 +587,20 @@ def _dline_view(root: Mapping[str, Any], *, tasks: List[Dict[str, Any]], forecas
             evolution_by_type[trigger_type] = row
     result_rows = [row for row in forecast_results if _d_task_id(row) == task_id]
     qualified = bool(((coverage_row or {}).get("quality") or {}).get("qualified"))
-    complete_types = {
-        trigger_type for trigger_type, row in evolution_by_type.items()
-        if bool(((row.get("quality") or {}).get("complete")))
-    }
+    complete_types = set()
+    limited_types = set()
+    for trigger_type, row in evolution_by_type.items():
+        quality = row.get("quality") or {}
+        if bool(quality.get("complete")):
+            assessed = quality
+        else:
+            assessed = assess_evolution_quality(
+                row.get("trigger") or {}, row.get("checkpoints") or {},
+            )
+        if bool(assessed.get("complete")):
+            complete_types.add(trigger_type)
+            if assessed.get("not_applicable_checkpoints"):
+                limited_types.add(trigger_type)
     if trigger_types:
         status = "triggered_complete" if trigger_types.issubset(complete_types) else "partial_data"
     else:
@@ -603,6 +614,7 @@ def _dline_view(root: Mapping[str, Any], *, tasks: List[Dict[str, Any]], forecas
         "coverage_qualified": qualified,
         "evolution_count": len(evolution_by_type),
         "complete_evolution_count": len(complete_types),
+        "late_limited_evolution_count": len(limited_types),
         "result_count": len(result_rows),
         "user_execution_used": False,
     }
@@ -810,7 +822,7 @@ def render_evidence_summary(rows: Iterable[Mapping[str, Any]], *, as_of_trade_da
             f"- C线原始动作: {prediction.get('action') or '待验证'} / {prediction.get('direction') or '待验证'} / 置信度 {prediction.get('confidence') if prediction.get('confidence') is not None else '待验证'}",
             f"- 实际结果: T+now {latest_text}；{fixed_text}",
             f"- 原始动作复核: {_fmt_action_review(latest)}",
-            f"- D线证据: {dline.get('status') or '待验证'}；触发 {dline.get('trigger_count', 0)} 次；完整演变 {dline.get('complete_evolution_count', 0)} 条",
+            f"- D线证据: {dline.get('status') or '待验证'}；触发 {dline.get('trigger_count', 0)} 次；可评价演变 {dline.get('complete_evolution_count', 0)} 条；晚盘受限 {dline.get('late_limited_evolution_count', 0)} 条",
             f"- 事实哈希: `{row.get('hydrated_facts_digest')}`",
             "",
         ])

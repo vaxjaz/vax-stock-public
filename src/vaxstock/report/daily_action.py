@@ -146,6 +146,10 @@ def _evidence_convergence_lines(report: Mapping[str, Any]):
         str(row.get("summary")).rstrip("。；")
         for row in findings[:4] if row.get("summary")
     ) or "未识别到新的环境冲突、集中触发或期限反转。"
+    late_limited = int(facts.get("dline_late_limited_evolution_paths") or 0)
+    evolution_suffix = (
+        f"（其中晚盘触发仅检查可达节点{late_limited}条）" if late_limited else ""
+    )
     return [
         "## 证据收敛",
         "",
@@ -153,8 +157,8 @@ def _evidence_convergence_lines(report: Mapping[str, Any]):
             f"- **1. 今天新增什么证据**: 成熟C线结果"
             f"{facts.get('new_matured_c_results', 0)}条；D线选择"
             f"{facts.get('dline_selected_stocks', 0)}只、触发"
-            f"{facts.get('dline_triggered_stocks', 0)}只、完整演变"
-            f"{facts.get('dline_complete_evolution_paths', 0)}条。"
+            f"{facts.get('dline_triggered_stocks', 0)}只、可评价演变"
+            f"{facts.get('dline_complete_evolution_paths', 0)}条{evolution_suffix}。"
         ),
         f"- **2. 哪些结论发生变化**: {change_text}",
         f"- **3. 特殊环境或冲突**: {finding_text}",
