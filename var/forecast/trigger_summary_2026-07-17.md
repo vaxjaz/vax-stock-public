@@ -1,8 +1,8 @@
 # D线盘中触发汇总
 
-- updated_at: 2026-07-17T10:51:50
+- updated_at: 2026-07-17T13:23:46
 - trade_date: 2026-07-17
-- triggers: 20
+- triggers: 22
 - 口径: 仅汇总 `forecasts.jsonl` 中 `structured.source=dline_task_blueprint` 且 `dline_plan_version=d_observe_llm_v2` 的触发记录。
 - 数据源: 现价/涨跌幅/振幅/成交额来自触发时 `quote_snapshot`; MA偏离来自 `trigger_values`; C线为 `evidence_pack.C_prediction` 原始字段; LLM客观评价为触发时写入的 `reasoning`。
 - 边界: 本报告只做 D线触发复盘视图, 不给买卖建议, 不自动调参。
@@ -226,3 +226,25 @@
 - 触发依据: 说明弱势进一步恶化，盘中验证结果偏向继续下行而非修复。
 - LLM客观评价: D线触发: 说明弱势进一步恶化，盘中验证结果偏向继续下行而非修复。 观察目的: 验证601138次日盘中能否从EOD的短中期均线下方弱势状态中完成收复，判断C线“watch/up”是低位修复还是继续承压反弹。 主要风险: 股价仍显著低于MA5/MA10/MA20/MA60，叠加近5日与10日趋势偏弱，盘中若不能收复短均线，上行假设容易退化为弱反抽；AI板块上限环境也会限制持续性。 对C线反馈: watch -> avoid_review 这是客观观察，不是交易指令；盘中未定论，评分和资金以EOD定稿数据为准。
 - C线反哺线索: expected_feedback_to_c=watch -> avoid_review; baseline=20260716; task_id=20260716_20260717_601138_d_observe_llm_v2; MA20触发位置=-14.00%
+
+## 21. 600580 卧龙电驱
+
+- 触发: breakdown_confirm / severity=high / fire_count=2
+- 时间: forecast_ts=2026-07-17T13:03:06; trade_time=13:02:56; trade_date=2026-07-17
+- 实时行情: 现价=30.61; 涨跌幅=-1.58%; 振幅=3.31%; 成交额=6.27亿
+- 均线偏离: MA5=-3.77%; MA20=-9.41%; MA60=-17.96%
+- C线原始预测: action=watch; direction=up; confidence=60%
+- 触发依据: 若相对20日均线的负偏离继续扩大，并伴随波动或放量，说明弱势延续，C线的上行观察假设被明显削弱。
+- LLM客观评价: D线触发: 若相对20日均线的负偏离继续扩大，并伴随波动或放量，说明弱势延续，C线的上行观察假设被明显削弱。 观察目的: 验证次日盘中是否出现对5日/20日均线的修复性反弹，还是延续弱势并进一步远离中期均线，从而检验C线“watch/up”是否成立。 主要风险: 当前价格已明显低于5日、20日和60日均线，且近阶段回撤与主力净流入偏弱；若盘中不能出现有效修复，C线的看多观察假设容易被延续下跌证伪。 对C线反馈: watch -> invalidate_up_bias 这是客观观察，不是交易指令；盘中未定论，评分和资金以EOD定稿数据为准。 ⚠️[铁律校验] 检测到疑似越界(盘中新评分/买卖价/资金臆测), 以EOD报告为准, 盘中未定论
+- C线反哺线索: expected_feedback_to_c=watch -> invalidate_up_bias; baseline=20260716; task_id=20260716_20260717_600580_d_observe_llm_v2; MA20触发位置=-9.41%
+
+## 22. 002050 三花智控
+
+- 触发: breakdown_confirm / severity=high / fire_count=3
+- 时间: forecast_ts=2026-07-17T13:23:46; trade_time=13:23:36; trade_date=2026-07-17
+- 实时行情: 现价=39.72; 涨跌幅=-5.04%; 振幅=5.47%; 成交额=21.95亿
+- 均线偏离: MA5=-5.46%; MA20=-9.04%; MA60=-14.92%
+- C线原始预测: action=avoid; direction=neutral; confidence=55%
+- 触发依据: 表示在弱区间内继续走低且波动/成交同步放大，说明弱势不是静态横盘而是向下确认。
+- LLM客观评价: D线触发: 表示在弱区间内继续走低且波动/成交同步放大，说明弱势不是静态横盘而是向下确认。 观察目的: 明天盘中重点验证：该票是否继续维持弱势回避结构，还是出现对MA20的快速收复从而推翻C线的“avoid/neutral”判断。 主要风险: 核心风险是盘中重新站回MA20并伴随有效放量，说明当前回避逻辑可能只是短线滞后而非趋势失效。 对C线反馈: confirm_avoid -> strengthen_risk_off 这是客观观察，不是交易指令；盘中未定论，评分和资金以EOD定稿数据为准。
+- C线反哺线索: expected_feedback_to_c=confirm_avoid -> strengthen_risk_off; baseline=20260716; task_id=20260716_20260717_002050_d_observe_llm_v2; MA20触发位置=-9.04%
