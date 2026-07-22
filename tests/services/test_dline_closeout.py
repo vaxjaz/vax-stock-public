@@ -4,7 +4,7 @@ import json
 import tempfile
 from pathlib import Path
 
-from vaxstock.services.dline_closeout import run_dline_closeout
+from vaxstock.services.dline_closeout import _audit_evidence, run_dline_closeout
 
 
 def _write_jsonl(path: Path, rows):
@@ -130,6 +130,25 @@ def _seed_complete(paths, fired, quiet=None):
         }
         for task in tasks
     ])
+
+
+def test_closeout_audit_uses_latest_same_day_task_per_code():
+    old = _task("600001")
+    revised = _task("600001")
+    revised["task_id"] += "_manual_v1"
+    evidence = _audit_evidence(
+        target="20260714",
+        tasks=[old, revised],
+        forecasts=[],
+        coverage_rows=[],
+        evolution_rows=[],
+        result_rows=[],
+        result_stage_ok=False,
+    )
+
+    assert evidence["task_count"] == 1
+    coverage_gap = next(row for row in evidence["gaps"] if row["code"] == "coverage_missing")
+    assert coverage_gap["examples"] == [revised["task_id"]]
 
 
 def test_closeout_is_complete_and_idempotent_when_evidence_exists():

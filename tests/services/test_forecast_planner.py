@@ -133,13 +133,18 @@ def _payload_with_watchlist():
     return payload
 
 
-def test_select_observation_task_codes_merges_holdings_and_task_pool():
+def test_select_observation_task_codes_defaults_to_holdings_only():
+    payload = _payload_with_watchlist()
+    pool = {
+        "002371": {"active": True},
+        "600522": {"active": False},
+    }
+    assert fp.select_observation_task_codes(payload, task_pool=pool) == ["002475"]
+
     codes = fp.select_observation_task_codes(
-        _payload_with_watchlist(),
-        task_pool={
-            "002371": {"active": True},
-            "600522": {"active": False},
-        },
+        payload,
+        task_pool=pool,
+        include_task_pool=True,
     )
     assert codes == ["002475", "002371"]
 
@@ -205,15 +210,15 @@ def test_enqueue_and_run_observation_job_consumes_current_job():
 
 def test_run_observation_job_partial_failed_preserves_success_and_remaining():
     d = tempfile.mkdtemp(prefix="vax_dline_partial_")
-    saved_task_pool = fp.config.load_task_pool
     try:
-        fp.config.load_task_pool = lambda: {"002371": {"active": True}}
+        payload = _payload_with_watchlist()
+        payload["stocks"][1]["group"] = "holding"
         payload_path = pathlib.Path(d) / "payload.json"
         jobs = pathlib.Path(d) / "observation_jobs.jsonl"
         current_job = pathlib.Path(d) / "current_job.json"
         task_hist = pathlib.Path(d) / "observation_tasks.jsonl"
         current_tasks = pathlib.Path(d) / "current_tasks.json"
-        payload_path.write_text(json.dumps(_payload_with_watchlist(), ensure_ascii=False), encoding="utf-8")
+        payload_path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
 
         fp.enqueue_observation_job(
             payload_path,
@@ -256,16 +261,14 @@ def test_run_observation_job_partial_failed_preserves_success_and_remaining():
         current = json.loads(current_tasks.read_text(encoding="utf-8"))
         assert [t["code"] for t in current["tasks"]] == ["002475"]
     finally:
-        fp.config.load_task_pool = saved_task_pool
         shutil.rmtree(d, ignore_errors=True)
 
 
 def test_run_observation_job_resumes_remaining_codes():
     d = tempfile.mkdtemp(prefix="vax_dline_resume_")
-    saved_task_pool = fp.config.load_task_pool
     try:
-        fp.config.load_task_pool = lambda: {"002371": {"active": True}}
         payload = _payload_with_watchlist()
+        payload["stocks"][1]["group"] = "holding"
         payload_path = pathlib.Path(d) / "payload.json"
         jobs = pathlib.Path(d) / "observation_jobs.jsonl"
         current_job = pathlib.Path(d) / "current_job.json"
@@ -310,7 +313,6 @@ def test_run_observation_job_resumes_remaining_codes():
         current = json.loads(current_tasks.read_text(encoding="utf-8"))
         assert sorted(t["code"] for t in current["tasks"]) == ["002371", "002475"]
     finally:
-        fp.config.load_task_pool = saved_task_pool
         shutil.rmtree(d, ignore_errors=True)
 def test_codex_plan_runtime_config_uses_dline_overrides():
     runtime = fp._codex_plan_runtime_config({
@@ -483,6 +485,34 @@ def test_current_tasks_prefers_latest_plan_version_per_target_code():
         assert len(snap["tasks"]) == 1
         assert snap["tasks"][0]["plan_version"] == "d_observe_llm_v2"
         assert snap["tasks"][0]["task_id"].endswith("d_observe_llm_v2")
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+
+
+def test_current_tasks_can_be_scoped_to_active_holdings():
+    d = tempfile.mkdtemp(prefix="vax_dline_current_scope_")
+    try:
+        hist = pathlib.Path(d) / "observation_tasks.jsonl"
+        current = pathlib.Path(d) / "current_tasks.json"
+        payload = _payload_with_watchlist()
+        tasks = fp.generate_observation_tasks(
+            payload,
+            "20260706",
+            c_predictions=[_c_prediction()],
+            factor_results=[],
+            task_codes=["002475", "002371"],
+            planner_func=lambda evidence: _plan(),
+            generated_at="2026-07-04T05:00:00",
+        )
+        fp.record_observation_tasks(tasks, history_path=hist, current_path=current)
+        stats = fp.record_observation_tasks(
+            [tasks[0]], history_path=hist, current_path=current,
+            active_codes=["002475"],
+        )
+        snapshot = json.loads(current.read_text(encoding="utf-8"))
+        assert stats["skipped"] == 1
+        assert stats["current"] == 1
+        assert [row["code"] for row in snapshot["tasks"]] == ["002475"]
     finally:
         shutil.rmtree(d, ignore_errors=True)
 if __name__ == "__main__":

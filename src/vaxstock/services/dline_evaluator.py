@@ -127,12 +127,17 @@ def _sample_id(task_id: str, blueprint_index: int,
 
 
 def _task_index(rows: Iterable[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
-    out = {}
+    latest_by_target_code: Dict[Tuple[str, str], Dict[str, Any]] = {}
     for row in rows:
         task_id = str((row or {}).get("task_id") or "").strip()
+        target = str((row or {}).get("target_trade_date") or "").strip()
+        code = str((row or {}).get("code") or "").strip()
         if task_id:
-            out[task_id] = row
-    return out
+            latest_by_target_code[(target, code or task_id)] = row
+    return {
+        str(row.get("task_id") or "").strip(): row
+        for row in latest_by_target_code.values()
+    }
 
 
 def _coverage_index(rows: Iterable[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:

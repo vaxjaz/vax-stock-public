@@ -524,7 +524,8 @@ def _format_dline_alert_body(code: str, name: str, task: Dict[str, Any], quote: 
     evidence = task.get("evidence_pack") or {}
     history = evidence.get("B_prediction_history_summary") or {}
     earnings = ((evidence.get("E_context") or {}).get("earnings") or {})
-    return "\n".join([
+    decision_context = task.get("decision_context") or {}
+    lines = [
         f"{code} {name} | {trigger_type} | severity={severity}",
         "",
         "【真实历史结果】",
@@ -546,7 +547,17 @@ def _format_dline_alert_body(code: str, name: str, task: Dict[str, Any], quote: 
         f"- 量能/指标: 5日量比 {_fmt(values.get('volume_ratio_5d'))}  RSI14 {_fmt(values.get('rsi_14'))}  MACD柱 {_fmt(values.get('macd_hist'), 4)}",
         f"- 时间: {quote.get('trade_time', now_str())}  源: {quote.get('source', '?')}",
         "",
-        "【C线原始动作/方向/置信度】",
+    ]
+    if decision_context:
+        lines.extend([
+            "【独立决策验证】",
+            f"- 目标: {_short(decision_context.get('label'), 120) or '待获取'}",
+            f"- 与C线关系: {_short(decision_context.get('relation_to_c_line'), 220) or '待获取'}",
+            f"- 审计说明: {_short(decision_context.get('audit_note'), 220) or '待获取'}",
+            "",
+        ])
+    lines.extend([
+        "【C线原始动作/方向/置信度（仅留档）】" if decision_context else "【C线原始动作/方向/置信度】",
         f"- action={c_pred.get('action') or '待获取'}  direction={c_pred.get('direction') or '待获取'}  confidence={_fmt_confidence(c_pred.get('confidence'))}",
         f"- reason={c_reason}",
         "",
@@ -559,6 +570,7 @@ def _format_dline_alert_body(code: str, name: str, task: Dict[str, Any], quote: 
         "",
         "说明: 价格、涨跌幅、振幅、成交额来自盘中 quote；MA偏离由盘中价和EOD均线重算；C线预测与观察任务来自EOD冻结上下文。",
     ])
+    return "\n".join(lines)
 
 
 def notify_market_health(events: List[Dict[str, Any]]) -> None:

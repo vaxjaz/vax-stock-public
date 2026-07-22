@@ -206,12 +206,19 @@ def _gap(code: str, keys: Iterable[Any], detail: str) -> Dict[str, Any]:
 def _audit_evidence(*, target: str, tasks: List[Dict[str, Any]], forecasts: List[Dict[str, Any]],
                     coverage_rows: List[Dict[str, Any]], evolution_rows: List[Dict[str, Any]],
                     result_rows: List[Dict[str, Any]], result_stage_ok: bool) -> Dict[str, Any]:
+    latest_by_code: Dict[str, Dict[str, Any]] = {}
+    for row in tasks:
+        task_id = str((row or {}).get("task_id") or "").strip()
+        if (
+            _trade_date_key((row or {}).get("target_trade_date")) == target
+            and str((row or {}).get("plan_version") or "").strip() == DLINE_PLAN_VERSION
+            and task_id
+        ):
+            code = str((row or {}).get("code") or "").strip()
+            latest_by_code[code or task_id] = row
     current_tasks = {
         str(row.get("task_id") or "").strip(): row
-        for row in tasks
-        if _trade_date_key(row.get("target_trade_date")) == target
-        and str(row.get("plan_version") or "").strip() == DLINE_PLAN_VERSION
-        and str(row.get("task_id") or "").strip()
+        for row in latest_by_code.values()
     }
     task_ids = set(current_tasks)
     triggers = {

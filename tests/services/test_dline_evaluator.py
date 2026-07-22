@@ -153,3 +153,30 @@ def test_risk_trigger_uses_non_positive_absolute_return():
     assert de.dline_decision_hit(
         "non_positive", "qualified_not_triggered", 0.01,
     ) is True
+
+
+def test_superseding_task_replaces_older_same_day_task_for_evaluation():
+    old = _task("old-task", "600001")
+    revised = _task("revised-task", "600001")
+    coverage = [{
+        "coverage_id": "coverage-revised",
+        "task_id": "revised-task",
+        "quality": {"policy_version": "d_full_session_v1", "qualified": True},
+    }]
+    rows, stats = de.build_dline_results(
+        tasks=[old, revised],
+        forecasts=[],
+        coverage_rows=coverage,
+        snapshots=[{
+            "trade_date": "20260714", "code": "600001", "price_at_snapshot": 100.0,
+        }],
+        factor_results=[{
+            "trade_date": "20260714", "code": "600001",
+            "ret": {"1": -0.01}, "horizon_trade_dates": {"1": "20260715"},
+        }],
+        filled_at="2026-07-15T05:00:00",
+    )
+
+    assert stats["tasks"] == 1
+    assert rows
+    assert {row["task_id"] for row in rows} == {"revised-task"}

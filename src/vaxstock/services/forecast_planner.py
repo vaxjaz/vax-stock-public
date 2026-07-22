@@ -320,21 +320,28 @@ def _stock_code(item: Dict[str, Any]) -> str:
     return str((item or {}).get("code") or "").strip()
 
 
-def select_observation_task_codes(payload: Dict[str, Any], task_pool: Optional[Dict[str, Dict[str, Any]]] = None) -> List[str]:
-    """Return D-line task codes = holdings in payload + active task_pool entries.
+def select_observation_task_codes(payload: Dict[str, Any], task_pool: Optional[Dict[str, Dict[str, Any]]] = None,
+                                  *, include_task_pool: bool = False) -> List[str]:
+    """Return D-line task codes, with production defaulting to holdings only.
 
     The wide watchlist remains the A/B/C data foundation.  D-line LLM planning
-    consumes only this smaller target pool, and holdings always enter even when
-    they are not present in watchlist/task_pool config.
+    consumes only current holdings so non-position alerts do not create intraday
+    noise.  ``include_task_pool`` is an explicit research/replay opt-in and is
+    never enabled by the production worker.
     """
-    pool = task_pool if task_pool is not None else config.load_task_pool()
-    task_codes = {str(code).strip() for code, info in (pool or {}).items() if str(code).strip() and (info or {}).get("active") is not False}
     holding_codes = {
         _stock_code(item)
         for item in (payload or {}).get("stocks") or []
         if isinstance(item, dict) and item.get("group") == "holding" and _stock_code(item)
     }
-    wanted = holding_codes | task_codes
+    wanted = set(holding_codes)
+    if include_task_pool:
+        pool = task_pool if task_pool is not None else config.load_task_pool()
+        wanted.update(
+            str(code).strip()
+            for code, info in (pool or {}).items()
+            if str(code).strip() and (info or {}).get("active") is not False
+        )
     ordered = []
     seen = set()
     for item in (payload or {}).get("stocks") or []:
@@ -740,8 +747,12 @@ def _existing_task_codes(history_path, baseline_trade_date: str, target_trade_da
     return codes
 
 
-def _tasks_for_targets(history_path, target_dates: Optional[Iterable[str]] = None) -> List[Dict[str, Any]]:
+def _tasks_for_targets(history_path, target_dates: Optional[Iterable[str]] = None,
+                       allowed_codes: Optional[Iterable[str]] = None) -> List[Dict[str, Any]]:
     target_set = {str(d).strip() for d in target_dates or [] if str(d).strip()}
+    allowed_set = None if allowed_codes is None else {
+        str(code).strip() for code in allowed_codes if str(code).strip()
+    }
     rows_by_key: Dict[Tuple[str, str], Dict[str, Any]] = {}
     for row in _read_jsonl(history_path):
         if not isinstance(row, dict):
@@ -751,6 +762,8 @@ def _tasks_for_targets(history_path, target_dates: Optional[Iterable[str]] = Non
             continue
         tid = str(row.get("task_id") or "").strip()
         code = str(row.get("code") or "").strip()
+        if allowed_set is not None and code not in allowed_set:
+            continue
         if not tid:
             continue
         key = (target, code or tid)
@@ -922,8 +935,12 @@ def render_current_tasks_markdown(snapshot: Dict[str, Any]) -> str:
             confidence = prediction.get("confidence")
             trigger_types = [str(t.get("trigger_type") or "") for t in ((task.get("observation") or {}).get("trigger_blueprints") or [])]
             trigger_names = ", ".join(_TRIGGER_LABELS.get(x, x) for x in trigger_types if x) or "N/A"
+            decision_context = task.get("decision_context") or {}
+            independent_label = str(decision_context.get("label") or "").strip()
+            c_line_label = "C线(仅留档)" if independent_label else "C线"
+            prefix = f"独立验证: {independent_label} | " if independent_label else ""
             lines.append(
-                f"- **{task.get('code')} {task.get('name')}** | C线: {_ACTION_LABELS.get(action, action or 'N/A')} / {direction or 'N/A'} / 置信度 {_fmt_confidence(confidence)} | "
+                f"- **{task.get('code')} {task.get('name')}** | {prefix}{c_line_label}: {_ACTION_LABELS.get(action, action or 'N/A')} / {direction or 'N/A'} / 置信度 {_fmt_confidence(confidence)} | "
                 f"分析价 {_fmt_number(price)} | MA20偏离 {_fmt_pct(metrics.get('price_vs_ma20_pct'))} | 触发: {trigger_names}"
             )
         lines.append("")
@@ -936,6 +953,7 @@ def render_current_tasks_markdown(snapshot: Dict[str, Any]) -> str:
         prediction = (evidence.get("C_prediction") or {}).get("prediction") or {}
         ctx_summary = summarize_context(evidence.get("E_context") or {})
         obs = task.get("observation") or {}
+        decision_context = task.get("decision_context") or {}
         concepts = ", ".join(str(x) for x in task.get("concepts") or []) or "N/A"
         action = prediction.get("action")
         lines += [
@@ -948,7 +966,15 @@ def render_current_tasks_markdown(snapshot: Dict[str, Any]) -> str:
             f"- 真实价量基准(T-1 EOD): 分析价={_fmt_number(a_eod.get('price'))}; MA5={_fmt_number(metrics.get('ma5'))}; MA10={_fmt_number(metrics.get('ma10'))}; MA20={_fmt_number(metrics.get('ma20'))}; MA60={_fmt_number(metrics.get('ma60'))}",
             f"- 位置/动量: MA5偏离={_fmt_pct(metrics.get('price_vs_ma5_pct'))}; MA20偏离={_fmt_pct(metrics.get('price_vs_ma20_pct'))}; MA60偏离={_fmt_pct(metrics.get('price_vs_ma60_pct'))}; 20日位置={_fmt_pct(metrics.get('position_20d_pct'), signed=False)}; 52周位置={_fmt_pct(metrics.get('position_52w_pct'), signed=False)}",
             f"- 量能/近期: 5日量比={_fmt_number(metrics.get('volume_ratio_5d'))}; 近5日={_fmt_pct(metrics.get('recent_5d_change_pct'))}; 近20日={_fmt_pct(metrics.get('recent_20d_change_pct'))}; MACD柱={_fmt_number(metrics.get('macd_hist'), 3)}; RSI14={_fmt_number(metrics.get('rsi_14'))}",
-            "- LLM客观评价:",
+        ]
+        if decision_context:
+            lines += [
+                f"- 独立决策上下文: {_short_text(decision_context.get('label'), 80) or 'N/A'}",
+                f"- 与C线关系: {_short_text(decision_context.get('relation_to_c_line'), 180) or 'N/A'}",
+                f"- 审计说明: {_short_text(decision_context.get('audit_note'), 180) or 'N/A'}",
+            ]
+        lines += [
+            "- 独立客观评价:" if decision_context else "- LLM客观评价:",
             f"  - 观察意图: {_short_text(obs.get('observe_intent'), 220) or 'N/A'}",
             f"  - 主要风险: {_short_text(obs.get('primary_risk'), 220) or 'N/A'}",
             f"  - C线反馈焦点: {_short_text(obs.get('c_line_feedback_focus'), 220) or 'N/A'}",
@@ -978,9 +1004,14 @@ def _current_tasks_markdown_path(current_path) -> Path:
     current = Path(current_path or CURRENT_TASKS_FILE)
     return CURRENT_TASKS_MD_FILE if current == CURRENT_TASKS_FILE else current.with_suffix(".md")
 
-def _materialize_current_tasks(history_path, current_path, target_dates: Optional[Iterable[str]] = None) -> int:
+def _materialize_current_tasks(history_path, current_path, target_dates: Optional[Iterable[str]] = None,
+                               allowed_codes: Optional[Iterable[str]] = None) -> int:
     current = Path(current_path or CURRENT_TASKS_FILE)
-    tasks = _tasks_for_targets(history_path, target_dates=target_dates)
+    tasks = _tasks_for_targets(
+        history_path,
+        target_dates=target_dates,
+        allowed_codes=allowed_codes,
+    )
     target_list = sorted({str(t.get("target_trade_date") or "") for t in tasks if t.get("target_trade_date")})
     snapshot = {
         "schema_version": SCHEMA_VERSION,
@@ -1072,7 +1103,10 @@ def run_observation_job(job: Optional[Dict[str, Any]] = None, *,
     pending_codes = [c for c in task_codes if c not in existing_codes]
 
     if not pending_codes:
-        current_count = _materialize_current_tasks(hist, current_tasks, target_dates=[target] if target else None)
+        current_count = _materialize_current_tasks(
+            hist, current_tasks, target_dates=[target] if target else None,
+            allowed_codes=task_codes,
+        )
         stats = {"generated": 0, "written": 0, "skipped": 0, "current": current_count, "existing": len(done_codes)}
         snap = _job_snapshot(
             job,
@@ -1113,13 +1147,19 @@ def run_observation_job(job: Optional[Dict[str, Any]] = None, *,
     generated = 0
     written = 0
     skipped = 0
-    current_count = _materialize_current_tasks(hist, current_tasks, target_dates=[target] if target else None)
+    current_count = _materialize_current_tasks(
+        hist, current_tasks, target_dates=[target] if target else None,
+        allowed_codes=task_codes,
+    )
     failures: List[Dict[str, Any]] = []
 
     def _record_task(task: Dict[str, Any]) -> None:
         nonlocal generated, written, skipped, current_count
         generated += 1
-        stats = record_observation_tasks([task], history_path=hist, current_path=current_tasks)
+        stats = record_observation_tasks(
+            [task], history_path=hist, current_path=current_tasks,
+            active_codes=task_codes,
+        )
         written += int(stats.get("written", 0))
         skipped += int(stats.get("skipped", 0))
         current_count = int(stats.get("current", current_count))
@@ -1142,7 +1182,10 @@ def run_observation_job(job: Optional[Dict[str, Any]] = None, *,
         existing_after = _existing_task_codes(hist, baseline, target, plan_version)
         done_after = [c for c in task_codes if c in existing_after]
         remaining_after = [c for c in task_codes if c not in existing_after]
-        current_count = _materialize_current_tasks(hist, current_tasks, target_dates=[target] if target else None)
+        current_count = _materialize_current_tasks(
+            hist, current_tasks, target_dates=[target] if target else None,
+            allowed_codes=task_codes,
+        )
         stats = {
             "generated": generated,
             "written": written,
@@ -1192,7 +1235,10 @@ def run_observation_job(job: Optional[Dict[str, Any]] = None, *,
     existing_after = _existing_task_codes(hist, baseline, target, plan_version)
     done_after = [c for c in task_codes if c in existing_after]
     remaining_after = [c for c in task_codes if c not in existing_after]
-    current_count = _materialize_current_tasks(hist, current_tasks, target_dates=[target] if target else None)
+    current_count = _materialize_current_tasks(
+        hist, current_tasks, target_dates=[target] if target else None,
+        allowed_codes=task_codes,
+    )
     status = "done" if not remaining_after else "partial_done"
     stats = {
         "generated": generated,
@@ -1225,7 +1271,8 @@ def run_observation_job(job: Optional[Dict[str, Any]] = None, *,
 
 def record_observation_tasks(tasks: Iterable[Dict[str, Any]], *,
                              history_path=None,
-                             current_path=None) -> Dict[str, int]:
+                             current_path=None,
+                             active_codes: Optional[Iterable[str]] = None) -> Dict[str, int]:
     """Idempotently append D-line tasks and materialize current active tasks."""
     hist = Path(history_path or OBSERVATION_TASKS_FILE)
     current = Path(current_path or CURRENT_TASKS_FILE)
@@ -1243,7 +1290,10 @@ def record_observation_tasks(tasks: Iterable[Dict[str, Any]], *,
     target_dates = sorted({str(t.get("target_trade_date") or "") for t in rows if t.get("target_trade_date")})
     current_count = 0
     if target_dates:
-        current_count = _materialize_current_tasks(hist, current, target_dates=target_dates)
+        current_count = _materialize_current_tasks(
+            hist, current, target_dates=target_dates,
+            allowed_codes=active_codes,
+        )
     if written:
         logger.info("D线观察任务写入 %s 条(%s)", written, hist)
     return {"written": written, "skipped": skipped, "current": current_count}

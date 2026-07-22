@@ -558,11 +558,17 @@ def _dline_view(root: Mapping[str, Any], *, tasks: List[Dict[str, Any]], forecas
     identity = root.get("identity") or {}
     target = str(identity.get("target_trade_date") or "")
     code = str(identity.get("code") or "")
-    target_tasks = [
-        row for row in tasks
-        if str(row.get("target_trade_date") or "") == target
-        and str(row.get("plan_version") or "") == DLINE_PLAN_VERSION
-    ]
+    latest_by_code: Dict[str, Dict[str, Any]] = {}
+    for row in tasks:
+        task_id = str(row.get("task_id") or "")
+        if (
+            str(row.get("target_trade_date") or "") == target
+            and str(row.get("plan_version") or "") == DLINE_PLAN_VERSION
+            and task_id
+        ):
+            row_code = str(row.get("code") or "")
+            latest_by_code[row_code or task_id] = row
+    target_tasks = list(latest_by_code.values())
     matching = [row for row in target_tasks if str(row.get("code") or "") == code]
     if not matching:
         return {
