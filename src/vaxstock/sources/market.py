@@ -54,7 +54,8 @@ def get_index_quotes(source: Optional[TushareSource]) -> List[Dict[str, Any]]:
     """用 Tushare index_daily 取 config.INDEX_LIST 各指数行情。
 
     替代原 get_sina_index / 东财指数。index_daily 直接返回 pct_chg, 取最近交易日该值即可。
-    输出字段对齐原结构: {symbol, name, price, change_pct, volume, amount, source}。
+    输出字段对齐原结构并保留交易日:
+    {symbol, name, price, change_pct, volume, amount, trade_date, source}。
     单只指数取不到则跳过(不臆造)。
     """
     results: List[Dict[str, Any]] = []
@@ -75,6 +76,7 @@ def get_index_quotes(source: Optional[TushareSource]) -> List[Dict[str, Any]]:
             "change_pct": safe_float(row.get("pct_chg"), None),
             "volume": safe_float(row.get("vol"), None),
             "amount": safe_float(row.get("amount"), None),
+            "trade_date": str(row.get("trade_date") or "").strip() or None,
             "source": "tushare",
         })
     return results

@@ -343,8 +343,9 @@ def build_claude_markdown(claude_data: Dict[str, Any],
             lines.append(f"- 北向资金: ℹ️ {nf['note']}")
     lines.append("")
 
-    lines.append(render_prediction_summary(claude_data.get("prediction_summary")))
-    lines.append("")
+    if "prediction_summary" in claude_data:
+        lines.append(render_prediction_summary(claude_data.get("prediction_summary")))
+        lines.append("")
 
     # 个股
     lines.append("## 三、个股指标")
@@ -581,9 +582,10 @@ def build_email_digest(claude_data: Dict[str, Any],
             lines.append(f"  > ⚠️ 融资维滞后, 采用 {mr['latest_date']}(Tushare T+1 早晨仍未发布当日, 属数据源时效)")
     lines.append("")
 
-    # —— EOD Prediction: 昨日预测核验 ——
-    lines.append(f"## 昨日预测核验: {render_prediction_digest_line(claude_data.get('prediction_summary'))}")
-    lines.append("")
+    # —— 旧 EOD Prediction: 仅显式启用历史审计时展示 ——
+    if "prediction_summary" in claude_data:
+        lines.append(f"## 昨日预测核验: {render_prediction_digest_line(claude_data.get('prediction_summary'))}")
+        lines.append("")
 
     # —— AI 赛道: 档位 + summary 1-2 行 ——
     if track_results:

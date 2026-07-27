@@ -149,6 +149,21 @@ class TushareSource:
             logger.debug(f"缓存写入失败: {e}")
 
     @staticmethod
+    def _event_cache_key(prefix, code, periods, refresh_bucket=None):
+        """Build a transport-cache key that cannot hide a new event for weeks.
+
+        ``refresh_bucket`` is deliberately a collection-day bucket, not a
+        market ``trade_date``.  Event endpoints may publish on non-trading
+        days.  Callers can provide a deterministic bucket in replay/tests; live
+        collection defaults to the local calendar date and therefore refreshes
+        every day even when the old TTL has not expired.
+        """
+        bucket = str(refresh_bucket or datetime.now().strftime("%Y%m%d")).strip()
+        if not bucket:
+            raise ValueError("refresh_bucket is required")
+        return f"{prefix}_{code}_{periods}_{bucket}"
+
+    @staticmethod
     def code_to_ts(code):
         code = str(code).strip()
         if "." in code:
@@ -339,12 +354,12 @@ class TushareSource:
 
     # ============ 财务 (2000分) ============
 
-    def get_fina_indicator(self, code, periods=4):
+    def get_fina_indicator(self, code, periods=4, *, refresh_bucket=None, force_refresh=False):
         if self.points_level < 2000:
             return None
-        cache_key = f"fina_{code}_{periods}"
-        cached = self._cache_get(cache_key, CACHE_TTL["fina_indicator"])
-        if cached:
+        cache_key = self._event_cache_key("fina", code, periods, refresh_bucket)
+        cached = None if force_refresh else self._cache_get(cache_key, CACHE_TTL["fina_indicator"])
+        if cached is not None:
             return cached
 
         ts_code = self.code_to_ts(code)
@@ -365,12 +380,12 @@ class TushareSource:
         records = self.get_fina_indicator(code, periods=1)
         return records[0] if records else None
 
-    def get_disclosure_schedule(self, code, periods=8):
+    def get_disclosure_schedule(self, code, periods=8, *, refresh_bucket=None, force_refresh=False):
         """财报预约披露计划；只接受 Tushare 官方字段契约。"""
         if self.points_level < 2000:
             return None
-        cache_key = f"disclosure_{code}_{periods}"
-        cached = self._cache_get(cache_key, CACHE_TTL["disclosure_date"])
+        cache_key = self._event_cache_key("disclosure", code, periods, refresh_bucket)
+        cached = None if force_refresh else self._cache_get(cache_key, CACHE_TTL["disclosure_date"])
         if cached is not None:
             return cached
 
@@ -398,13 +413,13 @@ class TushareSource:
         return records
     # ============ 业绩预告/快报 (2000分) ============
 
-    def get_forecast(self, code, periods=4):
+    def get_forecast(self, code, periods=4, *, refresh_bucket=None, force_refresh=False):
         """业绩预告 — 只取最近12个月内的最新预告(避免历史污染)"""
         if self.points_level < 2000:
             return None
-        cache_key = f"forecast_{code}_{periods}"
-        cached = self._cache_get(cache_key, CACHE_TTL["forecast"])
-        if cached:
+        cache_key = self._event_cache_key("forecast", code, periods, refresh_bucket)
+        cached = None if force_refresh else self._cache_get(cache_key, CACHE_TTL["forecast"])
+        if cached is not None:
             return cached
 
         ts_code = self.code_to_ts(code)
@@ -436,12 +451,12 @@ class TushareSource:
         self._cache_set(cache_key, records)
         return records
 
-    def get_express(self, code, periods=4):
+    def get_express(self, code, periods=4, *, refresh_bucket=None, force_refresh=False):
         if self.points_level < 2000:
             return None
-        cache_key = f"express_{code}_{periods}"
-        cached = self._cache_get(cache_key, CACHE_TTL["express"])
-        if cached:
+        cache_key = self._event_cache_key("express", code, periods, refresh_bucket)
+        cached = None if force_refresh else self._cache_get(cache_key, CACHE_TTL["express"])
+        if cached is not None:
             return cached
 
         ts_code = self.code_to_ts(code)
@@ -456,12 +471,12 @@ class TushareSource:
 
     # ============ 股东户数 (2000分) ============
 
-    def get_holder_number(self, code, periods=4):
+    def get_holder_number(self, code, periods=4, *, refresh_bucket=None, force_refresh=False):
         if self.points_level < 2000:
             return None
-        cache_key = f"holder_{code}_{periods}"
-        cached = self._cache_get(cache_key, CACHE_TTL["holder_number"])
-        if cached:
+        cache_key = self._event_cache_key("holder", code, periods, refresh_bucket)
+        cached = None if force_refresh else self._cache_get(cache_key, CACHE_TTL["holder_number"])
+        if cached is not None:
             return cached
 
         ts_code = self.code_to_ts(code)

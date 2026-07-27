@@ -19,6 +19,7 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, Optional
 
 from vaxstock import config
+from vaxstock.analysis.freshness import assess_eod_freshness
 from vaxstock.report.claude_md import build_claude_markdown, compact_for_claude
 from vaxstock.report.store import store_report
 from vaxstock.services.collect import collect_payload
@@ -41,6 +42,15 @@ def run_eod() -> Dict[str, str]:
 
     logger.info("[2/7] 采集 payload + 赛道...")
     payload, tracks = collect_payload(source)
+    freshness = assess_eod_freshness(payload)
+    payload["freshness"] = freshness
+    if freshness["status"] != "ready":
+        logger.warning(
+            "EOD freshness %s: global=%s blocked_targets=%s",
+            freshness["status"],
+            freshness.get("critical_failures"),
+            freshness.get("blocked_targets"),
+        )
 
     try:
         from vaxstock.services.regime_auditor import record_regime_audit
@@ -77,7 +87,12 @@ def run_eod() -> Dict[str, str]:
         logger.warning(f"D-line closeout failed (A/B/C persistence is preserved): {str(e)[:120]}")
     # MR-Eval E4: 先核验已有 predictions,再基于本次 EOD 定稿 payload 生成下一交易日 live predictions。
     # 失败仅 warning,不影响报告三件套落盘/邮件/E1。
-    prediction_run = _run_eod_prediction(payload, source)
+    prediction_run = _run_eod_prediction(
+        payload,
+        source,
+        allow_live=freshness["forecast_eligible"],
+        eligible_codes=freshness.get("eligible_codes"),
+    )
     evidence_trade_date = str(
         ((payload or {}).get("market_overview") or {}).get("trade_date") or ""
     ).strip()
@@ -109,9 +124,13 @@ def run_eod() -> Dict[str, str]:
         )
     except Exception as e:
         logger.warning(f"Evidence convergence failed (daily action falls back to pending): {str(e)[:120]}")
-    prediction_summary = _build_prediction_summary(payload)
+    # 旧 E4/T+N 仍是 D 线观察任务的内部 baseline，暂不能删除；但其现有
+    # 样本与评估方法不足以支持用户决策，默认不再进入报告。
+    prediction_summary = {}
+    if config.SECRETS.get("legacy_prediction_report_enabled", False):
+        prediction_summary = _build_prediction_summary(payload)
 
-    logger.info("[4/7] 压缩为 claude_data + 注入 prediction_summary + 渲染 markdown...")
+    logger.info("[4/7] 压缩为 claude_data + 渲染 markdown...")
     claude_data = compact_for_claude(payload)
     if prediction_summary:
         claude_data["prediction_summary"] = prediction_summary
@@ -125,36 +144,35 @@ def run_eod() -> Dict[str, str]:
     # 报告落盘与 D-line 入队契约，不再额外发送旧 EOD 摘要，避免每日两封邮件。
     logger.info("[6/7] EOD 数据已落盘；每日操作邮件等待 D-line worker...")
 
-    # MR-Eval E2: Layer2 离线分析(分环境分桶前瞻收益/超额)。纯读 E1 两 jsonl,
-    # 失败仅 warning 不影响 EOD。Layer2 不按样本数屏蔽统计值; N 直接展示。
-    logger.info("[7/7] Layer2 / Factor review / Prediction Layer2 / Rule suggestions 离线分析...")
-    try:
-        from vaxstock.research.layer2_eval import run_layer2
-        run_layer2(write=True)
-    except Exception as e:
-        logger.warning(f"Layer2 分析跳过(不影响EOD): {str(e)[:120]}")
+    # 旧 Layer2/T+N 日报已经被实测证明不能支持“effective”结论。保留代码和
+    # 历史数据供回放，但默认停止每天重复生成；显式开关只用于审计旧 baseline。
+    if config.SECRETS.get("legacy_daily_research_enabled", False):
+        logger.info("[7/7] 旧 Layer2 / Factor review / Prediction research（审计模式）...")
+        try:
+            from vaxstock.research.layer2_eval import run_layer2
+            run_layer2(write=True)
+        except Exception as e:
+            logger.warning(f"Layer2 分析跳过(不影响EOD): {str(e)[:120]}")
 
-    # MR-Eval E3: Factor weight review 离线人工调权复盘。只读 factor_snapshots/factor_results,
-    # 只输出证据和人工 review_action,不改 scoring.py、不自动调参; 失败 warning-only。
-    try:
-        from vaxstock.research.factor_weight_review import run_factor_weight_review
-        run_factor_weight_review(write=True)
-    except Exception as e:
-        logger.warning(f"Factor weight review 分析跳过(不影响EOD): {str(e)[:120]}")
-    # MR-Eval E4-5: Prediction Layer2 离线分桶评估。只读 eod_predictions/eod_prediction_results,
-    # pending 样本只透明计数,不进入命中率/收益统计; 失败 warning-only。
-    try:
-        from vaxstock.research.prediction_eval import run_prediction_layer2
-        run_prediction_layer2(write=True)
-    except Exception as e:
-        logger.warning(f"Prediction Layer2 分析跳过(不影响EOD): {str(e)[:120]}")
+        try:
+            from vaxstock.research.factor_weight_review import run_factor_weight_review
+            run_factor_weight_review(write=True)
+        except Exception as e:
+            logger.warning(f"Factor weight review 分析跳过(不影响EOD): {str(e)[:120]}")
 
-    # MR-Eval E4-7: Rule suggestions 只输出离线建议,不改 prediction 原文/生产规则。
-    try:
-        from vaxstock.research.rule_suggester import run_rule_suggestions
-        run_rule_suggestions(write=True)
-    except Exception as e:
-        logger.warning(f"Rule suggestions 分析跳过(不影响EOD): {str(e)[:120]}")
+        try:
+            from vaxstock.research.prediction_eval import run_prediction_layer2
+            run_prediction_layer2(write=True)
+        except Exception as e:
+            logger.warning(f"Prediction Layer2 分析跳过(不影响EOD): {str(e)[:120]}")
+
+        try:
+            from vaxstock.research.rule_suggester import run_rule_suggestions
+            run_rule_suggestions(write=True)
+        except Exception as e:
+            logger.warning(f"Rule suggestions 分析跳过(不影响EOD): {str(e)[:120]}")
+    else:
+        logger.info("[7/7] 旧 T+N 研究输出已降级为历史审计模式，跳过每日重复生成")
 
     return paths
 
@@ -233,13 +251,23 @@ def _next_trade_date(source, baseline_trade_date, lookahead_days: int = 15) -> O
     return None
 
 
-def _run_eod_prediction(payload: Dict[str, Any], source) -> Optional[Dict[str, Any]]:
+def _run_eod_prediction(
+        payload: Dict[str, Any],
+        source,
+        *,
+        allow_live: bool = True,
+        eligible_codes=None,
+) -> Optional[Dict[str, Any]]:
     """E4 接入 EOD: 先核验已有 prediction, 再冻结下一交易日 live prediction。"""
     try:
         stats = evaluate_from_files()
         logger.info(f"EOD Prediction 核验: 写入 {stats['written']} 条 / 跳过 {stats['skipped']} 条")
     except Exception as e:
         logger.warning(f"EOD Prediction 核验失败(不影响EOD): {str(e)[:120]}")
+
+    if not allow_live:
+        logger.warning("EOD Prediction live: critical freshness 未通过，输出 abstain")
+        return None
 
     try:
         baseline = (payload.get("market_overview") or {}).get("trade_date")
@@ -249,7 +277,19 @@ def _run_eod_prediction(payload: Dict[str, Any], source) -> Optional[Dict[str, A
         target = _next_trade_date(source, baseline)
         if not target:
             return None
-        preds = predictions_from_payload(payload, target, generation_mode="live")
+        prediction_payload = payload
+        if eligible_codes is not None:
+            allowed = {str(code) for code in eligible_codes}
+            prediction_payload = dict(payload)
+            prediction_payload["stocks"] = [
+                stock for stock in (payload.get("stocks") or [])
+                if str((stock or {}).get("code") or "") in allowed
+            ]
+        preds = predictions_from_payload(
+            prediction_payload,
+            target,
+            generation_mode="live",
+        )
         stats = record_predictions(preds)
         logger.info(f"EOD Prediction live: target={target} 生成 {len(preds)} 条 / 写入 {stats['written']} 条 / 跳过 {stats['skipped']} 条")
         return {
@@ -279,6 +319,7 @@ def _enqueue_d_observation_job(paths: Dict[str, str], payload: Dict[str, Any],
             prediction_run["target_trade_date"],
             c_predictions=prediction_run.get("predictions") or [],
             baseline_trade_date=baseline,
+            task_codes=((payload.get("freshness") or {}).get("eligible_codes")),
         )
         logger.info(
             "D线观察任务已入队: target=%s queued=%s skipped=%s job=%s",

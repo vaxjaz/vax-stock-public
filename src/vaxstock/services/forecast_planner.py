@@ -692,6 +692,7 @@ def make_observation_job_id(baseline_trade_date: str, target_trade_date: str,
 def enqueue_observation_job(payload_path, target_trade_date: str, *,
                             c_predictions: Optional[Iterable[Dict[str, Any]]] = None,
                             baseline_trade_date: Optional[str] = None,
+                            task_codes: Optional[Iterable[str]] = None,
                             plan_version: str = DEFAULT_PLAN_VERSION,
                             job_path=None,
                             current_job_path=None) -> Dict[str, Any]:
@@ -712,6 +713,10 @@ def enqueue_observation_job(payload_path, target_trade_date: str, *,
         "payload_path": str(payload_path),
         "c_predictions": list(c_predictions or []),
     }
+    if task_codes is not None:
+        job["task_codes"] = sorted({
+            str(code).strip() for code in task_codes if str(code).strip()
+        })
     hist = Path(job_path or OBSERVATION_JOBS_FILE)
     current = Path(current_job_path or CURRENT_OBSERVATION_JOB_FILE)
     existing = {r.get("job_id") for r in _read_jsonl(hist)}
@@ -1098,6 +1103,11 @@ def run_observation_job(job: Optional[Dict[str, Any]] = None, *,
     target = str(job.get("target_trade_date") or "").strip()
     plan_version = str(job.get("plan_version") or DEFAULT_PLAN_VERSION).strip()
     task_codes = select_observation_task_codes(payload)
+    if isinstance(job.get("task_codes"), list):
+        freshness_allowed = {
+            str(code).strip() for code in job["task_codes"] if str(code).strip()
+        }
+        task_codes = [code for code in task_codes if code in freshness_allowed]
     existing_codes = _existing_task_codes(hist, baseline, target, plan_version)
     done_codes = [c for c in task_codes if c in existing_codes]
     pending_codes = [c for c in task_codes if c not in existing_codes]
