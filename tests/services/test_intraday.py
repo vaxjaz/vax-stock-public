@@ -459,6 +459,22 @@ def test_load_rules_missing_file_disables_legacy_defaults():
             intra.WATCH_RULES_FILE = saved
 
 
+def test_load_rules_filters_non_holdings():
+    saved = intra.WATCH_RULES_FILE
+    with tempfile.TemporaryDirectory(prefix="vax_intra_rules_") as d:
+        p = pathlib.Path(d) / "watch_rules.json"
+        p.write_text(json.dumps([
+            {"code": "002475", "name": "held", "type": "price_below", "level": 10, "note": "held"},
+            {"code": "600900", "name": "sold", "type": "price_below", "level": 10, "note": "sold"},
+        ]), encoding="utf-8")
+        try:
+            intra.WATCH_RULES_FILE = str(p)
+            rows = intra.load_rules({"002475"})
+            assert [row["code"] for row in rows] == ["002475"]
+        finally:
+            intra.WATCH_RULES_FILE = saved
+
+
 def test_load_dline_tasks_filters_target_and_requires_blueprints():
     saved = intra.DLINE_TASKS_FILE
     with tempfile.TemporaryDirectory(prefix="vax_dline_tasks_") as d:
@@ -470,8 +486,24 @@ def test_load_dline_tasks_filters_target_and_requires_blueprints():
         ]}, ensure_ascii=False), encoding="utf-8")
         try:
             intra.DLINE_TASKS_FILE = str(p)
-            rows = intra.load_dline_tasks("20260706")
+            rows = intra.load_dline_tasks("20260706", {"002475"})
             assert [r["code"] for r in rows] == ["002475"]
+        finally:
+            intra.DLINE_TASKS_FILE = saved
+
+
+def test_load_dline_tasks_filters_stale_non_holding_task():
+    saved = intra.DLINE_TASKS_FILE
+    with tempfile.TemporaryDirectory(prefix="vax_dline_tasks_") as d:
+        p = pathlib.Path(d) / "current_tasks.json"
+        held = _sample_dline_task("20260706")
+        sold = _sample_dline_task("20260706")
+        sold["code"] = "600900"
+        p.write_text(json.dumps({"tasks": [held, sold]}), encoding="utf-8")
+        try:
+            intra.DLINE_TASKS_FILE = str(p)
+            rows = intra.load_dline_tasks("20260706", {"002475"})
+            assert [row["code"] for row in rows] == ["002475"]
         finally:
             intra.DLINE_TASKS_FILE = saved
 

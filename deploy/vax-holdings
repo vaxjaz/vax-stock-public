@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+REPO_ROOT="${VAXSTOCK_ROOT:-/opt/stock-reportv2/vax-stock-public}"
+PYTHON_BIN="${VAXSTOCK_PYTHON:-/opt/stock-reportv2/venv/bin/python}"
+ENV_FILE="${VAXSTOCK_ENV_FILE:-/etc/vaxstock/vaxstock.env}"
+
+cd "$REPO_ROOT"
+
+if [[ -f "$ENV_FILE" ]]; then
+  set -a
+  # shellcheck disable=SC1090
+  . "$ENV_FILE"
+  set +a
+fi
+
+PYTHONPATH="$REPO_ROOT/src" "$PYTHON_BIN" \
+  -m vaxstock.services.holdings_admin "$@"
+
+for arg in "$@"; do
+  if [[ "$arg" == "--dry-run" ]]; then
+    exit 0
+  fi
+done
+
+systemctl restart intraday-watch.service
+systemctl is-active --quiet intraday-watch.service
+echo "holdings updated; intraday-watch.service=active"

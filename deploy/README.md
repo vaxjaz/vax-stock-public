@@ -76,6 +76,29 @@ PYTHONPATH=src python -m vaxstock.services.execution_confirmation --input script
 
 The first command performs no writes. The second appends the confirmation event, reconciles it against `close_review_<trade_date>.json`, and atomically refreshes private `holdings_state.json`, `portfolio_state.json`, and `execution_review_*`. The tracked `holdings.json` remains the initial baseline. Re-running the identical confirmation is idempotent; a reused confirmation or execution id with different data is rejected.
 
+## Quick complete holdings snapshot
+
+For a broker holdings screenshot that confirms the complete current position
+set but does not provide execution details, update the VPS-private
+`holdings_state.json` directly. Position data never passes through Git:
+
+```bash
+bash deploy/vax-holdings --as-of YYYYMMDD \
+  601138:1200:70.481 \
+  002475:400:68.421
+```
+
+Each item is `CODE:SHARES:COST[:NAME]`. The command treats all items as one
+complete snapshot, so an existing code omitted from the command is removed.
+Known names/concepts and real entry history are preserved; a changed position
+marks the old entry-history reconciliation stale instead of pretending it still
+matches. The old private state is backed up under
+`/var/backups/vaxstock/holdings`, the replacement is atomic, and the intraday
+watcher is restarted only after a successful update. Use `--dry-run` to validate
+without writing or restarting. Intraday consumption independently intersects
+legacy rules and D-line tasks with current private holdings, so stale task files
+cannot alert on sold stocks.
+
 ## D-line closeout retry
 
 The next EOD runs `services.dline_closeout` after B-line backfill. Its replaceable operational status is `var/forecast/current_closeout_status.json`. `partial_data` names real missing evidence and `failed` names the failed stage; neither status fabricates intraday facts. Repeated retries are serialized and idempotent. User executions are never inputs.

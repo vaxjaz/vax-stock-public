@@ -110,13 +110,15 @@ def _smtp_conf() -> Optional[dict]:
 
 # ==================== 规则加载 ====================
 
-def load_rules():
+def load_rules(holding_codes=None):
     """Load optional legacy watch rules.
 
     Missing or invalid watch_rules.json returns an empty list.  D-line tasks are
     loaded separately from current_tasks.json; legacy rules must never fall back
-    to hard-coded buy/sell instructions.
+    to hard-coded buy/sell instructions.  Production consumption is holdings
+    only even if a stale file still contains rules for a sold stock.
     """
+    allowed_codes = set(config.load_holdings()) if holding_codes is None else set(holding_codes)
     try:
         with open(WATCH_RULES_FILE, encoding="utf-8") as f:
             rules = json.load(f)
@@ -138,6 +140,9 @@ def load_rules():
             continue
         if r["type"] not in _VALID_TYPES:
             logger.warning("legacy rule[%s] invalid type=%s, skipped", i, r.get("type"))
+            continue
+        if str(r.get("code") or "") not in allowed_codes:
+            logger.info("legacy rule[%s] is not a current holding, skipped: %s", i, r.get("code"))
             continue
         clean.append(r)
     if clean:
@@ -344,13 +349,15 @@ def _short(v, limit=160):
     return s[:limit].rstrip() + "..."
 
 
-def load_dline_tasks(target_trade_date: Optional[str] = None) -> List[Dict[str, Any]]:
+def load_dline_tasks(target_trade_date: Optional[str] = None, holding_codes=None) -> List[Dict[str, Any]]:
     """Load today's D-line observation tasks from current_tasks.json.
 
     Missing file means no D-line alerts.  It must never fall back to legacy
-    hard-coded watch rules.
+    hard-coded watch rules.  A stale task snapshot is intersected with the
+    current private holdings at consumption time.
     """
     target = str(target_trade_date or _today_trade_date()).strip()
+    allowed_codes = set(config.load_holdings()) if holding_codes is None else set(holding_codes)
     try:
         with open(DLINE_TASKS_FILE, encoding="utf-8") as f:
             raw = json.load(f)
@@ -369,6 +376,8 @@ def load_dline_tasks(target_trade_date: Optional[str] = None) -> List[Dict[str, 
     tasks = []
     for row in rows:
         if not isinstance(row, dict):
+            continue
+        if str(row.get("code") or "") not in allowed_codes:
             continue
         if str(row.get("target_trade_date") or "").strip() != target:
             continue
@@ -809,8 +818,9 @@ def _run_close_review(dline_tasks: List[Dict[str, Any]]) -> Dict[str, Any]:
 # ==================== 主循环 ====================
 
 def run(once=False, force=False):
-    rules = load_rules()
-    dline_tasks = load_dline_tasks()
+    holding_codes = set(config.load_holdings())
+    rules = load_rules(holding_codes)
+    dline_tasks = load_dline_tasks(holding_codes=holding_codes)
     restore_active_evolutions(dline_tasks)
     fired_keys, today_fire_count = _existing_dline_runtime_state(dline_tasks)
     fire_count_day = None
@@ -870,11 +880,12 @@ def run(once=False, force=False):
             time.sleep(POLL_SECONDS)
             continue
 
-        new_rules = load_rules()
+        holding_codes = set(config.load_holdings())
+        new_rules = load_rules(holding_codes)
         for r in new_rules:
             r["fired"] = _rule_key(r) in fired_keys
         rules = new_rules
-        loaded_dline_tasks = load_dline_tasks()
+        loaded_dline_tasks = load_dline_tasks(holding_codes=holding_codes)
         previous_task_ids = {str(task.get("task_id") or "") for task in dline_tasks}
         loaded_task_ids = {str(task.get("task_id") or "") for task in loaded_dline_tasks}
         dline_tasks = loaded_dline_tasks
