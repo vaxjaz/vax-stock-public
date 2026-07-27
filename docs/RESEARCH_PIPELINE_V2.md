@@ -1,6 +1,6 @@
 # Research Pipeline V2 — 决策与统计契约
 
-状态：MR1 契约冻结。本文描述稳定边界，不宣称尚未施工的模型已经可用。
+状态：MR2 数据存储与回放已实现。本文描述稳定边界，不宣称尚未施工的模型已经可用。
 
 ## 1. 目标函数
 
@@ -71,3 +71,37 @@ Action_t = decide(Y_t, portfolio_t, risk_constraints_t)
 7. MR9：shadow run；通过预先冻结的 OOS 门槛后才允许影响生产动作。
 
 所有阶段保留原始数据和旧 baseline，版本前滚不覆盖历史。没有 OOS 证据的结果只能标为 candidate，不得写成 effective。
+
+## 7. MR2 已实现：存储、版本身份与历史回放
+
+MR2 不替换现有 `var/eval/factor_snapshots.jsonl` 和
+`factor_results.jsonl`。这两个文件继续服务当前报告、D 线和旧评估读取方；
+Research v2 作为并行数据层积累，尚不直接改变交易动作。
+
+| 路径 | 内容 | 不变量 |
+|---|---|---|
+| `var/research/observations.jsonl` | 原子来源事实；旧宽表迁移时保留为可追溯的原始 snapshot bundle | append-only；同 observation identity 改值必须换 revision |
+| `var/research/factor_values/YYYYMMDD.jsonl` | 按交易日分区的长表因子 | append-only；`factor_id + factor_version + input_digest` 冻结身份 |
+| `var/research/run_manifests.jsonl` | live/replay/backtest 的输入及算法版本身份 | 最后写入，作为一次 run 完成标记 |
+
+写入顺序固定为 observations → factors → manifest。重试会补齐中断前已经写入
+的前两层，manifest 只在全部校验通过后追加。同一身份、同一版本若出现不同值，
+系统报冲突，不允许静默覆盖。新增历史因子必须使用新的 `factor_version`，旧值保留。
+
+旧快照的迁移只保留现有字段和值，不推断 A/B/C/D 或未来 E/F/G 的经济含义。
+旧 `snapshot_ts` 是系统捕获时刻，不是供应商原始发布时间；无时区的历史时间按本
+项目交易时区 `Asia/Shanghai` 解释，并在 manifest 中显式记录该迁移规则。
+
+全量历史回放命令：
+
+```bash
+PYTHONPATH=src python -m vaxstock.research.legacy_snapshot_replay
+```
+
+可用 `--from-date YYYYMMDD --to-date YYYYMMDD` 限定范围，或用
+`--output-dir` 写入隔离目录验证。回放不修改 legacy 文件；同输入重复执行结果为
+`already_complete`。EOD live 流程在旧 B 线写完后同步追加当天 Research v2 run。
+
+当前能力边界：MR2 已解决“数据能否按时点、版本、输入重放”的问题；尚未声明任何
+因子 effective，也尚未执行 `group/select/forecast`。这些字段在 ingestion manifest
+中明确写为 `not_executed`，防止把数据施工误报成策略有效性。

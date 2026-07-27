@@ -17,6 +17,7 @@ from typing import Any, Dict, List, Literal, Mapping, Optional, TypedDict
 
 
 OBSERVATION_SCHEMA_VERSION = 1
+FACTOR_VALUE_SCHEMA_VERSION = 1
 FORECAST_SCHEMA_VERSION = 1
 RUN_MANIFEST_SCHEMA_VERSION = 1
 
@@ -26,6 +27,7 @@ class ContractError(ValueError):
 
 
 ObservationQuality = Literal["observed", "revised", "stale", "missing"]
+FactorQuality = Literal["calculated", "stale", "missing"]
 ForecastStatus = Literal["available", "abstain"]
 
 
@@ -38,6 +40,7 @@ class AtomicObservation(TypedDict):
     """
 
     schema_version: int
+    observation_id: str
     entity_type: str
     entity_id: str
     dimension: str
@@ -50,6 +53,26 @@ class AtomicObservation(TypedDict):
     source_ref: str
     revision_id: str
     quality: ObservationQuality
+
+
+class FactorValue(TypedDict):
+    """One immutable factor value calculated from point-in-time observations."""
+
+    schema_version: int
+    factor_value_id: str
+    entity_type: str
+    entity_id: str
+    dimension: str
+    factor_id: str
+    factor_version: str
+    value: Any
+    as_of_trade_date: str
+    effective_date: str
+    available_at: str
+    calculated_at: str
+    input_observation_ids: List[str]
+    input_digest: str
+    quality: FactorQuality
 
 
 class ForecastOutput(TypedDict):
@@ -108,6 +131,55 @@ def canonical_digest(value: Any) -> str:
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
+def make_observation_id(record: Mapping[str, Any]) -> str:
+    """Build the immutable identity of one source fact revision."""
+
+    identity = {
+        "entity_type": record.get("entity_type"),
+        "entity_id": record.get("entity_id"),
+        "dimension": record.get("dimension"),
+        "field": record.get("field"),
+        "effective_date": record.get("effective_date"),
+        "available_at": record.get("available_at"),
+        "source": record.get("source"),
+        "source_ref": record.get("source_ref"),
+        "revision_id": record.get("revision_id"),
+    }
+    return f"obs_{canonical_digest(identity)}"
+
+
+def make_factor_value_id(record: Mapping[str, Any]) -> str:
+    """Build the identity of one factor version on one frozen input set."""
+
+    identity = {
+        "entity_type": record.get("entity_type"),
+        "entity_id": record.get("entity_id"),
+        "dimension": record.get("dimension"),
+        "factor_id": record.get("factor_id"),
+        "factor_version": record.get("factor_version"),
+        "as_of_trade_date": record.get("as_of_trade_date"),
+        "available_at": record.get("available_at"),
+        "input_digest": record.get("input_digest"),
+    }
+    return f"factor_{canonical_digest(identity)}"
+
+
+def make_run_id(record: Mapping[str, Any]) -> str:
+    """Build a deterministic run identity independent of wall-clock retries."""
+
+    identity = {
+        "mode": record.get("mode"),
+        "as_of_trade_date": record.get("as_of_trade_date"),
+        "universe_id": record.get("universe_id"),
+        "feature_set_version": record.get("feature_set_version"),
+        "group_version": record.get("group_version"),
+        "select_version": record.get("select_version"),
+        "forecast_version": record.get("forecast_version"),
+        "input_digest": record.get("input_digest"),
+    }
+    return f"run_{canonical_digest(identity)}"
+
+
 def _require_text(record: Mapping[str, Any], field: str) -> str:
     value = str(record.get(field) or "").strip()
     if not value:
@@ -141,6 +213,7 @@ def validate_atomic_observation(record: Mapping[str, Any]) -> None:
     if record.get("schema_version") != OBSERVATION_SCHEMA_VERSION:
         raise ContractError("unsupported observation schema_version")
     for field in (
+        "observation_id",
         "entity_type",
         "entity_id",
         "dimension",
@@ -162,6 +235,78 @@ def validate_atomic_observation(record: Mapping[str, Any]) -> None:
         raise ContractError("quality must be observed/revised/stale/missing")
     if quality == "missing" and record.get("value") is not None:
         raise ContractError("missing observations must have value=None")
+    if record.get("observation_id") != make_observation_id(record):
+        raise ContractError("observation_id does not match immutable identity")
+    canonical_digest(record.get("value"))
+
+
+def validate_factor_value(record: Mapping[str, Any]) -> None:
+    """Validate factor identity, version, inputs, and point-in-time boundary."""
+
+    if record.get("schema_version") != FACTOR_VALUE_SCHEMA_VERSION:
+        raise ContractError("unsupported factor schema_version")
+    for field in (
+        "factor_value_id",
+        "entity_type",
+        "entity_id",
+        "dimension",
+        "factor_id",
+        "factor_version",
+        "effective_date",
+        "input_digest",
+    ):
+        _require_text(record, field)
+    _parse_trade_date(record.get("as_of_trade_date"), "as_of_trade_date")
+    available_at = _parse_aware_timestamp(record.get("available_at"), "available_at")
+    calculated_at = _parse_aware_timestamp(record.get("calculated_at"), "calculated_at")
+    if calculated_at < available_at:
+        raise ContractError("calculated_at cannot precede available_at")
+
+    input_ids = record.get("input_observation_ids")
+    if not isinstance(input_ids, list) or not input_ids:
+        raise ContractError("input_observation_ids must be a non-empty list")
+    if any(not isinstance(value, str) or not value.strip() for value in input_ids):
+        raise ContractError("input_observation_ids must contain non-empty strings")
+    expected_input_digest = canonical_digest(sorted(input_ids))
+    if record.get("input_digest") != expected_input_digest:
+        raise ContractError("input_digest does not match input_observation_ids")
+
+    quality = record.get("quality")
+    if quality not in {"calculated", "stale", "missing"}:
+        raise ContractError("factor quality must be calculated/stale/missing")
+    if quality == "missing" and record.get("value") is not None:
+        raise ContractError("missing factor values must have value=None")
+    if quality != "missing" and record.get("value") is None:
+        raise ContractError("non-missing factor values require a value")
+    canonical_digest(record.get("value"))
+    if record.get("factor_value_id") != make_factor_value_id(record):
+        raise ContractError("factor_value_id does not match immutable identity")
+
+
+def validate_run_manifest(record: Mapping[str, Any]) -> None:
+    """Validate deterministic identity and frozen algorithm/input versions."""
+
+    if record.get("schema_version") != RUN_MANIFEST_SCHEMA_VERSION:
+        raise ContractError("unsupported run manifest schema_version")
+    if record.get("mode") not in {"live", "replay", "backtest"}:
+        raise ContractError("mode must be live/replay/backtest")
+    _parse_trade_date(record.get("as_of_trade_date"), "as_of_trade_date")
+    for field in (
+        "run_id",
+        "universe_id",
+        "feature_set_version",
+        "group_version",
+        "select_version",
+        "forecast_version",
+        "input_digest",
+    ):
+        _require_text(record, field)
+    _parse_aware_timestamp(record.get("generated_at"), "generated_at")
+    notes = record.get("notes")
+    if not isinstance(notes, list) or any(not isinstance(note, str) for note in notes):
+        raise ContractError("notes must be a list of strings")
+    if record.get("run_id") != make_run_id(record):
+        raise ContractError("run_id does not match immutable identity")
 
 
 def assert_available_as_of(record: Mapping[str, Any], as_of: str) -> None:
@@ -172,6 +317,17 @@ def assert_available_as_of(record: Mapping[str, Any], as_of: str) -> None:
     decision_at = _parse_aware_timestamp(as_of, "as_of")
     if available_at > decision_at:
         raise ContractError("look-ahead detected: available_at is after as_of")
+
+
+def assert_factor_available_as_of(record: Mapping[str, Any], as_of: str) -> None:
+    """Reject a factor that had not been calculated and available by ``as_of``."""
+
+    validate_factor_value(record)
+    available_at = _parse_aware_timestamp(record.get("available_at"), "available_at")
+    calculated_at = _parse_aware_timestamp(record.get("calculated_at"), "calculated_at")
+    decision_at = _parse_aware_timestamp(as_of, "as_of")
+    if available_at > decision_at or calculated_at > decision_at:
+        raise ContractError("look-ahead detected: factor is after as_of")
 
 
 def validate_forecast_output(record: Mapping[str, Any]) -> None:

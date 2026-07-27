@@ -20,13 +20,14 @@ from typing import Any, Dict, Optional
 
 from vaxstock import config
 from vaxstock.analysis.freshness import assess_eod_freshness
+from vaxstock.research.legacy_snapshot_replay import record_legacy_snapshot_trade_date
 from vaxstock.report.claude_md import build_claude_markdown, compact_for_claude
 from vaxstock.report.store import store_report
 from vaxstock.services.collect import collect_payload
 from vaxstock.services.dline_closeout import run_dline_closeout
 from vaxstock.services.evidence_convergence import run_evidence_convergence
 from vaxstock.services.evidence_ledger import run_evidence_ledger
-from vaxstock.services.eval_recorder import record_and_backfill
+from vaxstock.services.eval_recorder import SNAPSHOTS_FILE, record_and_backfill
 from vaxstock.services.eod_predictor import predictions_from_payload, record_predictions
 from vaxstock.services.forecast_planner import enqueue_observation_job
 from vaxstock.services.prediction_evaluator import evaluate_from_files
@@ -66,6 +67,29 @@ def run_eod() -> Dict[str, str]:
         logger.info(f"MR-Eval: 快照 {stats['snapshots']} 条 / 回填 {stats['backfilled']} 条")
     except Exception as e:
         logger.warning(f"MR-Eval 快照/回填失败(不影响落盘): {str(e)[:120]}")
+
+    # Research v2 is a parallel normalized store. The legacy B-line remains
+    # authoritative for current readers while this store accumulates history.
+    try:
+        research_trade_date = str(
+            ((payload or {}).get("market_overview") or {}).get("trade_date") or ""
+        ).strip()
+        if not research_trade_date:
+            raise ValueError("payload.market_overview.trade_date missing")
+        research_v2 = record_legacy_snapshot_trade_date(
+            research_trade_date,
+            mode="live",
+            snapshots_path=SNAPSHOTS_FILE,
+        )
+        logger.info(
+            "Research v2: status=%s observations=%s factors=%s manifest=%s",
+            research_v2.get("status"),
+            research_v2.get("observations_written"),
+            research_v2.get("factors_written"),
+            research_v2.get("manifests_written"),
+        )
+    except Exception as e:
+        logger.warning(f"Research v2 snapshot persistence failed: {str(e)[:120]}")
 
     # D-line closeout is market-data-only and never reads user executions.
     try:

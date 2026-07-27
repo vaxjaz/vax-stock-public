@@ -45,7 +45,8 @@ _PATHS = {"payload": "/r/2026-06-25/payload.json",
 
 _SEAMS = ["TushareSource", "collect_payload", "compact_for_claude",
           "build_claude_markdown", "store_report",
-          "record_and_backfill", "run_dline_closeout", "run_evidence_ledger",
+          "record_and_backfill", "record_legacy_snapshot_trade_date",
+          "run_dline_closeout", "run_evidence_ledger",
           "run_evidence_convergence", "evaluate_from_files", "predictions_from_payload",
           "record_predictions", "enqueue_observation_job",
           "_next_trade_date"]
@@ -138,6 +139,17 @@ def _install_spies(secrets=None, payload=None, next_trade_date="20260626"):
         rec["eval_call"] = {"payload": payload, "source": source}
         return {"snapshots": 0, "backfilled": 0}
     eod_mod.record_and_backfill = _eval
+
+    def _research_v2(trade_date, **kwargs):
+        rec["order"].append("research_v2")
+        rec["research_v2_call"] = {"trade_date": trade_date, **kwargs}
+        return {
+            "status": "written",
+            "observations_written": 1,
+            "factors_written": 1,
+            "manifests_written": 1,
+        }
+    eod_mod.record_legacy_snapshot_trade_date = _research_v2
 
     def _dline_closeout(*, trade_date, **kwargs):
         rec["order"].append("d_closeout")
@@ -271,6 +283,11 @@ def test_eod_orchestration_and_passthrough():
         # MR-Eval: record_and_backfill 收到 payload + 同一 source(快照地基接入)
         assert rec["eval_call"]["payload"] is _PAYLOAD
         assert rec["eval_call"]["source"]["_stub"] is True
+        assert rec["research_v2_call"] == {
+            "trade_date": "20260625",
+            "mode": "live",
+            "snapshots_path": eod_mod.SNAPSHOTS_FILE,
+        }
         assert rec["regime_audit_call"] is _PAYLOAD
         assert rec["dline_closeout_call"] == {"trade_date": "20260625"}
         # E4: E1 后先核验旧 predictions,再生成下一交易日 live predictions
@@ -289,7 +306,7 @@ def test_eod_orchestration_and_passthrough():
                                          "baseline_trade_date": "20260625",
                                          "task_codes": ["601138"]}
         assert rec["order"] == [
-            "regime_audit", "e1", "d_closeout", "pred_eval", "next_trade",
+            "regime_audit", "e1", "research_v2", "d_closeout", "pred_eval", "next_trade",
             "pred_live", "pred_record", "evidence", "convergence", "store",
             "d_enqueue",
         ]
@@ -297,6 +314,22 @@ def test_eod_orchestration_and_passthrough():
         assert rec.get("factor_weight_review_called") is None
         assert rec.get("prediction_layer2_called") is None
         assert rec.get("rule_suggestions_called") is None
+    finally:
+        restore()
+
+
+def test_research_v2_failure_is_visible_but_does_not_block_eod():
+    rec, restore = _install_spies(secrets={"email_enabled": False})
+    try:
+        def _fail(*args, **kwargs):
+            rec["order"].append("research_v2_failed")
+            raise RuntimeError("store conflict")
+
+        eod_mod.record_legacy_snapshot_trade_date = _fail
+        assert eod_mod.run_eod() == _PATHS
+        assert "research_v2_failed" in rec["order"]
+        assert "d_closeout" in rec["order"]
+        assert "store" in rec["order"]
     finally:
         restore()
 

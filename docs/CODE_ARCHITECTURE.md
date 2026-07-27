@@ -25,7 +25,7 @@ config
   -> research
 ```
 
-实际代码中 `services` 是运行入口和编排层, 会组合 `sources/indicators/analysis/report/research`。`research` 是离线只读分析层, 原则上读取已落盘 JSONL/报告, 不反向修改生产规则。
+实际代码中 `services` 是运行入口和编排层, 会组合 `sources/indicators/analysis/report/research`。`research` 包含显式调用的 point-in-time 存储/回放和离线评估；它不触网、不在 import 时写盘，也不反向修改生产规则。
 
 ```mermaid
 flowchart TD
@@ -53,7 +53,7 @@ flowchart TD
 | `vaxstock.tracks` | 赛道纵切, 当前有 AI 赛道 | `tracks.contract` 是叶子契约, `tracks.__init__` 不 re-export 重依赖实现 |
 | `vaxstock.report` | 报告压缩、Markdown、邮件、落盘、推送 | `store_report` 是报告三件套落盘 SSOT, 不取数 |
 | `vaxstock.services` | 运行入口和状态写入编排 | EOD/API/盘中/预测/核验/池管理都在这里 |
-| `vaxstock.research` | 离线只读评估报告 | 只读 JSONL/报告, 输出可重生成报告, 不自动调参 |
+| `vaxstock.research` | point-in-time 契约/存储/回放与离线评估 | 存储写入必须显式调用；评估不自动调参，不反向覆盖历史 |
 
 ## 主要入口
 
@@ -75,6 +75,7 @@ sequenceDiagram
   participant TS as sources.tushare_src
   participant Collect as services.collect
   participant Eval as services.eval_recorder
+  participant PIT as research.point_in_time_store
   participant Pred as eod_predictor/evaluator
   participant Report as report.*
   participant Research as research.*
@@ -84,6 +85,7 @@ sequenceDiagram
   Collect->>TS: 指数/全市场/个股/北向/macro
   Collect-->>EOD: payload, track_results
   EOD->>Eval: record_and_backfill(payload, source)
+  EOD->>PIT: record_legacy_snapshot_trade_date(trade_date, live)
   EOD->>Pred: evaluate_from_files()
   EOD->>Pred: predictions_from_payload(payload, next_trade_date)
   EOD->>Report: compact_for_claude/build_claude_markdown
@@ -97,6 +99,7 @@ sequenceDiagram
 - `TushareSource` 在 `run_eod` 内显式初始化。
 - 报告交易日以 `payload["market_overview"]["trade_date"]` 为准, 不是机器自然日。
 - `record_and_backfill` 先回填历史结果, 再记录当日快照。
+- legacy 快照写完后并行规范化到 Research v2；旧 B 线继续供现有读取方使用。
 - EOD Prediction 先核验旧预测, 再用本次 EOD 定稿 payload 生成下一交易日 live prediction。
 - 离线研究报告失败只 warning, 不阻断 EOD 报告三件套落盘。
 
@@ -186,6 +189,7 @@ flowchart TD
 | `report.store.store_report` | `var/reports/<YYYY-MM-DD>/payload.json` / `claude.json` / `claude.md` | 同交易日可覆盖, 报告产物 |
 | `services.eval_recorder.record_snapshots` | `var/eval/factor_snapshots.jsonl` | append-only, 同 `(trade_date, code)` 幂等跳过 |
 | `services.eval_recorder.backfill` | `var/eval/factor_results.jsonl` | append-only, 默认机械记录连续日 horizon, 同 key 多行按 horizon 合并读取 |
+| `research.point_in_time_store` | `var/research/observations.jsonl` + `factor_values/YYYYMMDD.jsonl` + `run_manifests.jsonl` | append-only；版本冲突报错；manifest 最后提交 |
 | `services.regime_auditor.record_regime_audit` | `var/eval/regime_audit.jsonl` + md | JSONL 幂等, md 可重生成 |
 | `services.eod_predictor.record_predictions` | `var/prediction/eod_predictions.jsonl` | append-only, `prediction_id` 幂等 |
 | `services.prediction_evaluator.record_prediction_results` | `var/prediction/eod_prediction_results.jsonl` | append-only, `(prediction_id, horizon)` 幂等 |
@@ -201,6 +205,7 @@ flowchart TD
 | `research.factor_weight_review` | `factor_snapshots.jsonl` + merged `factor_results.jsonl` | `var/eval/factor_weight_review_<trade_date>.md` |
 | `research.prediction_eval` | `eod_predictions.jsonl` + `eod_prediction_results.jsonl` | `var/prediction/prediction_layer2_report_<trade_date>.md` |
 | `research.rule_suggester` | Prediction join 后结果 | `var/prediction/rule_suggestions_<trade_date>.md` |
+| `research.legacy_snapshot_replay` | legacy `factor_snapshots.jsonl` | 幂等迁移/回放到 Research v2，不修改源文件 |
 
 研究层原则:
 

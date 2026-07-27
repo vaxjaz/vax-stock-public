@@ -600,3 +600,28 @@ turnover_history.parquet
 - 财报事实来自 `tushare.fina_indicator`，仅展示真实返回字段。
 - 预计披露日来自 `tushare.disclosure_date.pre_date`；同时保留 `end_date/actual_date/modify_date` 供审计。预约日可能修订，邮件必须明确标注；接口缺失或字段契约不完整时显示“待公布”。
 - `var/strategy/daily_action_latest.json` 是私有派生计划，供盘中邮件读取同一份“今日策略”；与 Markdown 一样 gitignore，不进入 A-D 事实样本。
+
+## Research v2 point-in-time 数据层
+
+Research v2 与现有 Eval B 线并行，当前读取方仍使用 legacy 文件。新层的落盘为：
+
+```text
+var/research/
+├── observations.jsonl
+├── factor_values/
+│   └── YYYYMMDD.jsonl
+└── run_manifests.jsonl
+```
+
+- `observations.jsonl` 保存带 `effective_date / available_at / retrieved_at /
+  source_ref / revision_id` 的来源事实。旧快照无法还原供应商原始行，因此迁移时将
+  market、membership、price、metrics 各自保留为 source bundle，不伪装成更细的原始事实。
+- `factor_values/YYYYMMDD.jsonl` 是按 `as_of_trade_date` 分区的因子长表。
+  每行绑定 `factor_version` 和 `input_observation_ids/input_digest`；缺失值显式写
+  `quality=missing,value=null`，禁止补中性值。
+- `run_manifests.jsonl` 冻结 mode、universe、feature/group/select/forecast
+  版本和 input digest。manifest 最后写入；存在 manifest 才表示该 run 完成。
+- observation/factor/run 三类 ID 均由规范化身份字段计算。相同身份值变化会报错；
+  合法修订必须换 `revision_id`，算法变更必须换 `factor_version`。
+- `factor_values_as_of` 只返回 `available_at <= decision_at` 的记录，历史 replay
+  与未来 group/select/forecast 共用同一时点边界。
