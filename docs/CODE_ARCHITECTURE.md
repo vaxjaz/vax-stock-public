@@ -60,6 +60,7 @@ flowchart TD
 | 入口 | 命令/服务 | 作用 |
 |---|---|---|
 | EOD 全流程 | `python -m vaxstock.services.eod` / `vaxstock-eod.service` + timer | 盘后/次日 05:00 生成 EOD 报告、Eval、Prediction、离线评估 |
+| 盘前预期刷新 | `python -m vaxstock.services.expectation_refresh` / `vaxstock-preopen.service` + timer | 08:35 采集完整 90 日卖方窗口、业绩预告和前收价格，追加 E 维 point-in-time 事实与候选因子 |
 | FastAPI | `python -m vaxstock.services.api` / `stock-api.service` | `/health`、`/quote`、`/market`、`/analyze/{code}`、watch/pool 管理 |
 | 盘中盯盘 | `python -m vaxstock.services.intraday` / `intraday-watch.service` | 轮询规则, 触发 lite 快照 + T-1 基准 + Codex 研判 + forecast 冻结 |
 | 观察池 CLI | `python manage.py ...` | SSH 本地维护 watchlist/focus/concepts, 复用 `services.pool_admin` |
@@ -190,6 +191,8 @@ flowchart TD
 | `services.eval_recorder.record_snapshots` | `var/eval/factor_snapshots.jsonl` | append-only, 同 `(trade_date, code)` 幂等跳过 |
 | `services.eval_recorder.backfill` | `var/eval/factor_results.jsonl` | append-only, 默认机械记录连续日 horizon, 同 key 多行按 horizon 合并读取 |
 | `research.point_in_time_store` | `var/research/observations.jsonl` + `factor_values/YYYYMMDD.jsonl` + `run_manifests.jsonl` | append-only；版本冲突报错；manifest 最后提交 |
+| `research.expectation_dimension` | `report_rc` / `forecast` / `daily_basic` 的已验证结果 | 纯函数生成 E 维原始事实和候选因子；不执行 group/select/forecast，不改生产动作 |
+| `services.expectation_refresh` | 全持仓 + 全观察池 | `trade_cal` 锚定交易日；09:25 截止；显式调用后才触网和落盘 |
 | `services.regime_auditor.record_regime_audit` | `var/eval/regime_audit.jsonl` + md | JSONL 幂等, md 可重生成 |
 | `services.eod_predictor.record_predictions` | `var/prediction/eod_predictions.jsonl` | append-only, `prediction_id` 幂等 |
 | `services.prediction_evaluator.record_prediction_results` | `var/prediction/eod_prediction_results.jsonl` | append-only, `(prediction_id, horizon)` 幂等 |

@@ -33,6 +33,29 @@ def test_blocking_status_entries_refuses_code_changes():
     ]
 
 
+def test_eod_and_preopen_allow_normalized_research_outputs():
+    entries = ga.parse_status_porcelain(
+        " M var/research/observations.jsonl\n"
+        "?? var/research/factor_values/20260728.jsonl\n"
+        " M var/research/run_manifests.jsonl\n"
+    )
+
+    assert ga.blocking_status_entries(entries, ga.STAGE_PATHS["eod"]) == []
+    assert ga.blocking_status_entries(entries, ga.STAGE_PATHS["preopen"]) == []
+
+
+def test_preopen_trade_date_comes_from_expectation_manifest(tmp_path):
+    target = tmp_path / "var" / "research"
+    target.mkdir(parents=True)
+    (target / "run_manifests.jsonl").write_text(
+        '{"stage":"legacy_replay","as_of_trade_date":"20260727"}\n'
+        '{"stage":"expectation_refresh","as_of_trade_date":"20260728"}\n',
+        encoding="utf-8",
+    )
+
+    assert ga._infer_trade_date(tmp_path, "preopen") == "20260728"
+
+
 def test_dline_stage_allows_current_markdown_and_task_history():
     entries = ga.parse_status_porcelain(
         " M var/forecast/current_tasks.json\n"

@@ -23,6 +23,7 @@ _SERVICES = {
     "stock-api.service": "vaxstock.services.api",
     "intraday-watch.service": "vaxstock.services.intraday",
     "vaxstock-eod.service": "vaxstock.services.eod",
+    "vaxstock-preopen.service": "vaxstock.services.expectation_refresh",
     "vaxstock-dline-plan.service": "vaxstock.services.dline_plan",
 }
 
@@ -36,7 +37,11 @@ def _parse(name):
 
 
 def test_all_units_present():
-    for name in list(_SERVICES) + ["vaxstock-eod.timer", "README.md"]:
+    for name in list(_SERVICES) + [
+        "vaxstock-eod.timer",
+        "vaxstock-preopen.timer",
+        "README.md",
+    ]:
         assert (_DEPLOY / name).is_file(), f"deploy/{name} 缺失"
 
 
@@ -63,6 +68,21 @@ def test_eod_is_oneshot_and_timer_persistent():
     oncal = t.get("OnCalendar")
     assert "05:00" in oncal, f"EOD 调度时点应为凌晨05:00: {oncal}"
     assert "Tue-Sat" in oncal, f"EOD 应跑 Tue-Sat(周一~周五T日的次日凌晨): {oncal}"
+
+def test_preopen_is_oneshot_and_timer_has_a_hard_preopen_schedule():
+    service = _parse("vaxstock-preopen.service")
+    assert service["Service"].get("Type") == "oneshot"
+    assert not service.has_section("Install")
+    assert "git_autocommit --stage preopen" in service["Service"].get(
+        "ExecStartPost"
+    )
+
+    timer = _parse("vaxstock-preopen.timer")
+    assert timer["Timer"].get("Persistent") == "true"
+    oncal = timer["Timer"].get("OnCalendar")
+    assert "Mon-Fri" in oncal
+    assert "08:35" in oncal
+
 
 def test_autocommit_hooks_are_wired_after_jobs():
     eod = (_DEPLOY / "vaxstock-eod.service").read_text(encoding="utf-8")

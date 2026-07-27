@@ -1,0 +1,14 @@
+[Unit]
+Description=vaxstock v2 pre-open expectation refresh timer
+
+[Timer]
+OnCalendar=Mon-Fri 08:35 Asia/Shanghai
+Persistent=true
+AccuracySec=1min
+
+[Install]
+WantedBy=timers.target
+
+# The service verifies the target open day through Tushare trade_cal. It also
+# refuses to persist a run started or completed at/after 09:25, so a late
+# Persistent=true catch-up cannot backfill a result as if it were pre-open.

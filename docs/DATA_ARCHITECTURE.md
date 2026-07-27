@@ -625,3 +625,12 @@ var/research/
   合法修订必须换 `revision_id`，算法变更必须换 `factor_version`。
 - `factor_values_as_of` 只返回 `available_at <= decision_at` 的记录，历史 replay
   与未来 group/select/forecast 共用同一时点边界。
+- E 维 `seller_consensus_*_90d` 只有在 `report_rc` 全市场查询完整分页并覆盖目标日前
+  90 个完整日历日时才写入。7 日增量或分页被截断不能冒充 90 日一致预期。
+- E 维公司预告与公告前卖方预期优先在同为“万元”的净利润口径比较；
+  `daily_basic.total_share` 不用于伪造公司 EPS 指引。
+- E 维价格相对因子使用前一交易日精确 `trade_date` 的 `close`。卖方报告 PE 是来源
+  原始字段；由它反推的 EPS 明确命名为“维持该 PE 所需 EPS”，不是无模型依据的市场
+  隐含盈利预测。
+- `services.expectation_refresh` 只在 `trade_cal` 验证的交易日盘前落盘。采集若在
+  09:25 或之后完成则整次阻断；`retrieved_at` 使用采集完成时刻。

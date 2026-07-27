@@ -1,6 +1,6 @@
 # vaxstock v2 部署(systemd, 基础设施即代码)
 
-v2 一刀切顶替 v1(不并存)。本目录是三服务的 systemd 模板,env 统一收口到
+v2 一刀切顶替 v1(不并存)。本目录是运行服务的 systemd 模板,env 统一收口到
 `/etc/vaxstock/vaxstock.env`(已建,600)。**切换是运维动作(C3b),不在代码 PR 内。**
 
 | 服务 | unit | 入口 | 说明 |
@@ -8,6 +8,7 @@ v2 一刀切顶替 v1(不并存)。本目录是三服务的 systemd 模板,env �
 | API | `stock-api.service` | `python -m vaxstock.services.api` | FastAPI/Uvicorn,端口读 `API_PORT`(缺省80) |
 | 盘中盯盘 | `intraday-watch.service` | `python -m vaxstock.services.intraday` | 长驻,触发推送 |
 | EOD | `vaxstock-eod.service` + `.timer` | `python -m vaxstock.services.eod` | oneshot,次日凌晨05:00 由 timer 拉起 |
+| 盘前预期刷新 | `vaxstock-preopen.service` + `.timer` | `python -m vaxstock.services.expectation_refresh` | oneshot,交易日 08:35 拉取 E 维数据；代码在 09:25 设置硬截止 |
 | D线观察任务 | `vaxstock-dline-plan.service` | `python -m vaxstock.services.dline_plan` | EOD 成功后 `--no-block` 异步启动,消费 `var/forecast/current_job.json` |
 
 > v2 入口已验:api(内部 uvicorn,`API_PORT` 缺省80)/ intraday(`[--once][--force]`)/ eod(oneshot,退出码 0/1)。
@@ -23,20 +24,25 @@ v2 一刀切顶替 v1(不并存)。本目录是三服务的 systemd 模板,env �
 3. 装 v2 unit:`cp deploy/*.service deploy/*.timer /etc/systemd/system/` ; `systemctl daemon-reload`
 4. 切 api+intraday(配套):`systemctl restart stock-api.service intraday-watch.service`
 5. 验证:`curl -s -m10 http://127.0.0.1/health` ; `systemctl status stock-api intraday-watch --no-pager | head`
-6. 启 EOD timer:`systemctl enable --now vaxstock-eod.timer` ; `systemctl list-timers | grep vaxstock`
+6. 启 EOD 和盘前 timer:`systemctl enable --now vaxstock-eod.timer vaxstock-preopen.timer` ; `systemctl list-timers | grep vaxstock`
 7. 手验一次 EOD:`systemctl start vaxstock-eod.service` ; `journalctl -u vaxstock-eod -n 30 --no-pager`
 
 ## 回滚(任一步失败)
 
 - api/intraday:`cp /root/v1-unit-backup/*.service /etc/systemd/system/` ; `systemctl daemon-reload` ; `systemctl restart stock-api intraday-watch`
-- EOD:`systemctl disable --now vaxstock-eod.timer` ; `crontab -e` 恢复 16:00 那行
+- EOD/盘前:`systemctl disable --now vaxstock-eod.timer vaxstock-preopen.timer` ; `crontab -e` 恢复 16:00 那行
 - 说明:仅 unit 指向变化,v1 代码 `/opt/stock-report` 原样保留,回滚即恢复。
 
 ---
 
-## Auto GitHub commit after EOD / D-line / intraday triggers
+## Auto GitHub commit after EOD / pre-open / D-line / intraday triggers
 
-`vaxstock-eod.service` and `vaxstock-dline-plan.service` call `python -m vaxstock.services.git_autocommit` in `ExecStartPost`. `intraday-watch.service` is long-running, so `services.intraday` calls `git_autocommit --stage intraday` immediately after a trigger forecast row is written.
+`vaxstock-eod.service`, `vaxstock-preopen.service`, and
+`vaxstock-dline-plan.service` call `python -m vaxstock.services.git_autocommit`
+in `ExecStartPost`. The EOD and pre-open stages both whitelist `var/research`;
+the pre-open stage whitelists no other generated tree. `intraday-watch.service`
+is long-running, so `services.intraday` calls `git_autocommit --stage intraday`
+immediately after a trigger forecast row is written.
 
 Enable it explicitly in `/etc/vaxstock/vaxstock.env`:
 
@@ -48,9 +54,17 @@ GIT_AUTOCOMMIT_REMOTE=origin
 GIT_AUTOCOMMIT_BRANCH=main
 ```
 
+The pre-open collector defaults to a 90-calendar-day global `report_rc`
+window and at most 10 pages of 3000 rows. Optional environment overrides are
+`EXPECTATION_REPORT_LOOKBACK_DAYS` and `EXPECTATION_REPORT_MAX_PAGES`.
+Reducing the lookback below 90 or hitting the page cap does not create a
+short-window substitute: the run records the source status and abstains from
+all seller-consensus factors.
+
 Safety rules:
 
-- EOD stage only stages generated A/B/C data, the D-line job envelope, and market-only D-line feedback artifacts: `var/reports`, `var/eval`, `var/prediction`, `var/forecast/current_job.json`, `var/forecast/observation_jobs.jsonl`, `var/forecast/observation_coverage.jsonl`, `var/forecast/forecast_evolution.jsonl`, `var/forecast/market_health_events.jsonl`, `var/forecast/forecast_results.jsonl`, and `var/forecast/dline_reviews`.
+- EOD stage only stages generated A/B/C/research data, the D-line job envelope, and market-only D-line feedback artifacts: `var/reports`, `var/eval`, `var/research`, `var/prediction`, `var/forecast/current_job.json`, `var/forecast/observation_jobs.jsonl`, `var/forecast/observation_coverage.jsonl`, `var/forecast/forecast_evolution.jsonl`, `var/forecast/market_health_events.jsonl`, `var/forecast/forecast_results.jsonl`, and `var/forecast/dline_reviews`.
+- Pre-open stage only stages `var/research`.
 - D-line stage only stages generated D-line task files: `var/forecast/current_job.json`, `var/forecast/current_tasks.json`, `var/forecast/current_tasks.md`, `var/forecast/observation_tasks.jsonl`.
 - Intraday stage only stages live D-line/forecast trigger artifacts: `var/forecast/forecasts.jsonl`, `var/forecast/market_health_events.jsonl` plus the current D-line task context files needed to read the alert.
 - If any non-whitelisted file is dirty, the autocommit step skips and prints the blocking paths.

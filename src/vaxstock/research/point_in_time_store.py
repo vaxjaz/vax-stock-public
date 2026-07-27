@@ -20,6 +20,7 @@ from typing import Any, Dict, Iterable, List, Mapping, Optional
 from vaxstock import config
 from vaxstock.research.contracts import (
     ContractError,
+    assert_available_as_of,
     assert_factor_available_as_of,
     canonical_digest,
     validate_atomic_observation,
@@ -383,6 +384,39 @@ def factor_values_as_of(
             continue
         try:
             assert_factor_available_as_of(row, decision_at)
+        except ContractError as exc:
+            if "look-ahead" in str(exc):
+                continue
+            raise
+        rows.append(row)
+    return rows
+
+
+def observations_as_of(
+    decision_at: str,
+    *,
+    paths: Optional[StorePaths] = None,
+    entity_ids: Optional[Iterable[str]] = None,
+    dimensions: Optional[Iterable[str]] = None,
+    sources: Optional[Iterable[str]] = None,
+) -> List[Dict[str, Any]]:
+    """Return source facts legally available at a simulated decision time."""
+
+    paths = paths or default_store_paths()
+    entities = set(entity_ids or [])
+    dimension_set = set(dimensions or [])
+    source_set = set(sources or [])
+    rows: List[Dict[str, Any]] = []
+    for row in read_jsonl_strict(paths.observations):
+        validate_atomic_observation(row)
+        if entities and row.get("entity_id") not in entities:
+            continue
+        if dimension_set and row.get("dimension") not in dimension_set:
+            continue
+        if source_set and row.get("source") not in source_set:
+            continue
+        try:
+            assert_available_as_of(row, decision_at)
         except ContractError as exc:
             if "look-ahead" in str(exc):
                 continue

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Commit generated EOD/D-line artifacts after systemd jobs finish.
+"""Commit generated EOD/pre-open/D-line artifacts after systemd jobs finish.
 
 This module is intentionally narrow:
   - it only stages whitelisted generated data paths;
@@ -8,6 +8,7 @@ This module is intentionally narrow:
 
 Production usage is via systemd ExecStartPost:
     python -m vaxstock.services.git_autocommit --stage eod
+    python -m vaxstock.services.git_autocommit --stage preopen
     python -m vaxstock.services.git_autocommit --stage dline
 Intraday triggers call the same module from the long-running watcher:
     python -m vaxstock.services.git_autocommit --stage intraday
@@ -36,6 +37,7 @@ STAGE_PATHS: Dict[str, Tuple[str, ...]] = {
     "eod": (
         "var/reports",
         "var/eval",
+        "var/research",
         "var/prediction",
         "var/forecast/current_job.json",
         "var/forecast/observation_jobs.jsonl",
@@ -44,6 +46,10 @@ STAGE_PATHS: Dict[str, Tuple[str, ...]] = {
         "var/forecast/market_health_events.jsonl",
         "var/forecast/forecast_results.jsonl",
         "var/forecast/dline_reviews",
+    ),
+    # Pre-open E-dimension collection owns only normalized research evidence.
+    "preopen": (
+        "var/research",
     ),
     # D-line planner owns task history and the current readable task snapshot.
     "dline": (
@@ -65,6 +71,7 @@ STAGE_PATHS: Dict[str, Tuple[str, ...]] = {
     "all": (
         "var/reports",
         "var/eval",
+        "var/research",
         "var/prediction",
         "var/forecast",
     ),
@@ -210,6 +217,27 @@ def _infer_trade_date(root: Path, stage: str) -> str:
                 target = data.get("target_trade_date")
                 if target:
                     return str(target)
+            except Exception:
+                pass
+    if stage == "preopen":
+        manifests = root / "var" / "research" / "run_manifests.jsonl"
+        if manifests.exists():
+            try:
+                import json
+
+                rows = [
+                    json.loads(line)
+                    for line in manifests.read_text(encoding="utf-8").splitlines()
+                    if line.strip()
+                ]
+                trade_dates = [
+                    str(row.get("as_of_trade_date") or "")
+                    for row in rows
+                    if row.get("stage") == "expectation_refresh"
+                    and row.get("as_of_trade_date")
+                ]
+                if trade_dates:
+                    return trade_dates[-1]
             except Exception:
                 pass
     reports = root / "var" / "reports"

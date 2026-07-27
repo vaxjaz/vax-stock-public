@@ -19,6 +19,7 @@ script/stock_report_enhanced.py 中的 get_history_kline 搬入本层。
 - moneyflow_hsgt                         北向资金
 - fina_indicator                         财务指标(80+字段)
 - forecast / express / disclosure_date   业绩预告/快报/财报预约披露日
+- report_rc                              券商盈利预测(卖方逐报告原始行)
 - stk_holdernumber                       股东户数
 - concept_detail                         概念板块
 
@@ -49,6 +50,8 @@ CACHE_TTL = {
     "daily": 1, "daily_basic": 1,
     "moneyflow": 1, "moneyflow_hsgt": 1,
     "fina_indicator": 30, "forecast": 7, "express": 7, "disclosure_date": 1,
+    "report_rc": 1, "expectation_forecast": 1,
+    "expectation_daily_basic": 1,
     "holder_number": 30, "index_daily": 1, "top_list": 1,
 }
 
@@ -172,7 +175,7 @@ class TushareSource:
             return f"{code}.SH"
         return f"{code}.SZ"
 
-    def _safe_call(self, func_name, **kwargs):
+    def _safe_call(self, func_name, _allow_empty=False, **kwargs):
         if not self.enabled:
             return None
         self._rate_limit()
@@ -202,7 +205,9 @@ class TushareSource:
                 logger.debug(f"  ⚠️ {func_name} 失败: {err}")
             return None
         df = box.get("df")
-        if df is None or len(df) == 0:
+        if df is None:
+            return None
+        if len(df) == 0 and not _allow_empty:
             return None
         return df
 
@@ -244,6 +249,115 @@ class TushareSource:
         row = df.sort_values("trade_date", ascending=False).iloc[0].to_dict()
         self._cache_set(cache_key, row)
         return row
+
+    def get_daily_basic_contract(
+            self,
+            code,
+            *,
+            trade_date,
+            refresh_bucket=None,
+            force_refresh=False,
+    ):
+        """Return one exact-date daily-basic source result for research use.
+
+        Unlike ``get_daily_basic``, this adapter never substitutes the latest
+        available row for the requested date and distinguishes a verified empty
+        response from a failed source call.
+        """
+
+        fields = "ts_code,trade_date,close,pe_ttm,total_share,total_mv"
+        query = {
+            "ts_code": self.code_to_ts(code),
+            "trade_date": str(trade_date),
+        }
+        if self.points_level < 2000:
+            return {
+                "available": False,
+                "complete": False,
+                "reason": "points_below_2000",
+                "rows": [],
+                "fields": fields.split(","),
+                "query": query,
+            }
+        bucket = str(refresh_bucket or datetime.now().strftime("%Y%m%d"))
+        cache_key = (
+            f"expectation_daily_basic_{code}_{trade_date}_{bucket}"
+        )
+        cached = None if force_refresh else self._cache_get(
+            cache_key, CACHE_TTL["expectation_daily_basic"]
+        )
+        if cached is not None:
+            return cached
+
+        ts_code = query["ts_code"]
+        df = self._safe_call(
+            "daily_basic",
+            _allow_empty=True,
+            ts_code=ts_code,
+            trade_date=str(trade_date),
+            fields=fields,
+        )
+        if df is None:
+            result = {
+                "available": False,
+                "complete": False,
+                "reason": "source_call_failed",
+                "rows": [],
+                "fields": fields.split(","),
+                "query": query,
+            }
+            self._cache_set(cache_key, result)
+            return result
+
+        required = set(fields.split(","))
+        actual_fields = {str(column) for column in getattr(df, "columns", [])}
+        missing = sorted(required - actual_fields)
+        if missing:
+            result = {
+                "available": False,
+                "complete": False,
+                "reason": "source_fields_missing",
+                "missing_fields": missing,
+                "actual_fields": sorted(actual_fields),
+                "rows": [],
+                "fields": fields.split(","),
+                "query": query,
+            }
+            self._cache_set(cache_key, result)
+            return result
+
+        rows = df.to_dict("records")
+        mismatched = [
+            row for row in rows
+            if str(row.get("ts_code") or "") != ts_code
+            or str(row.get("trade_date") or "") != str(trade_date)
+        ]
+        if mismatched or len(rows) > 1:
+            result = {
+                "available": False,
+                "complete": False,
+                "reason": "unexpected_row_identity",
+                "row_count": len(rows),
+                "rows": [],
+                "fields": fields.split(","),
+                "actual_fields": sorted(actual_fields),
+                "query": query,
+            }
+            self._cache_set(cache_key, result)
+            return result
+
+        result = {
+            "available": True,
+            "complete": True,
+            "reason": None,
+            "rows": rows,
+            "fields": fields.split(","),
+            "actual_fields": sorted(actual_fields),
+            "source_ref": "https://tushare.pro/document/2?doc_id=32",
+            "query": query,
+        }
+        self._cache_set(cache_key, result)
+        return result
 
     def get_daily_basic_history(self, code, days=250):
         today = datetime.now().strftime("%Y%m%d")
@@ -450,6 +564,218 @@ class TushareSource:
         records = df.to_dict("records")
         self._cache_set(cache_key, records)
         return records
+
+    def get_forecast_contract(
+            self,
+            code,
+            *,
+            start_date,
+            end_date,
+            refresh_bucket=None,
+            force_refresh=False,
+    ):
+        """Return source-audited company guidance rows, including true empties."""
+
+        fields = (
+            "ts_code,ann_date,end_date,type,p_change_min,p_change_max,"
+            "net_profit_min,net_profit_max,last_parent_net,first_ann_date,"
+            "summary,change_reason"
+        )
+        query = {
+            "ts_code": self.code_to_ts(code),
+            "start_date": str(start_date),
+            "end_date": str(end_date),
+        }
+        if self.points_level < 2000:
+            return {
+                "available": False,
+                "complete": False,
+                "reason": "points_below_2000",
+                "rows": [],
+                "fields": fields.split(","),
+                "query": query,
+            }
+        bucket = str(refresh_bucket or datetime.now().strftime("%Y%m%d"))
+        cache_key = (
+            f"expectation_forecast_{code}_{start_date}_{end_date}_{bucket}"
+        )
+        cached = None if force_refresh else self._cache_get(
+            cache_key, CACHE_TTL["expectation_forecast"]
+        )
+        if cached is not None:
+            return cached
+
+        df = self._safe_call(
+            "forecast",
+            _allow_empty=True,
+            ts_code=query["ts_code"],
+            start_date=str(start_date),
+            end_date=str(end_date),
+            fields=fields,
+        )
+        if df is None:
+            result = {
+                "available": False,
+                "complete": False,
+                "reason": "source_call_failed",
+                "rows": [],
+                "fields": fields.split(","),
+                "query": query,
+            }
+            self._cache_set(cache_key, result)
+            return result
+
+        required = set(fields.split(","))
+        actual_fields = {str(column) for column in getattr(df, "columns", [])}
+        missing = sorted(required - actual_fields)
+        if missing:
+            result = {
+                "available": False,
+                "complete": False,
+                "reason": "source_fields_missing",
+                "missing_fields": missing,
+                "actual_fields": sorted(actual_fields),
+                "rows": [],
+                "fields": fields.split(","),
+                "query": query,
+            }
+            self._cache_set(cache_key, result)
+            return result
+
+        records = (
+            df.sort_values(["end_date", "ann_date"], ascending=[False, False])
+            .to_dict("records")
+        )
+        result = {
+            "available": True,
+            "complete": True,
+            "reason": None,
+            "rows": records,
+            "fields": fields.split(","),
+            "source_ref": "https://tushare.pro/document/2?doc_id=45",
+            "query": query,
+        }
+        self._cache_set(cache_key, result)
+        return result
+
+    def get_report_rc_window(
+            self,
+            *,
+            start_date,
+            end_date,
+            ts_code=None,
+            page_limit=3000,
+            max_pages=8,
+            refresh_bucket=None,
+            force_refresh=False,
+    ):
+        """Fetch complete paginated seller estimates or mark the window incomplete."""
+
+        fields = (
+            "ts_code,name,report_date,report_title,report_type,classify,"
+            "org_name,author_name,quarter,op_rt,op_pr,tp,np,eps,pe,rd,roe,"
+            "ev_ebitda,rating,max_price,min_price,imp_dg,create_time"
+        )
+        query = {
+            "ts_code": self.code_to_ts(ts_code) if ts_code else None,
+            "start_date": str(start_date),
+            "end_date": str(end_date),
+            "page_limit": int(page_limit),
+            "max_pages": int(max_pages),
+        }
+        if self.points_level < 2000:
+            return {
+                "available": False,
+                "complete": False,
+                "reason": "points_below_2000",
+                "rows": [],
+                "fields": fields.split(","),
+                "query": query,
+            }
+        if page_limit <= 0 or max_pages <= 0:
+            raise ValueError("page_limit and max_pages must be positive")
+
+        code_key = str(ts_code or "ALL").replace(".", "_")
+        bucket = str(refresh_bucket or datetime.now().strftime("%Y%m%d"))
+        cache_key = (
+            f"report_rc_{code_key}_{start_date}_{end_date}_"
+            f"{page_limit}_{max_pages}_{bucket}"
+        )
+        cached = None if force_refresh else self._cache_get(
+            cache_key, CACHE_TTL["report_rc"]
+        )
+        if cached is not None:
+            return cached
+
+        records = []
+        required = set(fields.split(","))
+        complete = False
+        reason = None
+        actual_fields = set()
+        for page in range(max_pages):
+            kwargs = {
+                "start_date": str(start_date),
+                "end_date": str(end_date),
+                "fields": fields,
+                "limit": int(page_limit),
+                "offset": page * int(page_limit),
+            }
+            if ts_code:
+                kwargs["ts_code"] = self.code_to_ts(ts_code)
+            df = self._safe_call("report_rc", _allow_empty=True, **kwargs)
+            if df is None:
+                reason = "source_call_failed" if page == 0 else "pagination_failed"
+                break
+            actual_fields = {str(column) for column in getattr(df, "columns", [])}
+            missing = sorted(required - actual_fields)
+            if missing:
+                result = {
+                    "available": False,
+                    "complete": False,
+                    "reason": "source_fields_missing",
+                    "missing_fields": missing,
+                    "actual_fields": sorted(actual_fields),
+                    "rows": [],
+                    "fields": fields.split(","),
+                    "query": query,
+                }
+                self._cache_set(cache_key, result)
+                return result
+            page_rows = df.to_dict("records")
+            records.extend(page_rows)
+            if len(page_rows) < page_limit:
+                complete = True
+                break
+        if not complete and reason is None:
+            reason = "page_limit_reached"
+
+        deduped = {}
+        for row in records:
+            identity = json.dumps(
+                row, ensure_ascii=False, sort_keys=True, default=str
+            )
+            deduped[identity] = row
+        records = sorted(
+            deduped.values(),
+            key=lambda row: (
+                str(row.get("report_date") or ""),
+                str(row.get("ts_code") or ""),
+                str(row.get("quarter") or ""),
+                str(row.get("org_name") or ""),
+            ),
+        )
+        result = {
+            "available": reason not in {"source_call_failed"},
+            "complete": complete,
+            "reason": reason,
+            "rows": records,
+            "fields": fields.split(","),
+            "actual_fields": sorted(actual_fields),
+            "source_ref": "https://tushare.pro/document/2?doc_id=292",
+            "query": query,
+        }
+        self._cache_set(cache_key, result)
+        return result
 
     def get_express(self, code, periods=4, *, refresh_bucket=None, force_refresh=False):
         if self.points_level < 2000:

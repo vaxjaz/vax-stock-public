@@ -1,6 +1,7 @@
 # Research Pipeline V2 — 决策与统计契约
 
-状态：MR2 数据存储与回放已实现。本文描述稳定边界，不宣称尚未施工的模型已经可用。
+状态：MR3 E 维度原始事实、候选因子与盘前刷新已实现。本文描述稳定边界，
+不宣称尚未施工或未经样本检验的模型已经可用。
 
 ## 1. 目标函数
 
@@ -64,7 +65,8 @@ Action_t = decide(Y_t, portfolio_t, risk_constraints_t)
 
 1. MR1：契约、旧 T+N 降级、事件缓存和 freshness P0。
 2. MR2：append-only 原子/因子存储、run manifest、replay/backfill。
-3. MR3：E 维度（公告前一致预期、公司指引、价格隐含预期）及盘前刷新。
+3. MR3（已实现）：E 维度（公告前卖方预期、公司业绩预告、价格相对卖方估值）
+   及盘前刷新。
 4. MR4：连续曲线、因果导数、变点和异常检测。
 5. MR5–MR7：group、select、forecast 与 walk-forward 评估。
 6. MR8：portfolio decision 与专业报告。
@@ -105,3 +107,38 @@ PYTHONPATH=src python -m vaxstock.research.legacy_snapshot_replay
 当前能力边界：MR2 已解决“数据能否按时点、版本、输入重放”的问题；尚未声明任何
 因子 effective，也尚未执行 `group/select/forecast`。这些字段在 ingestion manifest
 中明确写为 `not_executed`，防止把数据施工误报成策略有效性。
+
+## 8. MR3 已实现：E 维度预期事实与盘前快照
+
+盘前服务 `vaxstock.services.expectation_refresh` 在交易日 08:35 运行，目标交易日和
+前一交易日均由 `tushare.trade_cal` 验证。任务在开始或全部采集完成时达到 09:25
+后都不会落盘；所有输入使用实际完成时刻作为 `retrieved_at`，不能把慢请求伪装成
+更早可见的数据。
+
+已接入的官方来源：
+
+| 来源 | 原始事实 | 完整性规则 |
+|---|---|---|
+| `tushare.report_rc` | 卖方逐报告 EPS、净利润、报告内 PE、机构、预测期 | 必须证明全市场、完整分页、覆盖目标日前 90 个完整日历日；否则只记状态和原始行，不生成卖方一致预期 |
+| `tushare.forecast` | 单股业绩预告净利润上下限及公告日 | 按观察池逐股精确拉取；来源失败与真实空集分开记录；首次系统取到的时刻作为保守 `available_at` |
+| `tushare.daily_basic` | 前一交易日收盘价、PE TTM、总股本、总市值 | 精确指定 `trade_date`；代码、日期或字段不匹配时不生成价格相对因子 |
+
+E 维候选因子只做确定性变换：
+
+- 同一预测期、同一机构只取 90 日窗口内最新报告；机构同日多报告先取机构内中位数，
+  再计算跨机构中位数，并同时保存机构数和报告行数。
+- 公司预告中值严格按
+  `(net_profit_min + net_profit_max) / 2` 计算，单位保持为万元。
+- 公告前预期只使用 `report_date < ann_date` 且 `available_at` 早于公告日零点的
+  卖方净利润预测，比较双方同为万元的净利润，避免把当前总股本换算的 EPS 冒充
+  公司指引。两接口的官方字段均标为“净利润（万元）”，但会计口径是否完全等价仍
+  属供应商定义，manifest 显式保留该限制，不能把候选差值直接称为业绩超预期。
+- 价格层使用前一交易日收盘价计算
+  `current_forward_pe = close / seller_consensus_eps`，并与卖方报告内 PE 中位数比较。
+  `eps_required_at_seller_reported_pe_median` 的含义仅为“维持卖方报告 PE 中位数所需
+  EPS”，不是独立模型推导出的市场隐含 EPS。
+
+`report_rc.create_time` 是 Tushare 数据更新时间，存在时作为保守可见时点；缺失时
+退化为报告日 23:59:59（中国时区）。所有因子都绑定原始 observation ID、查询完整性
+状态和版本。MR3 仍将 `group/select/forecast` 写为 `not_executed`，不会改变当前报告、
+盘中任务、评分权重或交易动作；是否 effective 必须由后续 walk-forward/OOS 统计证明。

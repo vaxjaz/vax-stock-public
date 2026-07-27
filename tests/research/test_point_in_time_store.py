@@ -22,6 +22,7 @@ from vaxstock.research.point_in_time_store import (
     default_store_paths,
     factor_partition_path,
     factor_values_as_of,
+    observations_as_of,
     read_jsonl_strict,
 )
 
@@ -175,6 +176,26 @@ def test_factor_query_enforces_point_in_time_availability(tmp_path):
         entity_ids=["601138"],
     )
     assert {row["factor_id"] for row in available} == {"legacy.ma5", "legacy.rsi_14"}
+
+
+def test_observation_query_enforces_point_in_time_and_filters(tmp_path):
+    paths = default_store_paths(tmp_path / "research")
+    manifest, observations, factors = build_legacy_snapshot_run(
+        _snapshots(), mode="replay"
+    )
+    append_run(manifest, observations, factors, paths=paths)
+
+    assert observations_as_of(
+        "2026-06-26T05:09:59+08:00", paths=paths
+    ) == []
+    available = observations_as_of(
+        "2026-06-26T05:10:00+08:00",
+        paths=paths,
+        entity_ids=["601138"],
+        dimensions=["legacy_snapshot"],
+    )
+    assert available
+    assert {row["entity_id"] for row in available} == {"601138"}
 
 
 def test_replay_rejects_conflicting_market_context(tmp_path):
