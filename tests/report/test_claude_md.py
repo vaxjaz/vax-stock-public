@@ -255,6 +255,14 @@ def test_markdown_prediction_summary_section():
     assert "| watch | 2 | 1 | 1 | +2.00% | 100% | 100% |" in md
 
 
+def test_legacy_prediction_section_is_omitted_when_not_injected():
+    cd = _mock_claude_data()
+    md = build_claude_markdown(cd, track_results=None)
+    digest = build_email_digest(_digest_claude_data(), track_results=None)
+    assert "昨日预测核验" not in md
+    assert "昨日预测核验" not in digest
+
+
 def test_prediction_summary_missing_is_honest():
     cd = _mock_claude_data()
     cd["prediction_summary"] = {"available": False, "target_trade_date": "20260625",

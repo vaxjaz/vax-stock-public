@@ -6,6 +6,7 @@
 """
 
 import ast
+import copy
 import pathlib
 import sys
 import types
@@ -28,7 +29,8 @@ _REPO = pathlib.Path(__file__).resolve().parents[2]
 # canned 数据(seam 替身的返回值)
 _PAYLOAD = {
     "generated_at": "2026-06-25 16:00",
-    "stocks": [],
+    "stocks": [{"code": "601138", "history_tail": [{"trade_date": "20260625"}]}],
+    "indices": [{"symbol": "sh000001", "trade_date": "20260625"}],
     "market_regime": "panic",
     "market_overview": {"trade_date": "20260625"},
 }
@@ -195,13 +197,15 @@ def _install_spies(secrets=None, payload=None, next_trade_date="20260626"):
         }
     eod_mod.run_evidence_convergence = _convergence
 
-    def _enqueue(payload_path, target_trade_date, c_predictions=None, baseline_trade_date=None, **kwargs):
+    def _enqueue(payload_path, target_trade_date, c_predictions=None,
+                 baseline_trade_date=None, task_codes=None, **kwargs):
         rec["order"].append("d_enqueue")
         rec["d_enqueue_call"] = {
             "payload_path": payload_path,
             "target_trade_date": target_trade_date,
             "c_predictions": list(c_predictions or []),
             "baseline_trade_date": baseline_trade_date,
+            "task_codes": list(task_codes or []),
         }
         return {"queued": 1, "skipped": 0, "job_id": "j1"}
     eod_mod.enqueue_observation_job = _enqueue
@@ -210,6 +214,7 @@ def _install_spies(secrets=None, payload=None, next_trade_date="20260626"):
         config.SECRETS = secrets
 
     def restore():
+        _PAYLOAD.pop("freshness", None)
         for n, v in saved.items():
             setattr(eod_mod, n, v)
         config.SECRETS = saved_secrets
@@ -252,8 +257,8 @@ def test_eod_orchestration_and_passthrough():
         assert rec["store_in"]["payload"] is _PAYLOAD
         assert rec["store_in"]["claude_data"] is _CLAUDE
         assert rec["store_in"]["markdown"] == _MD
-        assert rec["summary_call"] == {"target_trade_date": "20260625"}
-        assert rec["store_in"]["claude_data"]["prediction_summary"]["predictions"] == 2
+        assert "summary_call" not in rec
+        assert "prediction_summary" not in rec["store_in"]["claude_data"]
         # EOD 只落盘并排队 D 线，不再构造或发送旧摘要邮件。
         assert "digest_in" not in rec
         assert rec["send_calls"] == []
@@ -281,15 +286,35 @@ def test_eod_orchestration_and_passthrough():
         assert rec["d_enqueue_call"] == {"payload_path": _PATHS["payload"],
                                          "target_trade_date": "20260626",
                                          "c_predictions": [{"prediction_id": "p1"}],
-                                         "baseline_trade_date": "20260625"}
-        assert rec["order"] == ["regime_audit", "e1", "d_closeout", "pred_eval", "next_trade", "pred_live",
-                                "pred_record", "evidence", "convergence", "pred_summary", "store", "d_enqueue",
-                                "layer2", "factor_weight_review", "prediction_layer2", "rule_suggestions"]
-        # Layer2(E2): E4 后被调(顺带分析)
-        assert rec.get("layer2_called") is True
-        assert rec.get("factor_weight_review_called") is True
-        assert rec.get("prediction_layer2_called") is True
-        assert rec.get("rule_suggestions_called") is True
+                                         "baseline_trade_date": "20260625",
+                                         "task_codes": ["601138"]}
+        assert rec["order"] == [
+            "regime_audit", "e1", "d_closeout", "pred_eval", "next_trade",
+            "pred_live", "pred_record", "evidence", "convergence", "store",
+            "d_enqueue",
+        ]
+        assert rec.get("layer2_called") is None
+        assert rec.get("factor_weight_review_called") is None
+        assert rec.get("prediction_layer2_called") is None
+        assert rec.get("rule_suggestions_called") is None
+    finally:
+        restore()
+
+
+def test_legacy_research_can_be_explicitly_enabled_for_audit():
+    rec, restore = _install_spies(secrets={
+        "email_enabled": False,
+        "legacy_prediction_report_enabled": True,
+        "legacy_daily_research_enabled": True,
+    })
+    try:
+        assert eod_mod.run_eod() == _PATHS
+        assert rec["summary_call"] == {"target_trade_date": "20260625"}
+        assert rec["store_in"]["claude_data"]["prediction_summary"]["predictions"] == 2
+        assert rec["order"][-5:] == [
+            "d_enqueue", "layer2", "factor_weight_review",
+            "prediction_layer2", "rule_suggestions",
+        ]
     finally:
         restore()
 
@@ -318,6 +343,29 @@ def test_eod_prediction_skips_live_without_next_trade_date():
         assert "pred_live" not in rec["order"]
         assert "pred_record" not in rec["order"]
         assert "d_enqueue" not in rec["order"]
+    finally:
+        restore()
+
+
+def test_eod_freshness_filters_stale_target_without_blocking_ready_target():
+    payload = copy.deepcopy(_PAYLOAD)
+    payload["stocks"].append({
+        "code": "002475",
+        "history_tail": [{"trade_date": "20260624"}],
+    })
+    rec, restore = _install_spies(
+        secrets={"email_enabled": False},
+        payload=payload,
+    )
+    try:
+        assert eod_mod.run_eod() == _PATHS
+        assert payload["freshness"]["status"] == "degraded"
+        assert payload["freshness"]["eligible_codes"] == ["601138"]
+        predicted_codes = [
+            row["code"] for row in rec["preds_call"]["payload"]["stocks"]
+        ]
+        assert predicted_codes == ["601138"]
+        assert [row["code"] for row in payload["stocks"]] == ["601138", "002475"]
     finally:
         restore()
 

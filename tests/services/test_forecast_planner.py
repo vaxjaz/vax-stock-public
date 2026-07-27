@@ -208,6 +208,42 @@ def test_enqueue_and_run_observation_job_consumes_current_job():
         shutil.rmtree(d, ignore_errors=True)
 
 
+def test_observation_job_honors_freshness_allowed_task_codes():
+    d = tempfile.mkdtemp(prefix="vax_dline_freshness_")
+    try:
+        payload = _payload_with_watchlist()
+        payload["stocks"][1]["group"] = "holding"
+        payload_path = pathlib.Path(d) / "payload.json"
+        jobs = pathlib.Path(d) / "observation_jobs.jsonl"
+        current_job = pathlib.Path(d) / "current_job.json"
+        task_hist = pathlib.Path(d) / "observation_tasks.jsonl"
+        current_tasks = pathlib.Path(d) / "current_tasks.json"
+        payload_path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+        fp.enqueue_observation_job(
+            payload_path,
+            "20260706",
+            c_predictions=[_c_prediction()],
+            baseline_trade_date="20260703",
+            task_codes=["002475"],
+            job_path=jobs,
+            current_job_path=current_job,
+        )
+        stats = fp.run_observation_job(
+            planner_func=lambda evidence: _plan(),
+            current_job_path=current_job,
+            history_path=task_hist,
+            current_tasks_path=current_tasks,
+        )
+        assert stats["status"] == "done"
+        assert stats["task_codes"] == 1
+        assert [row["code"] for row in _rows(task_hist)] == ["002475"]
+        current = json.loads(current_job.read_text(encoding="utf-8"))
+        assert current["task_codes"] == ["002475"]
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+
+
 def test_run_observation_job_partial_failed_preserves_success_and_remaining():
     d = tempfile.mkdtemp(prefix="vax_dline_partial_")
     try:
