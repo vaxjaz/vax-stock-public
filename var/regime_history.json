@@ -1,5 +1,5 @@
 {
-  "current_regime": "value",
+  "current_regime": "momentum",
   "raw_history": [
     {
       "trade_date": "20260625",
@@ -83,8 +83,12 @@
     },
     {
       "trade_date": "20260723",
-      "raw": "value"
+      "raw": "momentum"
+    },
+    {
+      "trade_date": "20260724",
+      "raw": "momentum"
     }
   ],
-  "last_updated": "2026-07-24T05:00:09.603456"
+  "last_updated": "2026-07-25T05:00:06.300781"
 }
