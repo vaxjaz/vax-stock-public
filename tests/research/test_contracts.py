@@ -10,6 +10,7 @@ from vaxstock.research.contracts import (
     assert_available_as_of,
     assert_factor_available_as_of,
     canonical_digest,
+    factor_input_digest,
     make_factor_value_id,
     make_observation_id,
     make_run_id,
@@ -180,6 +181,42 @@ def test_factor_and_run_identities_are_versioned_and_deterministic():
     wrong_id = dict(_manifest(), run_id="run_wrong")
     with pytest.raises(ContractError, match="run_id"):
         validate_run_manifest(wrong_id)
+
+
+def test_derived_factor_contract_freezes_upstream_factor_references():
+    upstream = _factor()
+    refs = [{
+        "factor_value_id": upstream["factor_value_id"],
+        "as_of_trade_date": upstream["as_of_trade_date"],
+    }]
+    derived = {
+        "schema_version": 1,
+        "factor_value_id": "",
+        "entity_type": "stock",
+        "entity_id": "601138",
+        "dimension": "causal_curve",
+        "factor_id": "curve::E::consensus_eps_revision::e-consensus-v1",
+        "factor_version": "curve-v1",
+        "value": {"slope": 0.08},
+        "as_of_trade_date": "20260727",
+        "effective_date": "20261231",
+        "available_at": upstream["calculated_at"],
+        "calculated_at": "2026-07-27T18:37:00+08:00",
+        "input_observation_ids": [],
+        "input_factor_refs": refs,
+        "input_digest": factor_input_digest([], refs),
+        "quality": "calculated",
+    }
+    derived["factor_value_id"] = make_factor_value_id(derived)
+    validate_factor_value(derived)
+
+    self_referencing = dict(derived)
+    self_referencing["input_factor_refs"] = [{
+        "factor_value_id": derived["factor_value_id"],
+        "as_of_trade_date": "20260727",
+    }]
+    with pytest.raises(ContractError, match="cannot reference itself"):
+        validate_factor_value(self_referencing)
 
 
 def test_forecast_contract_supports_prediction_and_explicit_abstention():

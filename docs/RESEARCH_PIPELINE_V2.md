@@ -1,6 +1,6 @@
 # Research Pipeline V2 — 决策与统计契约
 
-状态：MR3 E 维度原始事实、候选因子与盘前刷新已实现。本文描述稳定边界，
+状态：MR4 连续曲线、赛道聚合、因果拐点/异常候选与历史重放已实现。本文描述稳定边界，
 不宣称尚未施工或未经样本检验的模型已经可用。
 
 ## 1. 目标函数
@@ -67,7 +67,7 @@ Action_t = decide(Y_t, portfolio_t, risk_constraints_t)
 2. MR2：append-only 原子/因子存储、run manifest、replay/backfill。
 3. MR3（已实现）：E 维度（公告前卖方预期、公司业绩预告、价格相对卖方估值）
    及盘前刷新。
-4. MR4：连续曲线、因果导数、变点和异常检测。
+4. MR4（已实现）：连续曲线、因果导数、变点和异常候选检测。
 5. MR5–MR7：group、select、forecast 与 walk-forward 评估。
 6. MR8：portfolio decision 与专业报告。
 7. MR9：shadow run；通过预先冻结的 OOS 门槛后才允许影响生产动作。
@@ -142,3 +142,37 @@ E 维候选因子只做确定性变换：
 退化为报告日 23:59:59（中国时区）。所有因子都绑定原始 observation ID、查询完整性
 状态和版本。MR3 仍将 `group/select/forecast` 写为 `not_executed`，不会改变当前报告、
 盘中任务、评分权重或交易动作；是否 effective 必须由后续 walk-forward/OOS 统计证明。
+
+## 9. MR4 已实现：因果曲线、赛道向量与候选事件
+
+`research.causal_curve` 只处理显式登记的连续因子。新增一个数值字段不会自动进入
+曲线计算；必须先审阅其单位和经济含义，再前滚
+`continuous_factor_registry` 版本。计算使用交易日序号而非自然日：
+
+- 3 交易日中位数平滑；
+- 最近/此前两个互不重叠的 5 交易日 Theil–Sen 斜率及斜率差；
+- 仅用历史窗口拟合的单步趋势残差和 MAD 异常分数；
+- 剔除既有线性趋势后的 5×5 残差位移和持续度；
+- 缺少窗口或稳健尺度时写明 `unavailable` / zero-scale 状态，不填中性值。
+
+曲线结果按实体打包为向量：每只股票每日一条 `stock_curve_vector`；每个赛道每日
+一条 `track_aggregate_vector` 和一条 `track_curve_vector`。赛道中位数只在该因子
+当日至少有 3 个成员时生成，单票标签不会冒充赛道。当前向量只保存有限滚动状态，
+并优先引用“上一交易日曲线向量 + 当日基础因子”；首次或断档时引用完整可见窗口。
+因此依赖链仍能递归追溯到原始 observation，同时避免逐因子重复保存整段引用。
+
+所有阈值均只产生 `candidate_not_validated` 候选特征。它们不进入盘中通知、不修改
+评分、不执行 `group/select/forecast`，也不代表因子 effective。当前 22 个交易日只足以
+验证时点、重放、幂等和数据形状；阈值有效性必须由后续 walk-forward/OOS 统计决定。
+
+EOD 在当天 Research v2 基础快照后计算曲线；盘前 E 维刷新后也立即计算，因此新公告
+不会等待下一次 EOD。历史引导命令：
+
+```bash
+PYTHONPATH=src python -m vaxstock.research.legacy_snapshot_replay
+PYTHONPATH=src python -m vaxstock.services.curve_refresh --replay
+```
+
+第二条命令支持 `--from-date/--to-date/--output-dir`，按交易日顺序运行；相同输入重跑
+不会追加重复 factor 或 manifest。非原生时点的晚到历史回填不会混入当时曲线；
+`mode=live` 也只接受目标交易日当天或下一自然日的计算时刻，迟到手工运行会明确阻断。

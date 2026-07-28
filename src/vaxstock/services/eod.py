@@ -24,6 +24,7 @@ from vaxstock.research.legacy_snapshot_replay import record_legacy_snapshot_trad
 from vaxstock.report.claude_md import build_claude_markdown, compact_for_claude
 from vaxstock.report.store import store_report
 from vaxstock.services.collect import collect_payload
+from vaxstock.services.curve_refresh import run_curve_refresh
 from vaxstock.services.dline_closeout import run_dline_closeout
 from vaxstock.services.evidence_convergence import run_evidence_convergence
 from vaxstock.services.evidence_ledger import run_evidence_ledger
@@ -88,8 +89,18 @@ def run_eod() -> Dict[str, str]:
             research_v2.get("factors_written"),
             research_v2.get("manifests_written"),
         )
+        curve_v2 = run_curve_refresh(
+            as_of_trade_date=research_trade_date,
+            mode="live",
+        )
+        logger.info(
+            "Research v2 curves: status=%s outputs=%s candidate_hits=%s",
+            curve_v2.get("status"),
+            (curve_v2.get("summary") or {}).get("outputs"),
+            (curve_v2.get("summary") or {}).get("candidate_hits"),
+        )
     except Exception as e:
-        logger.warning(f"Research v2 snapshot persistence failed: {str(e)[:120]}")
+        logger.warning(f"Research v2 snapshot/curve persistence failed: {str(e)[:120]}")
 
     # D-line closeout is market-data-only and never reads user executions.
     try:

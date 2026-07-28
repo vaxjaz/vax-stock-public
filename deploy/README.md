@@ -61,6 +61,20 @@ Reducing the lookback below 90 or hitting the page cap does not create a
 short-window substitute: the run records the source status and abstains from
 all seller-consensus factors.
 
+Both EOD Research v2 ingestion and the pre-open expectation refresh invoke the
+causal curve refresh immediately after their base facts are committed. To
+bootstrap or audit history without touching the legacy source file:
+
+```bash
+PYTHONPATH=src /opt/stock-reportv2/venv/bin/python \
+  -m vaxstock.research.legacy_snapshot_replay
+PYTHONPATH=src /opt/stock-reportv2/venv/bin/python \
+  -m vaxstock.services.curve_refresh --replay
+```
+
+The replay is sequential and idempotent. Its turning/change/anomaly outputs are
+research candidates only; they do not create intraday alerts or trading tasks.
+
 Safety rules:
 
 - EOD stage only stages generated A/B/C/research data, the D-line job envelope, and market-only D-line feedback artifacts: `var/reports`, `var/eval`, `var/research`, `var/prediction`, `var/forecast/current_job.json`, `var/forecast/observation_jobs.jsonl`, `var/forecast/observation_coverage.jsonl`, `var/forecast/forecast_evolution.jsonl`, `var/forecast/market_health_events.jsonl`, `var/forecast/forecast_results.jsonl`, and `var/forecast/dline_reviews`.

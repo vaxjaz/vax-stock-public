@@ -192,6 +192,86 @@ def _deduplicate_new_rows(
     return new_rows
 
 
+def _factor_ref_key(ref: Mapping[str, Any]) -> tuple[str, str]:
+    return (
+        str(ref.get("as_of_trade_date") or "").strip(),
+        str(ref.get("factor_value_id") or "").strip(),
+    )
+
+
+def _validate_factor_dependencies(
+    factor_rows: Iterable[Mapping[str, Any]],
+    *,
+    known_factors: Iterable[Mapping[str, Any]],
+    known_observations: Iterable[Mapping[str, Any]],
+) -> None:
+    known = {
+        (str(row.get("as_of_trade_date") or ""), str(row.get("factor_value_id") or "")): row
+        for row in known_factors
+    }
+    incoming = {
+        str(row["factor_value_id"]): dict(row)
+        for row in factor_rows
+    }
+    observations = {
+        str(row["observation_id"]): row
+        for row in known_observations
+    }
+    graph: Dict[str, List[str]] = {identity: [] for identity in incoming}
+    for row in factor_rows:
+        identity = str(row["factor_value_id"])
+        calculated_at = str(row["calculated_at"])
+        for observation_id in row.get("input_observation_ids") or []:
+            observation = observations.get(str(observation_id))
+            if observation is None:
+                # A more specific missing-input error is raised by the caller.
+                continue
+            try:
+                assert_available_as_of(observation, calculated_at)
+            except ContractError as exc:
+                raise StoreError(
+                    f"factor {identity} uses an observation after calculated_at"
+                ) from exc
+        for ref in row.get("input_factor_refs") or []:
+            ref_key = _factor_ref_key(ref)
+            if ref_key not in known:
+                raise StoreError(
+                    f"factor {identity} references unknown upstream factor: "
+                    f"{ref_key[0]}/{ref_key[1]}"
+                )
+            upstream = known[ref_key]
+            try:
+                assert_factor_available_as_of(upstream, calculated_at)
+            except ContractError as exc:
+                raise StoreError(
+                    f"factor {identity} uses an upstream factor after calculated_at"
+                ) from exc
+            if str(upstream["as_of_trade_date"]) > str(row["as_of_trade_date"]):
+                raise StoreError(
+                    f"factor {identity} references a future trade-date factor"
+                )
+            upstream_id = ref_key[1]
+            if upstream_id in incoming:
+                graph[identity].append(upstream_id)
+
+    visiting: set[str] = set()
+    visited: set[str] = set()
+
+    def visit(identity: str) -> None:
+        if identity in visiting:
+            raise StoreError(f"factor dependency cycle detected at {identity}")
+        if identity in visited:
+            return
+        visiting.add(identity)
+        for upstream in graph.get(identity, []):
+            visit(upstream)
+        visiting.remove(identity)
+        visited.add(identity)
+
+    for identity in graph:
+        visit(identity)
+
+
 def append_run(
     manifest: Mapping[str, Any],
     observations: Iterable[Mapping[str, Any]],
@@ -298,12 +378,18 @@ def _append_runs_locked(
         factor_rows.extend(run_factors)
 
     existing_observations = read_jsonl_strict(paths.observations)
-    factor_dates = sorted(
-        {str(row.get("as_of_trade_date") or "").strip() for row in factor_rows}
+    factor_dates = {
+        str(row.get("as_of_trade_date") or "").strip()
+        for row in factor_rows
+    }
+    factor_dates.update(
+        str(ref.get("as_of_trade_date") or "").strip()
+        for row in factor_rows
+        for ref in (row.get("input_factor_refs") or [])
     )
     existing_factors = [
         row
-        for trade_date in factor_dates
+        for trade_date in sorted(factor_dates)
         for row in read_jsonl_strict(factor_partition_path(paths, trade_date))
     ]
     existing_manifests = read_jsonl_strict(paths.manifests)
@@ -339,6 +425,11 @@ def _append_runs_locked(
         incoming=factor_rows,
         id_field="factor_value_id",
         volatile_fields=("calculated_at",),
+    )
+    _validate_factor_dependencies(
+        factor_rows,
+        known_factors=[*existing_factors, *new_factors],
+        known_observations=[*existing_observations, *new_observations],
     )
     new_manifests = _deduplicate_new_rows(
         existing=existing_manifests,

@@ -120,6 +120,29 @@ def test_preopen_service_uses_calendar_verified_dates_and_is_idempotent(
     assert len(read_jsonl_strict(paths.manifests)) == 1
 
 
+def test_preopen_preserves_committed_expectation_facts_when_curve_fails(
+    monkeypatch, tmp_path
+):
+    monkeypatch.setattr(refresh, "_universe", lambda: {"601138": "工业富联"})
+    monkeypatch.setattr(
+        refresh,
+        "run_curve_refresh",
+        lambda **kwargs: (_ for _ in ()).throw(RuntimeError("curve store failed")),
+    )
+    paths = default_store_paths(tmp_path / "research")
+    result = refresh.run_expectation_refresh(
+        source=_Source(),
+        now=datetime(2026, 7, 28, 8, 35, tzinfo=CHINA_TZ),
+        completed_at=datetime(2026, 7, 28, 8, 36, tzinfo=CHINA_TZ),
+        paths=paths,
+    )
+
+    assert result["status"] == "written"
+    assert result["curve_refresh"]["status"] == "failed"
+    assert "curve store failed" in result["curve_refresh"]["reason"]
+    assert len(read_jsonl_strict(paths.manifests)) == 1
+
+
 def test_service_blocks_before_calls_when_started_after_cutoff(tmp_path):
     source = _Source()
     result = refresh.run_expectation_refresh(

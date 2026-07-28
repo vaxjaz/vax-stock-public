@@ -617,7 +617,8 @@ var/research/
   source_ref / revision_id` 的来源事实。旧快照无法还原供应商原始行，因此迁移时将
   market、membership、price、metrics 各自保留为 source bundle，不伪装成更细的原始事实。
 - `factor_values/YYYYMMDD.jsonl` 是按 `as_of_trade_date` 分区的因子长表。
-  每行绑定 `factor_version` 和 `input_observation_ids/input_digest`；缺失值显式写
+  每行绑定 `factor_version`、`input_observation_ids`、可选
+  `input_factor_refs` 和 `input_digest`；缺失值显式写
   `quality=missing,value=null`，禁止补中性值。
 - `run_manifests.jsonl` 冻结 mode、universe、feature/group/select/forecast
   版本和 input digest。manifest 最后写入；存在 manifest 才表示该 run 完成。
@@ -634,3 +635,12 @@ var/research/
   隐含盈利预测。
 - `services.expectation_refresh` 只在 `trade_cal` 验证的交易日盘前落盘。采集若在
   09:25 或之后完成则整次阻断；`retrieved_at` 使用采集完成时刻。
+- `causal_curve_feature_set_v3` 只读取显式登记的连续因子。股票输出为每日一个
+  `stock_curve_vector`；赛道输出为 `track_aggregate_vector` +
+  `track_curve_vector`，且单因子当日至少 3 个成员才形成赛道中位数。
+- 曲线向量的递归依赖优先为“上一交易日曲线向量 + 当日基础因子”；首次或断档
+  使用完整可见窗口。存储层校验所有 observation/factor 输入在
+  `calculated_at` 前已经可见，并拒绝未来交易日引用和依赖环。
+- 曲线中的 turning/change/anomaly 均为 `candidate_not_validated`。当前报告、
+  D 线、评分和交易动作不消费这些候选；必须经过后续 walk-forward/OOS 后才可
+  讨论 effective。

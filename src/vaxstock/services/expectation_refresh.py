@@ -21,6 +21,7 @@ from vaxstock.research.point_in_time_store import (
     default_store_paths,
     observations_as_of,
 )
+from vaxstock.services.curve_refresh import run_curve_refresh
 from vaxstock.sources.tushare_src import TushareSource
 
 
@@ -215,11 +216,29 @@ def run_expectation_refresh(
         factors,
         paths=target_paths,
     )
+    try:
+        curve_result = run_curve_refresh(
+            as_of_trade_date=target_trade_date,
+            decision_at=(completed + timedelta(seconds=1)).isoformat(timespec="seconds"),
+            mode="live",
+            paths=target_paths,
+        )
+    except Exception as exc:
+        logger.warning(
+            "Expectation facts committed but causal curve refresh failed: %s",
+            str(exc)[:160],
+        )
+        curve_result = {
+            "status": "failed",
+            "as_of_trade_date": target_trade_date,
+            "reason": f"{type(exc).__name__}: {str(exc)[:160]}",
+        }
     result = {
         "status": stored["status"],
         "run_id": stored["run_id"],
         "summary": summary,
         "stored": stored,
+        "curve_refresh": curve_result,
     }
     logger.info("Expectation refresh: %s", result)
     return result

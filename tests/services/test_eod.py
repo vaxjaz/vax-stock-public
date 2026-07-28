@@ -46,6 +46,7 @@ _PATHS = {"payload": "/r/2026-06-25/payload.json",
 _SEAMS = ["TushareSource", "collect_payload", "compact_for_claude",
           "build_claude_markdown", "store_report",
           "record_and_backfill", "record_legacy_snapshot_trade_date",
+          "run_curve_refresh",
           "run_dline_closeout", "run_evidence_ledger",
           "run_evidence_convergence", "evaluate_from_files", "predictions_from_payload",
           "record_predictions", "enqueue_observation_job",
@@ -150,6 +151,18 @@ def _install_spies(secrets=None, payload=None, next_trade_date="20260626"):
             "manifests_written": 1,
         }
     eod_mod.record_legacy_snapshot_trade_date = _research_v2
+
+    def _curve_v2(*, as_of_trade_date, mode):
+        rec["order"].append("curve_v2")
+        rec["curve_v2_call"] = {
+            "as_of_trade_date": as_of_trade_date,
+            "mode": mode,
+        }
+        return {
+            "status": "written",
+            "summary": {"outputs": 1, "candidate_hits": 0},
+        }
+    eod_mod.run_curve_refresh = _curve_v2
 
     def _dline_closeout(*, trade_date, **kwargs):
         rec["order"].append("d_closeout")
@@ -288,6 +301,10 @@ def test_eod_orchestration_and_passthrough():
             "mode": "live",
             "snapshots_path": eod_mod.SNAPSHOTS_FILE,
         }
+        assert rec["curve_v2_call"] == {
+            "as_of_trade_date": "20260625",
+            "mode": "live",
+        }
         assert rec["regime_audit_call"] is _PAYLOAD
         assert rec["dline_closeout_call"] == {"trade_date": "20260625"}
         # E4: E1 后先核验旧 predictions,再生成下一交易日 live predictions
@@ -306,7 +323,8 @@ def test_eod_orchestration_and_passthrough():
                                          "baseline_trade_date": "20260625",
                                          "task_codes": ["601138"]}
         assert rec["order"] == [
-            "regime_audit", "e1", "research_v2", "d_closeout", "pred_eval", "next_trade",
+            "regime_audit", "e1", "research_v2", "curve_v2",
+            "d_closeout", "pred_eval", "next_trade",
             "pred_live", "pred_record", "evidence", "convergence", "store",
             "d_enqueue",
         ]

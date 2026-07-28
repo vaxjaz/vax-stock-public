@@ -13,7 +13,7 @@ import hashlib
 import json
 import math
 from datetime import datetime
-from typing import Any, Dict, List, Literal, Mapping, Optional, TypedDict
+from typing import Any, Dict, List, Literal, Mapping, NotRequired, Optional, TypedDict
 
 
 OBSERVATION_SCHEMA_VERSION = 1
@@ -71,8 +71,16 @@ class FactorValue(TypedDict):
     available_at: str
     calculated_at: str
     input_observation_ids: List[str]
+    input_factor_refs: NotRequired[List["FactorInputRef"]]
     input_digest: str
     quality: FactorQuality
+
+
+class FactorInputRef(TypedDict):
+    """A compact, partition-addressable dependency on an upstream factor."""
+
+    factor_value_id: str
+    as_of_trade_date: str
 
 
 class ForecastOutput(TypedDict):
@@ -129,6 +137,38 @@ def canonical_digest(value: Any) -> str:
     except (TypeError, ValueError) as exc:
         raise ContractError(f"input is not canonical JSON: {exc}") from exc
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def factor_input_digest(
+    observation_ids: List[str],
+    factor_refs: Optional[List[Mapping[str, Any]]] = None,
+) -> str:
+    """Digest direct observations and optional upstream-factor references.
+
+    The observations-only representation intentionally preserves the v1
+    digest used by already stored base factors. Derived factors use the
+    structured representation so their full dependency DAG is immutable.
+    """
+
+    observations = sorted(str(value) for value in observation_ids)
+    refs = sorted(
+        (
+            {
+                "factor_value_id": str(ref.get("factor_value_id") or ""),
+                "as_of_trade_date": str(ref.get("as_of_trade_date") or ""),
+            }
+            for ref in (factor_refs or [])
+        ),
+        key=lambda ref: (ref["as_of_trade_date"], ref["factor_value_id"]),
+    )
+    if not refs:
+        return canonical_digest(observations)
+    return canonical_digest(
+        {
+            "input_observation_ids": observations,
+            "input_factor_refs": refs,
+        }
+    )
 
 
 def make_observation_id(record: Mapping[str, Any]) -> str:
@@ -263,13 +303,46 @@ def validate_factor_value(record: Mapping[str, Any]) -> None:
         raise ContractError("calculated_at cannot precede available_at")
 
     input_ids = record.get("input_observation_ids")
-    if not isinstance(input_ids, list) or not input_ids:
-        raise ContractError("input_observation_ids must be a non-empty list")
+    if not isinstance(input_ids, list):
+        raise ContractError("input_observation_ids must be a list")
     if any(not isinstance(value, str) or not value.strip() for value in input_ids):
         raise ContractError("input_observation_ids must contain non-empty strings")
-    expected_input_digest = canonical_digest(sorted(input_ids))
+    if len(set(input_ids)) != len(input_ids):
+        raise ContractError("input_observation_ids must not contain duplicates")
+
+    raw_factor_refs = record.get("input_factor_refs", [])
+    if not isinstance(raw_factor_refs, list):
+        raise ContractError("input_factor_refs must be a list")
+    factor_refs: List[Dict[str, str]] = []
+    for ref in raw_factor_refs:
+        if not isinstance(ref, Mapping):
+            raise ContractError("input_factor_refs entries must be objects")
+        factor_value_id = str(ref.get("factor_value_id") or "").strip()
+        if not factor_value_id:
+            raise ContractError("input_factor_refs.factor_value_id is required")
+        ref_date = _parse_trade_date(
+            ref.get("as_of_trade_date"),
+            "input_factor_refs.as_of_trade_date",
+        )
+        factor_refs.append(
+            {
+                "factor_value_id": factor_value_id,
+                "as_of_trade_date": ref_date,
+            }
+        )
+    factor_ref_keys = [
+        (ref["as_of_trade_date"], ref["factor_value_id"]) for ref in factor_refs
+    ]
+    if len(set(factor_ref_keys)) != len(factor_ref_keys):
+        raise ContractError("input_factor_refs must not contain duplicates")
+    if not input_ids and not factor_refs:
+        raise ContractError("a factor requires observation or upstream-factor inputs")
+    if any(ref["factor_value_id"] == record.get("factor_value_id") for ref in factor_refs):
+        raise ContractError("a factor cannot reference itself")
+
+    expected_input_digest = factor_input_digest(input_ids, factor_refs)
     if record.get("input_digest") != expected_input_digest:
-        raise ContractError("input_digest does not match input_observation_ids")
+        raise ContractError("input_digest does not match factor inputs")
 
     quality = record.get("quality")
     if quality not in {"calculated", "stale", "missing"}:

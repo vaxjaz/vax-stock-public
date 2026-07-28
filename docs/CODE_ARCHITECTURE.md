@@ -192,7 +192,9 @@ flowchart TD
 | `services.eval_recorder.backfill` | `var/eval/factor_results.jsonl` | append-only, 默认机械记录连续日 horizon, 同 key 多行按 horizon 合并读取 |
 | `research.point_in_time_store` | `var/research/observations.jsonl` + `factor_values/YYYYMMDD.jsonl` + `run_manifests.jsonl` | append-only；版本冲突报错；manifest 最后提交 |
 | `research.expectation_dimension` | `report_rc` / `forecast` / `daily_basic` 的已验证结果 | 纯函数生成 E 维原始事实和候选因子；不执行 group/select/forecast，不改生产动作 |
+| `research.causal_curve` | Research v2 长表因子 + point-in-time membership | 生成股票/赛道曲线向量、导数及候选变点；纯函数，不触网，不下结论 |
 | `services.expectation_refresh` | 全持仓 + 全观察池 | `trade_cal` 锚定交易日；09:25 截止；显式调用后才触网和落盘 |
+| `services.curve_refresh` | 已落盘 Research v2 事实 | EOD/盘前增量计算及顺序历史重放；输出仍为 `candidate_not_validated` |
 | `services.regime_auditor.record_regime_audit` | `var/eval/regime_audit.jsonl` + md | JSONL 幂等, md 可重生成 |
 | `services.eod_predictor.record_predictions` | `var/prediction/eod_predictions.jsonl` | append-only, `prediction_id` 幂等 |
 | `services.prediction_evaluator.record_prediction_results` | `var/prediction/eod_prediction_results.jsonl` | append-only, `(prediction_id, horizon)` 幂等 |
@@ -209,6 +211,7 @@ flowchart TD
 | `research.prediction_eval` | `eod_predictions.jsonl` + `eod_prediction_results.jsonl` | `var/prediction/prediction_layer2_report_<trade_date>.md` |
 | `research.rule_suggester` | Prediction join 后结果 | `var/prediction/rule_suggestions_<trade_date>.md` |
 | `research.legacy_snapshot_replay` | legacy `factor_snapshots.jsonl` | 幂等迁移/回放到 Research v2，不修改源文件 |
+| `services.curve_refresh --replay` | Research v2 基础因子与成员关系 | 顺序生成股票/赛道因果曲线向量；不执行 group/select/forecast |
 
 研究层原则:
 

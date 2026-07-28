@@ -8,6 +8,7 @@ import pytest
 
 from vaxstock.research.contracts import (
     canonical_digest,
+    factor_input_digest,
     make_factor_value_id,
     make_run_id,
 )
@@ -159,6 +160,120 @@ def test_new_factor_version_appends_to_historical_date_without_rewrite(tmp_path)
     conflict["value"] = 99.0
     with pytest.raises(StoreError, match="changed without a new revision/version"):
         append_run(new_manifest, [], [conflict], paths=paths)
+
+
+def test_store_validates_cross_partition_factor_dependencies_and_time(tmp_path):
+    paths = default_store_paths(tmp_path / "research")
+    manifest, observations, factors = build_legacy_snapshot_run(
+        _snapshots(), mode="replay"
+    )
+    append_run(manifest, observations, factors, paths=paths)
+    upstream = next(
+        row for row in factors
+        if row["entity_id"] == "601138" and row["factor_id"] == "legacy.rsi_14"
+    )
+    refs = [{
+        "factor_value_id": upstream["factor_value_id"],
+        "as_of_trade_date": upstream["as_of_trade_date"],
+    }]
+    derived = {
+        "schema_version": 1,
+        "factor_value_id": "",
+        "entity_type": "stock",
+        "entity_id": "601138",
+        "dimension": "causal_curve",
+        "factor_id": "curve::legacy_snapshot::legacy.rsi_14",
+        "factor_version": "curve-v1",
+        "value": {"level": 48.0},
+        "as_of_trade_date": "20260626",
+        "effective_date": "20260626",
+        "available_at": upstream["calculated_at"],
+        "calculated_at": "2026-06-26T05:11:00+08:00",
+        "input_observation_ids": [],
+        "input_factor_refs": refs,
+        "input_digest": factor_input_digest([], refs),
+        "quality": "calculated",
+    }
+    derived["factor_value_id"] = make_factor_value_id(derived)
+    derived_manifest = {
+        "schema_version": 1,
+        "run_id": "",
+        "mode": "replay",
+        "as_of_trade_date": "20260626",
+        "universe_id": "curve-test",
+        "feature_set_version": "curve-v1",
+        "group_version": "not_executed",
+        "select_version": "not_executed",
+        "forecast_version": "not_executed",
+        "input_digest": canonical_digest(refs),
+        "generated_at": derived["calculated_at"],
+        "notes": ["derived dependency test"],
+        "observation_count": 0,
+        "factor_value_count": 1,
+        "observation_digest": canonical_digest([]),
+        "factor_value_digest": canonical_digest([derived["factor_value_id"]]),
+    }
+    derived_manifest["run_id"] = make_run_id(derived_manifest)
+
+    assert append_run(
+        derived_manifest, [], [derived], paths=paths
+    )["factors_written"] == 1
+
+    unknown = copy.deepcopy(derived)
+    unknown["factor_id"] = "curve::unknown"
+    unknown["input_factor_refs"] = [{
+        "factor_value_id": "factor_missing",
+        "as_of_trade_date": "20260625",
+    }]
+    unknown["input_digest"] = factor_input_digest(
+        [], unknown["input_factor_refs"]
+    )
+    unknown["factor_value_id"] = make_factor_value_id(unknown)
+    unknown_manifest = copy.deepcopy(derived_manifest)
+    unknown_manifest["feature_set_version"] = "curve-unknown-v1"
+    unknown_manifest["factor_value_digest"] = canonical_digest(
+        [unknown["factor_value_id"]]
+    )
+    unknown_manifest["run_id"] = make_run_id(unknown_manifest)
+    with pytest.raises(StoreError, match="unknown upstream factor"):
+        append_run(unknown_manifest, [], [unknown], paths=paths)
+
+    too_early = copy.deepcopy(derived)
+    too_early["factor_id"] = "curve::too-early"
+    too_early["available_at"] = "2026-06-26T05:09:00+08:00"
+    too_early["calculated_at"] = "2026-06-26T05:09:59+08:00"
+    too_early["factor_value_id"] = make_factor_value_id(too_early)
+    early_manifest = copy.deepcopy(derived_manifest)
+    early_manifest["feature_set_version"] = "curve-early-v1"
+    early_manifest["factor_value_digest"] = canonical_digest(
+        [too_early["factor_value_id"]]
+    )
+    early_manifest["run_id"] = make_run_id(early_manifest)
+    with pytest.raises(StoreError, match="upstream factor after calculated_at"):
+        append_run(early_manifest, [], [too_early], paths=paths)
+
+    future_observation = next(
+        row for row in observations
+        if row["entity_id"] == "601138" and row["field"] == "metrics"
+    )
+    bad_direct = copy.deepcopy(derived)
+    bad_direct.pop("input_factor_refs")
+    bad_direct["factor_id"] = "curve::future-observation"
+    bad_direct["available_at"] = "2026-06-26T05:09:00+08:00"
+    bad_direct["calculated_at"] = "2026-06-26T05:09:59+08:00"
+    bad_direct["input_observation_ids"] = [future_observation["observation_id"]]
+    bad_direct["input_digest"] = canonical_digest(
+        bad_direct["input_observation_ids"]
+    )
+    bad_direct["factor_value_id"] = make_factor_value_id(bad_direct)
+    direct_manifest = copy.deepcopy(derived_manifest)
+    direct_manifest["feature_set_version"] = "curve-future-observation-v1"
+    direct_manifest["factor_value_digest"] = canonical_digest(
+        [bad_direct["factor_value_id"]]
+    )
+    direct_manifest["run_id"] = make_run_id(direct_manifest)
+    with pytest.raises(StoreError, match="observation after calculated_at"):
+        append_run(direct_manifest, [], [bad_direct], paths=paths)
 
 
 def test_factor_query_enforces_point_in_time_availability(tmp_path):
