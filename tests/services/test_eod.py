@@ -46,7 +46,7 @@ _PATHS = {"payload": "/r/2026-06-25/payload.json",
 _SEAMS = ["TushareSource", "collect_payload", "compact_for_claude",
           "build_claude_markdown", "store_report",
           "record_and_backfill", "record_legacy_snapshot_trade_date",
-          "run_curve_refresh",
+          "run_curve_refresh", "run_group_refresh",
           "run_dline_closeout", "run_evidence_ledger",
           "run_evidence_convergence", "evaluate_from_files", "predictions_from_payload",
           "record_predictions", "enqueue_observation_job",
@@ -163,6 +163,22 @@ def _install_spies(secrets=None, payload=None, next_trade_date="20260626"):
             "summary": {"outputs": 1, "candidate_hits": 0},
         }
     eod_mod.run_curve_refresh = _curve_v2
+
+    def _group_v2(*, as_of_trade_date, mode):
+        rec["order"].append("group_v2")
+        rec["group_v2_call"] = {
+            "as_of_trade_date": as_of_trade_date,
+            "mode": mode,
+        }
+        return {
+            "status": "written",
+            "summary": {
+                "stock_group_vectors": 1,
+                "statistical_memberships": 2,
+                "label_usage": "none",
+            },
+        }
+    eod_mod.run_group_refresh = _group_v2
 
     def _dline_closeout(*, trade_date, **kwargs):
         rec["order"].append("d_closeout")
@@ -305,6 +321,10 @@ def test_eod_orchestration_and_passthrough():
             "as_of_trade_date": "20260625",
             "mode": "live",
         }
+        assert rec["group_v2_call"] == {
+            "as_of_trade_date": "20260625",
+            "mode": "live",
+        }
         assert rec["regime_audit_call"] is _PAYLOAD
         assert rec["dline_closeout_call"] == {"trade_date": "20260625"}
         # E4: E1 后先核验旧 predictions,再生成下一交易日 live predictions
@@ -323,7 +343,7 @@ def test_eod_orchestration_and_passthrough():
                                          "baseline_trade_date": "20260625",
                                          "task_codes": ["601138"]}
         assert rec["order"] == [
-            "regime_audit", "e1", "research_v2", "curve_v2",
+            "regime_audit", "e1", "research_v2", "curve_v2", "group_v2",
             "d_closeout", "pred_eval", "next_trade",
             "pred_live", "pred_record", "evidence", "convergence", "store",
             "d_enqueue",

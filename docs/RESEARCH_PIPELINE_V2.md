@@ -1,6 +1,6 @@
 # Research Pipeline V2 — 决策与统计契约
 
-状态：MR4 连续曲线、赛道聚合、因果拐点/异常候选与历史重放已实现。本文描述稳定边界，
+状态：MR5 point-in-time 多视角 group 与历史重放已实现；select/forecast 尚未施工。本文描述稳定边界，
 不宣称尚未施工或未经样本检验的模型已经可用。
 
 ## 1. 目标函数
@@ -68,9 +68,10 @@ Action_t = decide(Y_t, portfolio_t, risk_constraints_t)
 3. MR3（已实现）：E 维度（公告前卖方预期、公司业绩预告、价格相对卖方估值）
    及盘前刷新。
 4. MR4（已实现）：连续曲线、因果导数、变点和异常候选检测。
-5. MR5–MR7：group、select、forecast 与 walk-forward 评估。
-6. MR8：portfolio decision 与专业报告。
-7. MR9：shadow run；通过预先冻结的 OOS 门槛后才允许影响生产动作。
+5. MR5（已实现）：label-free 多视角 group、薄样本/缺失状态与历史重放。
+6. MR6–MR7：select、forecast 与 walk-forward 评估。
+7. MR8：portfolio decision 与专业报告。
+8. MR9：shadow run；通过预先冻结的 OOS 门槛后才允许影响生产动作。
 
 所有阶段保留原始数据和旧 baseline，版本前滚不覆盖历史。没有 OOS 证据的结果只能标为 candidate，不得写成 effective。
 
@@ -176,3 +177,48 @@ PYTHONPATH=src python -m vaxstock.services.curve_refresh --replay
 第二条命令支持 `--from-date/--to-date/--output-dir`，按交易日顺序运行；相同输入重跑
 不会追加重复 factor 或 manifest。非原生时点的晚到历史回填不会混入当时曲线；
 `mode=live` 也只接受目标交易日当天或下一自然日的计算时刻，迟到手工运行会明确阻断。
+
+## 10. MR5 已实现：label-free 多视角 group
+
+`research.contextual_group` 不读取 `factor_results.jsonl`、未来收益或任何结果标签。
+它只使用决策时点已经可见的 Research v2 observation/factor，将每只股票映射到彼此独立的
+状态轴：
+
+- 市场轴：当时可见的 `market.regime` 与 `market.macro_regime`；缺失时不产生组身份。
+- 横截面轴：在当日完整用户观察池内，对已登记连续因子使用并列值共享中间秩的三分位分组。
+  默认至少 9 个有效值、至少 3 个不同值；不足时写明 unavailable，不强制切桶。
+- 股票曲线轴：最近斜率、加速度、turning/anomaly/change-point 候选状态。检测窗口未成熟时
+  为 `null`；成熟但未触发时为显式控制状态 `none`，两者不可混。
+- 赛道轴：成员关系取当时最新可见版本；少于 3 个当前成员标为 `thin_track`。只有已形成
+  赛道中位数/曲线的因子，才生成股票相对赛道 level/slope 状态。
+
+当前赛道成员来源是每日冻结的用户观察池 `concepts` 标签，不是官方行业指数的历史成分。
+因此 `track_aggregate_vector` 的含义是“当前观察池内同标签股票中位数”，不能冒充行业
+benchmark；将来接入官方 point-in-time 成分时必须新增 source/factor/group version。
+
+这些轴不会在 group 阶段被拼成一个高维 cluster。后续 select 可以在训练窗内检验有限交叉，
+但必须报告独立交易日数、多重尝试次数和 OOS 表现。`holding/watchlist` 是用户组合决策的
+内生结果，只作为审计字段保存，不进入统计组，避免把历史持仓选择误当成预测因子。
+
+group 输出仍写入 `factor_values/YYYYMMDD.jsonl`：
+
+- 每日一个 `group_context_vector`：市场状态、横截面协议、赛道覆盖及状态向量字段顺序。
+- 每票一个 `stock_group_vector`：该票的横截面桶、股票曲线状态向量、可用的相对赛道状态。
+
+为控制长期存储，向量保存可审计的 `(axis, state, series_id, concept)` 状态元组，不在每个
+位置重复 64 字节摘要。需要 join key 时由
+`contextual_group.materialize_group_id` 按 manifest 中冻结的 SHA-256 协议确定性生成。
+现有 22 日/922 票真实历史重放形成 944 条 group 向量；向量化后约 11.5 MB，相比首版
+重复展开约 56.9 MB 降低约 80%。这只是工程与时点正确性验证，不是有效性结论。
+
+历史重放顺序：
+
+```bash
+PYTHONPATH=src python -m vaxstock.research.legacy_snapshot_replay
+PYTHONPATH=src python -m vaxstock.services.curve_refresh --replay
+PYTHONPATH=src python -m vaxstock.services.group_refresh --replay
+```
+
+三步均幂等。EOD 和盘前 E 维刷新在曲线落盘后立即运行 group，因此不会因报告缓存等待到
+下一个交易日；如果市场/成员/因子时点证据不完整，当前 run 阻断或局部 unavailable，
+不会回填中性组。

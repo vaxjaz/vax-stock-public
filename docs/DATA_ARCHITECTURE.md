@@ -644,3 +644,14 @@ var/research/
 - 曲线中的 turning/change/anomaly 均为 `candidate_not_validated`。当前报告、
   D 线、评分和交易动作不消费这些候选；必须经过后续 walk-forward/OOS 后才可
   讨论 effective。
+- `research_group` 维度保存 MR5 的 label-free 分组。`group_context_vector` 冻结当时
+  市场状态、横截面三分位协议、赛道覆盖和状态向量 schema；`stock_group_vector`
+  保存逐票状态。组分配不读取 `factor_results`，持仓/观察池角色为 `audit_only`。
+- 当前赛道成员是每日 observation 中冻结的用户 `concepts` 标签，不是官方行业指数历史
+  成分；赛道中位数只能解释为观察池同标签横截面，不能作为官方行业 benchmark。
+- 曲线状态向量的字段顺序由 context 中 `state_vector_schema` 冻结；`null` 表示该状态
+  在当时不可用，检测器成熟但未命中使用字符串 `none`，禁止把两者合并为中性。
+- group ID 不在每个状态重复落盘。需要跨文件 join 时，以
+  `(group_version, axis, state, series_id, concept)` 调用
+  `contextual_group.materialize_group_id` 确定性生成。group manifest 明确写
+  `label_usage=none`、`select_version=not_executed`、`forecast_version=not_executed`。

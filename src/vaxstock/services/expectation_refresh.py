@@ -22,6 +22,7 @@ from vaxstock.research.point_in_time_store import (
     observations_as_of,
 )
 from vaxstock.services.curve_refresh import run_curve_refresh
+from vaxstock.services.group_refresh import run_group_refresh
 from vaxstock.sources.tushare_src import TushareSource
 
 
@@ -233,12 +234,32 @@ def run_expectation_refresh(
             "as_of_trade_date": target_trade_date,
             "reason": f"{type(exc).__name__}: {str(exc)[:160]}",
         }
+    try:
+        group_result = run_group_refresh(
+            as_of_trade_date=target_trade_date,
+            decision_at=(completed + timedelta(seconds=2)).isoformat(
+                timespec="seconds"
+            ),
+            mode="live",
+            paths=target_paths,
+        )
+    except Exception as exc:
+        logger.warning(
+            "Expectation facts committed but contextual group refresh failed: %s",
+            str(exc)[:160],
+        )
+        group_result = {
+            "status": "failed",
+            "as_of_trade_date": target_trade_date,
+            "reason": f"{type(exc).__name__}: {str(exc)[:160]}",
+        }
     result = {
         "status": stored["status"],
         "run_id": stored["run_id"],
         "summary": summary,
         "stored": stored,
         "curve_refresh": curve_result,
+        "group_refresh": group_result,
     }
     logger.info("Expectation refresh: %s", result)
     return result

@@ -62,7 +62,8 @@ short-window substitute: the run records the source status and abstains from
 all seller-consensus factors.
 
 Both EOD Research v2 ingestion and the pre-open expectation refresh invoke the
-causal curve refresh immediately after their base facts are committed. To
+causal curve refresh and then the label-free group refresh immediately after
+their base facts are committed. To
 bootstrap or audit history without touching the legacy source file:
 
 ```bash
@@ -70,10 +71,13 @@ PYTHONPATH=src /opt/stock-reportv2/venv/bin/python \
   -m vaxstock.research.legacy_snapshot_replay
 PYTHONPATH=src /opt/stock-reportv2/venv/bin/python \
   -m vaxstock.services.curve_refresh --replay
+PYTHONPATH=src /opt/stock-reportv2/venv/bin/python \
+  -m vaxstock.services.group_refresh --replay
 ```
 
-The replay is sequential and idempotent. Its turning/change/anomaly outputs are
-research candidates only; they do not create intraday alerts or trading tasks.
+The replay is sequential and idempotent. Turning/change/anomaly outputs and
+group memberships remain research candidates only; grouping never reads future
+returns and neither stage creates intraday alerts or trading tasks.
 
 Safety rules:
 

@@ -31,6 +31,7 @@ from vaxstock.services.evidence_ledger import run_evidence_ledger
 from vaxstock.services.eval_recorder import SNAPSHOTS_FILE, record_and_backfill
 from vaxstock.services.eod_predictor import predictions_from_payload, record_predictions
 from vaxstock.services.forecast_planner import enqueue_observation_job
+from vaxstock.services.group_refresh import run_group_refresh
 from vaxstock.services.prediction_evaluator import evaluate_from_files
 from vaxstock.sources.tushare_src import TushareSource
 
@@ -99,8 +100,21 @@ def run_eod() -> Dict[str, str]:
             (curve_v2.get("summary") or {}).get("outputs"),
             (curve_v2.get("summary") or {}).get("candidate_hits"),
         )
+        group_v2 = run_group_refresh(
+            as_of_trade_date=research_trade_date,
+            mode="live",
+        )
+        logger.info(
+            "Research v2 groups: status=%s stocks=%s memberships=%s labels=%s",
+            group_v2.get("status"),
+            (group_v2.get("summary") or {}).get("stock_group_vectors"),
+            (group_v2.get("summary") or {}).get("statistical_memberships"),
+            (group_v2.get("summary") or {}).get("label_usage"),
+        )
     except Exception as e:
-        logger.warning(f"Research v2 snapshot/curve persistence failed: {str(e)[:120]}")
+        logger.warning(
+            f"Research v2 snapshot/curve/group persistence failed: {str(e)[:120]}"
+        )
 
     # D-line closeout is market-data-only and never reads user executions.
     try:
