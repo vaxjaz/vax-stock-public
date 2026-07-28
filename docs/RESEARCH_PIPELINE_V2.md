@@ -1,7 +1,8 @@
 # Research Pipeline V2 — 决策与统计契约
 
-状态：MR5 point-in-time 多视角 group 与历史重放已实现；select/forecast 尚未施工。本文描述稳定边界，
-不宣称尚未施工或未经样本检验的模型已经可用。
+状态：Research v2 已完成 point-in-time 数据、group、outcome、walk-forward select
+与条件分布 forecast 的 shadow 闭环。截至 2026-07-28 的真数据回放样本不足，
+所有 horizon 均 abstain；未经 OOS 检验的模型仍不可用。
 
 ## 1. 目标函数
 
@@ -270,7 +271,7 @@ PYTHONPATH=src python -m vaxstock.services.group_outcome_refresh
 
 每个候选在每个 baseline 交易日只形成一条“完整日横截面价差”，同日几十只股票不再
 冒充几十个独立样本。任一股票的目标 horizon 尚未成熟或在当时不可见，该日期整个候选
-横截面剔除，不以剩余股票补齐。默认策略 `walk_forward_group_spread_v1` 使用 expanding
+横截面剔除，不以剩余股票补齐。默认策略 `walk_forward_group_spread_v2` 使用 expanding
 walk-forward；训练标签必须在验证日之前结束且在当时已经可见，并按 horizon 应用
 embargo。默认门槛为 40 个训练日、20 个 OOS 日、每侧至少 3 只股票；这些只是版本化
 研究 guardrail，不是“达到门槛即有效”的统计定理。
@@ -282,8 +283,9 @@ OOS 价差。报告披露每折候选尝试数、独立日期数、purge/embargo
 `production_eligible` 固定为 false，不改旧评分、持仓动作、D 线或盘中信号。
 
 `services.select_refresh` 在 EOD 的 group outcome 之后实时重算当日选择审计，并按
-交易日不可变写入 `var/research/selections/selection_audit_YYYYMMDD.json`。重跑输入相同
-返回 `already_complete`；同一历史决策日结果变化则报冲突，不以缓存覆盖。
+交易日与算法版本不可变写入
+`var/research/selections/selection_audit_YYYYMMDD__<select_version>.json`。重跑输入相同
+返回 `already_complete`；算法升级以新版本文件前滚，不覆盖旧版历史。
 
 2026-07-28 真数据回放结论为全部弃权：
 
@@ -298,77 +300,34 @@ OOS 价差。报告披露每折候选尝试数、独立日期数、purge/embargo
 这不是“模型判断市场没有机会”，而是“现有独立时间样本不足以判断哪些 group 状态
 effective”。它阻止系统再次把高维逐票行数包装成有效统计。
 
-## 12. MR6b 已实现：walk-forward select 与强制弃权
+## 13. MR7 已实现：条件分布 forecast
 
-`research.walk_forward_select` 的初始候选空间固定为三个有限状态轴：
+`research.conditional_forecast` 只预测 MR6 实际在 walk-forward 中核验过的
+`selected_group_spread`，不生成逐股目标价，也不把预测直接翻译为买卖动作：
 
-- 横截面三分位：high 组减 low 组；
-- 因果曲线斜率：up 组减 down 组；
-- 因果曲线加速度：up 组减 down 组。
+- select 为 abstain 时，forecast 必须同步 abstain；方向、期望超额、confidence 和
+  distribution 全部为 `null`。
+- select 达到 shadow 门槛时，必须同时存在当前时点重新训练后选出的候选。
+  forecast 使用独立 OOS 折的 direction-adjusted group spread 形成经验条件分布，
+  输出 mean、q10/q25/median/q75/q90、positive rate 和方向一致率。
+- `expected_excess_return` 严格等于 OOS 分布中位数；`confidence` 严格等于与中位数
+  方向一致的 OOS 日期占比。它不是参数模型概率，也不能包装成统计显著性。
+- OOS 中位数为 0 时继续 abstain。负中位数如实输出 `negative_spread`，不得改写为
+  正向信号。
+- primary benchmark 仍明确标为 legacy `000001.SH`。当前市场 regime 已保存在 group
+  输入中，但由于独立日期不足，尚未单独估计 regime 条件分布。
+- `production_eligible=false` 与 `manual_review_required` 是 forecast audit 硬契约；
+  当前报告、旧评分、盘中通知、D 线和持仓动作均不消费该输出。
 
-每个候选在每个 baseline 交易日只形成一条“完整日横截面价差”，同日几十只股票不再
-冒充几十个独立样本。任一股票的目标 horizon 尚未成熟或在当时不可见，该日期整个候选
-横截面剔除，不以剩余股票补齐。默认策略 `walk_forward_group_spread_v1` 使用 expanding
-walk-forward；训练标签必须在验证日之前结束且在当时已经可见，并按 horizon 应用
-embargo。默认门槛为 40 个训练日、20 个 OOS 日、每侧至少 3 只股票；这些只是版本化
-研究 guardrail，不是“达到门槛即有效”的统计定理。
+`services.forecast_refresh` 读取当日不可变 selection audit，输出
+`var/research/forecasts/forecast_audit_YYYYMMDD__<select_version>__<forecast_version>.json`。
+EOD 顺序固定为：
 
-训练窗只用候选历史日价差的中位数绝对值排序，并冻结方向；验证日才计算方向调整后的
-OOS 价差。报告披露每折候选尝试数、独立日期数、purge/embargo、OOS 表现和全部策略
-参数。普通日标准误与 t-like 只标为 descriptive，明确未做序列相关推断，不能当 p 值。
-即使 OOS 日期达到门槛也只允许 `shadow_candidate + manual_review_required`；
-`production_eligible` 固定为 false，不改旧评分、持仓动作、D 线或盘中信号。
-
-`services.select_refresh` 在 EOD 的 group outcome 之后实时重算当日选择审计，并按
-交易日不可变写入 `var/research/selections/selection_audit_YYYYMMDD.json`。重跑输入相同
-返回 `already_complete`；同一历史决策日结果变化则报冲突，不以缓存覆盖。
-
-2026-07-28 真数据回放结论为全部弃权：
-
-| horizon | 完整独立日 | 候选尝试数 | OOS 独立日 | 结论 |
-|---|---:|---:|---:|---|
-| T+1 | 21 | 51 | 0 | abstain |
-| T+3 | 19 | 51 | 0 | abstain |
-| T+5 | 17 | 51 | 0 | abstain |
-| T+10 | 12 | 51 | 0 | abstain |
-| T+20 | 2 | 19 | 0 | abstain |
-
-这不是“模型判断市场没有机会”，而是“现有独立时间样本不足以判断哪些 group 状态
-effective”。它阻止系统再次把高维逐票行数包装成有效统计。
-
-## 11. MR6a 已实现：group 与成熟 outcome 的严格连接层
-
-`research.group_outcome` 不做因子筛选，也不宣称任何因子有效。它把 legacy
-`factor_results.jsonl` 的增量结果按 `(trade_date, code, horizon, field)` 严格合并，
-并连接到同一 `(trade_date, code)` 最早一次包含 EOD 基础因子的 MR5
-`stock_group_vector`：
-
-- 同一字段/期限出现不同值时直接报冲突，不采用最后一行覆盖。
-- `ret / mkt_ret / excess / horizon_trade_date` 首次齐全的原始行冻结为
-  `outcome_available_at`；历史 `filled_ts` 无时区时按项目交易时区
-  `Asia/Shanghai` 解释，并显式记录 `availability_timezone_inferred=true`。
-- 强校验 `excess_ret = ret - benchmark_ret`。该 legacy benchmark 经
-  `services.eval_recorder.BENCHMARK_INDEX` 源码验证为 `000001.SH` 上证综指；
-  它不是赛道 benchmark，不能冒充未来的行业/赛道超额口径。
-- 每个标签保存 group factor identity、group 计算/可见时点、结果首次完整行号、
-  来源引用和输入摘要。结果先于 group 可见会触发 look-ahead 错误。
-- 输出追加到 `var/research/outcomes/group_outcomes.jsonl`；写入带跨进程锁、
-  `fsync`、身份冲突检测和重跑幂等。
-
-EOD 顺序为基础快照 → curve → group → group outcome。当前阶段仍明确写
-`selection_status=not_executed`、`forecast_status=not_executed`，不进入报告动作、
-盘中通知、旧评分或自动调参。
-
-历史审计命令：
-
-```bash
-PYTHONPATH=src python -m vaxstock.research.legacy_snapshot_replay
-PYTHONPATH=src python -m vaxstock.services.curve_refresh --replay
-PYTHONPATH=src python -m vaxstock.services.group_refresh --replay
-PYTHONPATH=src python -m vaxstock.services.group_outcome_refresh
+```text
+snapshot → curve → group → group outcome → select → forecast
 ```
 
-2026-07-28 本地真实回放得到 9,660 个成熟的股票×期限标签、21 个独立基准
-交易日、0 个结果冲突和 0 个缺失 group；重复运行新增 0 行。统计层必须把
-“股票×期限行数”和“独立基准交易日数”分开，不能把 9,660 行伪装成 9,660 个
-独立样本。21 个交易日只验证连接层、时点和幂等，不足以证明因子 effective。
+同一决策日重跑结果相同返回 `already_complete`，结果变化则报冲突。2026-07-28
+真实 22 日回放中，T+1/3/5/10/20 均继承
+`select_abstain:insufficient_independent_oos_dates`，数值分布全部为空；这证明 abstain
+链路有效，不代表市场方向判断。

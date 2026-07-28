@@ -257,6 +257,30 @@ def test_walk_forward_purges_future_labels_and_applies_embargo():
     assert result["leakage_controls"]["embargo_sessions"] == 1
 
 
+def test_walk_forward_freezes_current_candidates_for_forecast():
+    result = run_walk_forward_select(
+        candidate_sessions=_candidate_rows(10),
+        horizon_sessions=1,
+        policy=SelectionPolicy(
+            min_side_stocks=3,
+            min_train_dates=2,
+            min_oos_dates=1,
+            top_k=1,
+            embargo_sessions=1,
+        ),
+        current_as_of_trade_date="20260711",
+        current_decision_at="2026-07-12T06:00:00+08:00",
+    )
+
+    assert result["status"] == "shadow_candidate"
+    assert result["current_candidate_tests"] == 1
+    assert len(result["current_candidates"]) == 1
+    assert result["current_candidates"][0]["candidate_id"] == "candidate_a"
+    assert result["current_candidates"][0]["training"][
+        "independent_dates"
+    ] == 8
+
+
 def test_default_policy_abstains_on_short_history():
     result = run_walk_forward_select(
         candidate_sessions=_candidate_rows(21),

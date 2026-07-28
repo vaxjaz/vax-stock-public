@@ -31,6 +31,7 @@ from vaxstock.services.evidence_ledger import run_evidence_ledger
 from vaxstock.services.eval_recorder import SNAPSHOTS_FILE, record_and_backfill
 from vaxstock.services.eod_predictor import predictions_from_payload, record_predictions
 from vaxstock.services.forecast_planner import enqueue_observation_job
+from vaxstock.services.forecast_refresh import run_forecast_refresh
 from vaxstock.services.group_refresh import run_group_refresh
 from vaxstock.services.group_outcome_refresh import run_group_outcome_refresh
 from vaxstock.services.prediction_evaluator import evaluate_from_files
@@ -129,9 +130,21 @@ def run_eod() -> Dict[str, str]:
             select_v2.get("write_status"),
             select_v2.get("production_eligible"),
         )
+        if not select_v2.get("audit_path"):
+            raise ValueError("Research v2 select audit was not materialized")
+        forecast_v2 = run_forecast_refresh(
+            as_of_trade_date=research_trade_date,
+            selection_path=select_v2["audit_path"],
+        )
+        logger.info(
+            "Research v2 forecast: status=%s write=%s production=%s",
+            forecast_v2.get("status"),
+            forecast_v2.get("write_status"),
+            forecast_v2.get("production_eligible"),
+        )
     except Exception as e:
         logger.warning(
-            "Research v2 snapshot/curve/group/outcome/select failed: "
+            "Research v2 snapshot/curve/group/outcome/select/forecast failed: "
             f"{str(e)[:120]}"
         )
 

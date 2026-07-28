@@ -47,7 +47,7 @@ _SEAMS = ["TushareSource", "collect_payload", "compact_for_claude",
           "build_claude_markdown", "store_report",
           "record_and_backfill", "record_legacy_snapshot_trade_date",
           "run_curve_refresh", "run_group_refresh", "run_group_outcome_refresh",
-          "run_select_refresh",
+          "run_select_refresh", "run_forecast_refresh",
           "run_dline_closeout", "run_evidence_ledger",
           "run_evidence_convergence", "evaluate_from_files", "predictions_from_payload",
           "record_predictions", "enqueue_observation_job",
@@ -200,8 +200,22 @@ def _install_spies(secrets=None, payload=None, next_trade_date="20260626"):
             "status": "abstain",
             "write_status": "written",
             "production_eligible": False,
+            "audit_path": "/research/selection_audit.json",
         }
     eod_mod.run_select_refresh = _select_v2
+
+    def _forecast_v2(*, as_of_trade_date, selection_path):
+        rec["order"].append("forecast_v2")
+        rec["forecast_v2_call"] = {
+            "as_of_trade_date": as_of_trade_date,
+            "selection_path": selection_path,
+        }
+        return {
+            "status": "abstain",
+            "write_status": "written",
+            "production_eligible": False,
+        }
+    eod_mod.run_forecast_refresh = _forecast_v2
 
     def _dline_closeout(*, trade_date, **kwargs):
         rec["order"].append("d_closeout")
@@ -352,6 +366,10 @@ def test_eod_orchestration_and_passthrough():
         assert rec["select_v2_call"] == {
             "as_of_trade_date": "20260625",
         }
+        assert rec["forecast_v2_call"] == {
+            "as_of_trade_date": "20260625",
+            "selection_path": "/research/selection_audit.json",
+        }
         assert rec["regime_audit_call"] is _PAYLOAD
         assert rec["dline_closeout_call"] == {"trade_date": "20260625"}
         # E4: E1 后先核验旧 predictions,再生成下一交易日 live predictions
@@ -371,7 +389,7 @@ def test_eod_orchestration_and_passthrough():
                                          "task_codes": ["601138"]}
         assert rec["order"] == [
             "regime_audit", "e1", "research_v2", "curve_v2", "group_v2",
-            "group_outcomes_v2", "select_v2",
+            "group_outcomes_v2", "select_v2", "forecast_v2",
             "d_closeout", "pred_eval", "next_trade",
             "pred_live", "pred_record", "evidence", "convergence", "store",
             "d_enqueue",

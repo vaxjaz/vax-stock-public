@@ -234,7 +234,10 @@ def run_select_refresh(
     )
     audit["group_selection_audit"] = group_audit
     target_dir = Path(selections_dir or SELECTIONS_DIR)
-    target = target_dir / f"selection_audit_{target_date}.json"
+    target = (
+        target_dir
+        / f"selection_audit_{target_date}__{audit['select_version']}.json"
+    )
     write_status = _write_immutable_audit(target, audit)
     statuses = set(audit["status_counts"])
     result_status = (

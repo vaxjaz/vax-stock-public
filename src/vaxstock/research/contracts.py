@@ -22,6 +22,7 @@ FORECAST_SCHEMA_VERSION = 1
 RUN_MANIFEST_SCHEMA_VERSION = 1
 GROUP_OUTCOME_SCHEMA_VERSION = 1
 SELECTION_AUDIT_SCHEMA_VERSION = 1
+FORECAST_AUDIT_SCHEMA_VERSION = 1
 
 
 class ContractError(ValueError):
@@ -160,6 +161,22 @@ class SelectionAudit(TypedDict):
     select_version: str
     input_digest: str
     horizons: Dict[str, Any]
+    status_counts: Dict[str, int]
+    production_eligible: bool
+    promotion_status: str
+
+
+class ForecastAudit(TypedDict):
+    """One immutable conditional-distribution forecast audit."""
+
+    schema_version: int
+    as_of_trade_date: str
+    decision_at: str
+    select_version: str
+    forecast_version: str
+    selection_input_digest: str
+    input_digest: str
+    forecasts: Dict[str, Any]
     status_counts: Dict[str, int]
     production_eligible: bool
     promotion_status: str
@@ -650,6 +667,210 @@ def validate_selection_audit(record: Mapping[str, Any]) -> None:
                 raise ContractError(
                     "shadow candidate has insufficient independent OOS dates"
                 )
+            current_candidates = selection.get("current_candidates")
+            if (
+                not isinstance(current_candidates, list)
+                or not current_candidates
+            ):
+                raise ContractError(
+                    "shadow candidate requires current selected candidates"
+                )
         counts[str(status)] = counts.get(str(status), 0) + 1
     if record.get("status_counts") != dict(sorted(counts.items())):
         raise ContractError("selection status_counts mismatch")
+
+
+def validate_forecast_audit(record: Mapping[str, Any]) -> None:
+    """Validate conditional forecasts without allowing production promotion."""
+
+    if record.get("schema_version") != FORECAST_AUDIT_SCHEMA_VERSION:
+        raise ContractError("unsupported forecast audit schema_version")
+    as_of_trade_date = _parse_trade_date(
+        record.get("as_of_trade_date"), "as_of_trade_date"
+    )
+    decision_at = _parse_aware_timestamp(
+        record.get("decision_at"), "decision_at"
+    )
+    for field in (
+        "select_version",
+        "forecast_version",
+        "selection_input_digest",
+        "input_digest",
+        "promotion_status",
+    ):
+        _require_text(record, field)
+    if record.get("production_eligible") is not False:
+        raise ContractError("forecast audit must not be production eligible")
+    if record.get("promotion_status") != "manual_review_required":
+        raise ContractError("forecast promotion requires manual review")
+
+    forecasts = record.get("forecasts")
+    if not isinstance(forecasts, Mapping) or not forecasts:
+        raise ContractError("forecasts must be a non-empty object")
+    counts: Dict[str, int] = {}
+    for raw_horizon, raw_forecast in forecasts.items():
+        try:
+            horizon = int(str(raw_horizon))
+        except (TypeError, ValueError) as exc:
+            raise ContractError("forecast horizon key must be positive") from exc
+        if horizon <= 0 or not isinstance(raw_forecast, Mapping):
+            raise ContractError("forecast horizon entry is invalid")
+        validate_forecast_output(raw_forecast)
+        if raw_forecast.get("as_of_trade_date") != as_of_trade_date:
+            raise ContractError("forecast as_of_trade_date mismatch")
+        if raw_forecast.get("select_version") != record.get("select_version"):
+            raise ContractError("forecast select_version mismatch")
+        if raw_forecast.get("forecast_version") != record.get(
+            "forecast_version"
+        ):
+            raise ContractError("forecast version mismatch")
+        if _parse_aware_timestamp(
+            raw_forecast.get("generated_at"), "generated_at"
+        ) != decision_at:
+            raise ContractError("forecast generated_at must equal decision_at")
+        if raw_forecast.get("target") != "selected_group_spread":
+            raise ContractError("unsupported forecast target")
+        if raw_forecast.get("primary_benchmark") != "000001.SH":
+            raise ContractError("unsupported forecast benchmark")
+        if raw_forecast.get("horizon") != f"T+{horizon}_sessions":
+            raise ContractError("forecast horizon label mismatch")
+        _require_text(raw_forecast, "selection_policy_digest")
+        if raw_forecast.get("production_eligible") is not False:
+            raise ContractError(
+                "individual forecast must not be production eligible"
+            )
+        status = str(raw_forecast.get("status"))
+        if status == "available":
+            distribution = raw_forecast.get("distribution")
+            candidates = raw_forecast.get("current_candidates")
+            if not isinstance(distribution, Mapping):
+                raise ContractError(
+                    "available forecast requires conditional distribution"
+                )
+            if not isinstance(candidates, list) or not candidates:
+                raise ContractError(
+                    "available forecast requires current candidates"
+                )
+            sample_n = distribution.get("independent_oos_dates")
+            if (
+                isinstance(sample_n, bool)
+                or not isinstance(sample_n, int)
+                or sample_n <= 0
+            ):
+                raise ContractError(
+                    "forecast distribution requires independent OOS dates"
+                )
+            distribution_values = [
+                distribution.get(field)
+                for field in (
+                    "mean",
+                    "q10",
+                    "q25",
+                    "median",
+                    "q75",
+                    "q90",
+                    "positive_rate",
+                    "empirical_sign_consistency",
+                )
+            ]
+            if any(
+                isinstance(value, bool)
+                or not isinstance(value, (int, float))
+                or not math.isfinite(float(value))
+                for value in distribution_values
+            ):
+                raise ContractError(
+                    "forecast distribution values must be finite"
+                )
+            quantiles = [
+                distribution.get(field)
+                for field in ("q10", "q25", "median", "q75", "q90")
+            ]
+            if not (
+                float(quantiles[0])
+                <= float(quantiles[1])
+                <= float(quantiles[2])
+                <= float(quantiles[3])
+                <= float(quantiles[4])
+            ):
+                raise ContractError("forecast quantiles must be ordered")
+            for field in ("positive_rate", "empirical_sign_consistency"):
+                value = float(distribution[field])
+                if not 0 <= value <= 1:
+                    raise ContractError(
+                        f"forecast {field} must be within [0, 1]"
+                    )
+            median = float(distribution["median"])
+            expected_direction = (
+                "positive_spread" if median > 0 else "negative_spread"
+            )
+            if median == 0 or raw_forecast.get("direction") != expected_direction:
+                raise ContractError(
+                    "forecast direction must match non-zero OOS median"
+                )
+            if distribution.get("unit") != "decimal_excess_spread":
+                raise ContractError("unsupported forecast distribution unit")
+            if not math.isclose(
+                float(raw_forecast["expected_excess_return"]),
+                float(distribution["median"]),
+                rel_tol=0.0,
+                abs_tol=1e-12,
+            ):
+                raise ContractError(
+                    "forecast expectation must equal OOS distribution median"
+                )
+            if not math.isclose(
+                float(raw_forecast["confidence"]),
+                float(distribution.get("empirical_sign_consistency")),
+                rel_tol=0.0,
+                abs_tol=1e-12,
+            ):
+                raise ContractError(
+                    "forecast confidence must equal empirical sign consistency"
+                )
+            for candidate in candidates:
+                if not isinstance(candidate, Mapping):
+                    raise ContractError(
+                        "forecast candidate identity is invalid"
+                    )
+                for field in ("candidate_id", "series_id", "axis"):
+                    _require_text(candidate, field)
+                if (
+                    isinstance(candidate.get("direction"), bool)
+                    or candidate.get("direction") not in {-1, 1}
+                ):
+                    raise ContractError(
+                        "forecast candidate direction must be -1 or 1"
+                    )
+                training_n = candidate.get("training_independent_dates")
+                if (
+                    isinstance(training_n, bool)
+                    or not isinstance(training_n, int)
+                    or training_n <= 0
+                ):
+                    raise ContractError(
+                        "forecast candidate training dates must be positive"
+                    )
+        else:
+            if raw_forecast.get("distribution") is not None:
+                raise ContractError(
+                    "abstain forecast cannot contain a distribution"
+                )
+            if raw_forecast.get("current_candidates"):
+                raise ContractError(
+                    "abstain forecast cannot expose selected candidates"
+                )
+        counts[status] = counts.get(status, 0) + 1
+    if record.get("status_counts") != dict(sorted(counts.items())):
+        raise ContractError("forecast status_counts mismatch")
+    expected_digest = canonical_digest({
+        "selection_input_digest": record.get("selection_input_digest"),
+        "select_version": record.get("select_version"),
+        "forecast_version": record.get("forecast_version"),
+        "forecast_input_digests": sorted(
+            str(forecast.get("input_digest"))
+            for forecast in forecasts.values()
+        ),
+    })
+    if record.get("input_digest") != expected_digest:
+        raise ContractError("forecast audit input_digest mismatch")

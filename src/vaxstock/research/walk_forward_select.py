@@ -32,7 +32,7 @@ from vaxstock.research.contracts import (
 from vaxstock.research.group_outcome import select_eod_group_assignments
 
 
-SELECT_VERSION = "walk_forward_group_spread_v1"
+SELECT_VERSION = "walk_forward_group_spread_v2"
 DEFAULT_HORIZONS = (1, 3, 5, 10, 20)
 
 
@@ -408,6 +408,8 @@ def run_walk_forward_select(
     candidate_sessions: Iterable[Mapping[str, Any]],
     horizon_sessions: int,
     policy: SelectionPolicy = SelectionPolicy(),
+    current_as_of_trade_date: Optional[str] = None,
+    current_decision_at: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Expanding walk-forward audit with purge, embargo, and abstention."""
 
@@ -418,7 +420,23 @@ def run_walk_forward_select(
         raise ContractError("candidate session horizon mismatch")
     dates = sorted({str(row["as_of_trade_date"]) for row in rows})
     outcome_dates = {str(row["outcome_trade_date"]) for row in rows}
-    calendar = sorted(set(dates) | outcome_dates)
+    if (current_as_of_trade_date is None) != (current_decision_at is None):
+        raise ContractError(
+            "current_as_of_trade_date and current_decision_at are required together"
+        )
+    current_date = str(current_as_of_trade_date or "")
+    if current_date:
+        try:
+            datetime.strptime(current_date, "%Y%m%d")
+        except ValueError as exc:
+            raise ContractError(
+                "current_as_of_trade_date must be YYYYMMDD"
+            ) from exc
+    calendar = sorted(
+        set(dates)
+        | outcome_dates
+        | ({current_date} if current_date else set())
+    )
     session_index = {trade_date: index for index, trade_date in enumerate(calendar)}
     decision_times = {}
     for row in rows:
@@ -484,16 +502,28 @@ def run_walk_forward_select(
         })
 
     oos_values = [float(fold["strategy_oos_spread"]) for fold in folds]
-    status = (
-        "shadow_candidate"
-        if len(folds) >= policy.min_oos_dates
-        else "abstain"
-    )
-    reason = (
-        None
-        if status == "shadow_candidate"
-        else "insufficient_independent_oos_dates"
-    )
+    current_train = []
+    if current_date:
+        current_train = _training_candidates(
+            rows,
+            validation_date=current_date,
+            validation_decision_at=_aware(
+                current_decision_at, "current_decision_at"
+            ),
+            session_index=session_index,
+            embargo_sessions=embargo,
+            min_train_dates=policy.min_train_dates,
+        )
+    current_candidates = current_train[:policy.top_k]
+    if len(folds) < policy.min_oos_dates:
+        status = "abstain"
+        reason = "insufficient_independent_oos_dates"
+    elif current_date and not current_candidates:
+        status = "abstain"
+        reason = "current_training_unavailable"
+    else:
+        status = "shadow_candidate"
+        reason = None
     return {
         "select_version": SELECT_VERSION,
         "status": status,
@@ -511,6 +541,8 @@ def run_walk_forward_select(
             str(row["candidate_id"]) for row in rows
         }),
         "candidate_tests_reaching_train_minimum": len(attempted_candidates),
+        "current_candidate_tests": len(current_train),
+        "current_candidates": current_candidates,
         "oos_independent_dates": len(folds),
         "oos_summary": (
             {
@@ -572,6 +604,8 @@ def build_selection_audit(
             candidate_sessions=sessions,
             horizon_sessions=h,
             policy=policy,
+            current_as_of_trade_date=str(as_of_trade_date),
+            current_decision_at=decision_at,
         )
         results[str(h)] = {
             "build": build_audit,

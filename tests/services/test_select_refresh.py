@@ -17,6 +17,7 @@ from vaxstock.research.point_in_time_store import (
     read_jsonl_strict,
 )
 from vaxstock.services.select_refresh import run_select_refresh
+from vaxstock.research.walk_forward_select import SELECT_VERSION
 
 
 SERIES = "legacy_snapshot::legacy.rsi_14::legacy_snapshot_v1"
@@ -164,7 +165,10 @@ def test_select_refresh_is_point_in_time_immutable_and_idempotent(tmp_path):
     assert first["production_eligible"] is False
     assert second["write_status"] == "already_complete"
     stored = json.loads(
-        (selections / "selection_audit_20260703.json").read_text(
+        (
+            selections
+            / f"selection_audit_20260703__{SELECT_VERSION}.json"
+        ).read_text(
             encoding="utf-8"
         )
     )

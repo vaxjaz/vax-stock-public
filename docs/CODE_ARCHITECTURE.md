@@ -255,30 +255,19 @@ D 线已经具备 EOD 观察任务生成器;下一步不应把 D 线样本混入
 - 所有训练标签执行 point-in-time availability gate、purge 和 horizon embargo。
   多候选尝试数、训练日、OOS 日和参数版本全部进入审计。
 - `services.select_refresh` 写
-  `var/research/selections/selection_audit_YYYYMMDD.json`。同一交易日相同输入幂等，
-  不同结果报冲突。
+  `var/research/selections/selection_audit_YYYYMMDD__<select_version>.json`。
+  同版本相同输入幂等；算法升级写新版本文件，不覆盖旧版。
 - select 只输出 abstain 或 research-only shadow candidate；永不写评分、报告动作、
   D 线任务或持仓决策，`production_eligible=false`。
 
-## MR6b walk-forward select
+## Research v2 MR7 conditional forecast
 
-- `research.walk_forward_select` 将完整日横截面的 high-low / up-down 超额价差作为
-  唯一独立样本单位；不直接对逐股票行做显著性。
-- 所有训练标签执行 point-in-time availability gate、purge 和 horizon embargo。
-  多候选尝试数、训练日、OOS 日和参数版本全部进入审计。
-- `services.select_refresh` 写
-  `var/research/selections/selection_audit_YYYYMMDD.json`。同一交易日相同输入幂等，
-  不同结果报冲突。
-- select 只输出 abstain 或 research-only shadow candidate；永不写评分、报告动作、
-  D 线任务或持仓决策，`production_eligible=false`。
-
-## MR6a group outcome 连接层
-
-- `research.group_outcome` 读取 MR5 EOD group 与 legacy 增量结果行，按字段/期限
-  严格合并，冻结结果首次完整时点并连接 group；它不执行 select/forecast。
-- `services.group_outcome_refresh` 将连接结果写入
-  `var/research/outcomes/group_outcomes.jsonl`。写入使用跨进程锁、身份冲突检测、
-  `fsync` 和 append-only 幂等语义。
-- EOD 调用顺序固定为 legacy snapshot → curve → group → group outcome。
-- 离线回放必须报告独立交易日数；股票×期限行数不能当作独立样本数。
-
+- `research.conditional_forecast` 将 selection 的独立 OOS fold spread 转为经验条件分布；
+  预测对象是 selected group spread，不是股票目标价。
+- `services.forecast_refresh` 写
+  `var/research/forecasts/forecast_audit_YYYYMMDD__<select_version>__<forecast_version>.json`，
+  使用跨进程锁、`fsync`、
+  schema 校验和不可变历史日冲突检测。
+- EOD Research v2 顺序为 snapshot → curve → group → outcome → select → forecast。
+- select abstain 必须向下传播为空 forecast；shadow forecast 仍固定
+  `production_eligible=false`，不进入 report/action/D-line。
