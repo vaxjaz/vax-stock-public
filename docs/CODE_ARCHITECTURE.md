@@ -271,3 +271,16 @@ D 线已经具备 EOD 观察任务生成器;下一步不应把 D 线样本混入
 - EOD Research v2 顺序为 snapshot → curve → group → outcome → select → forecast。
 - select abstain 必须向下传播为空 forecast；shadow forecast 仍固定
   `production_eligible=false`，不进入 report/action/D-line。
+
+## Research v2 MR7-eval forecast evaluation
+
+- `research.forecast_evaluation` 用完整日横截面的成熟 group outcome 还原
+  selected group spread；评价单位固定为 forecast date × horizon。
+- `services.forecast_evaluation_refresh` 扫描当前 select/forecast 版本的不可变审计，
+  将成熟结果 append 到
+  `var/research/forecast_evaluation/forecast_results.jsonl`。
+- 任一股票 outcome 未成熟时整条 forecast 保持 pending；不以残缺横截面补齐。
+- 校准 JSON/Markdown 按 horizon 展示 N、方向命中、误差和区间覆盖；文件名包含
+  输入摘要，新增成熟结果写新快照，不覆盖旧快照。
+- EOD 顺序扩展为 snapshot → curve → group → outcome → select → forecast →
+  evaluation。所有结果仍为 shadow evidence，`production_eligible=false`。

@@ -670,3 +670,12 @@ var/research/
   OOS 条件分布或明确 abstain。可用分布包含分位数、独立 OOS 日数和经验方向一致率；
   abstain 行禁止出现数值预测。该账本的 target 是 selected group spread，不是个股
   价格；`production_eligible=false`，不可被现有交易链路消费。
+- `var/research/forecast_evaluation/forecast_results.jsonl` 是 MR7-eval append-only
+  到期结果账本。每行对应一个 forecast date × horizon，只有当预测日完整股票横截面
+  全部成熟后才写入；保存 frozen forecast distribution、selected candidates、
+  direction-adjusted actual spread、误差/覆盖率以及全部 group factor/outcome identity。
+  abstain forecast 不生成结果行。
+- `var/research/forecast_evaluation/calibrations/forecast_calibration_<date>__<select_version>__<forecast_version>__<digest>.json/.md`
+  是按决策时点冻结的校准快照。统计按 horizon 分开，逐股票行和不同 horizon 均不叠加
+  为独立日；文件名摘要允许同一 report date 的后续成熟输入前滚为新快照而不覆盖旧版。
+  小样本 N 和指标照常展示，但 promotion 始终需要人工复核。

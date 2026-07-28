@@ -48,6 +48,7 @@ _SEAMS = ["TushareSource", "collect_payload", "compact_for_claude",
           "record_and_backfill", "record_legacy_snapshot_trade_date",
           "run_curve_refresh", "run_group_refresh", "run_group_outcome_refresh",
           "run_select_refresh", "run_forecast_refresh",
+          "run_forecast_evaluation_refresh",
           "run_dline_closeout", "run_evidence_ledger",
           "run_evidence_convergence", "evaluate_from_files", "predictions_from_payload",
           "record_predictions", "enqueue_observation_job",
@@ -201,6 +202,7 @@ def _install_spies(secrets=None, payload=None, next_trade_date="20260626"):
             "write_status": "written",
             "production_eligible": False,
             "audit_path": "/research/selection_audit.json",
+            "decision_at": "2026-06-26T05:00:00+08:00",
         }
     eod_mod.run_select_refresh = _select_v2
 
@@ -216,6 +218,21 @@ def _install_spies(secrets=None, payload=None, next_trade_date="20260626"):
             "production_eligible": False,
         }
     eod_mod.run_forecast_refresh = _forecast_v2
+
+    def _forecast_evaluation_v2(*, as_of_trade_date, decision_at):
+        rec["order"].append("forecast_evaluation_v2")
+        rec["forecast_evaluation_v2_call"] = {
+            "as_of_trade_date": as_of_trade_date,
+            "decision_at": decision_at,
+        }
+        return {
+            "status": "written",
+            "stored": {"written": 0},
+            "summary": {"pending_forecasts": 0},
+            "calibration_status": "no_available_forecasts",
+            "production_eligible": False,
+        }
+    eod_mod.run_forecast_evaluation_refresh = _forecast_evaluation_v2
 
     def _dline_closeout(*, trade_date, **kwargs):
         rec["order"].append("d_closeout")
@@ -370,6 +387,10 @@ def test_eod_orchestration_and_passthrough():
             "as_of_trade_date": "20260625",
             "selection_path": "/research/selection_audit.json",
         }
+        assert rec["forecast_evaluation_v2_call"] == {
+            "as_of_trade_date": "20260625",
+            "decision_at": "2026-06-26T05:00:00+08:00",
+        }
         assert rec["regime_audit_call"] is _PAYLOAD
         assert rec["dline_closeout_call"] == {"trade_date": "20260625"}
         # E4: E1 后先核验旧 predictions,再生成下一交易日 live predictions
@@ -390,6 +411,7 @@ def test_eod_orchestration_and_passthrough():
         assert rec["order"] == [
             "regime_audit", "e1", "research_v2", "curve_v2", "group_v2",
             "group_outcomes_v2", "select_v2", "forecast_v2",
+            "forecast_evaluation_v2",
             "d_closeout", "pred_eval", "next_trade",
             "pred_live", "pred_record", "evidence", "convergence", "store",
             "d_enqueue",

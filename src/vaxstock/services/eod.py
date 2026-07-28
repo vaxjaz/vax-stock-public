@@ -31,6 +31,9 @@ from vaxstock.services.evidence_ledger import run_evidence_ledger
 from vaxstock.services.eval_recorder import SNAPSHOTS_FILE, record_and_backfill
 from vaxstock.services.eod_predictor import predictions_from_payload, record_predictions
 from vaxstock.services.forecast_planner import enqueue_observation_job
+from vaxstock.services.forecast_evaluation_refresh import (
+    run_forecast_evaluation_refresh,
+)
 from vaxstock.services.forecast_refresh import run_forecast_refresh
 from vaxstock.services.group_refresh import run_group_refresh
 from vaxstock.services.group_outcome_refresh import run_group_outcome_refresh
@@ -142,9 +145,27 @@ def run_eod() -> Dict[str, str]:
             forecast_v2.get("write_status"),
             forecast_v2.get("production_eligible"),
         )
+        forecast_evaluation_v2 = run_forecast_evaluation_refresh(
+            as_of_trade_date=research_trade_date,
+            decision_at=select_v2["decision_at"],
+        )
+        logger.info(
+            "Research v2 forecast evaluation: status=%s results=%s "
+            "pending=%s calibration=%s production=%s",
+            forecast_evaluation_v2.get("status"),
+            (
+                forecast_evaluation_v2.get("stored") or {}
+            ).get("written"),
+            (
+                forecast_evaluation_v2.get("summary") or {}
+            ).get("pending_forecasts"),
+            forecast_evaluation_v2.get("calibration_status"),
+            forecast_evaluation_v2.get("production_eligible"),
+        )
     except Exception as e:
         logger.warning(
-            "Research v2 snapshot/curve/group/outcome/select/forecast failed: "
+            "Research v2 snapshot/curve/group/outcome/select/forecast/"
+            "evaluation failed: "
             f"{str(e)[:120]}"
         )
 

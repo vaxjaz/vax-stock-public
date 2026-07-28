@@ -1,7 +1,7 @@
 # Research Pipeline V2 — 决策与统计契约
 
-状态：Research v2 已完成 point-in-time 数据、group、outcome、walk-forward select
-与条件分布 forecast 的 shadow 闭环。截至 2026-07-28 的真数据回放样本不足，
+状态：Research v2 已完成 point-in-time 数据、group、outcome、walk-forward select、
+条件分布 forecast 与到期校准的 shadow 闭环。截至 2026-07-28 的真数据回放样本不足，
 所有 horizon 均 abstain；未经 OOS 检验的模型仍不可用。
 
 ## 1. 目标函数
@@ -331,3 +331,45 @@ snapshot → curve → group → group outcome → select → forecast
 真实 22 日回放中，T+1/3/5/10/20 均继承
 `select_abstain:insufficient_independent_oos_dates`，数值分布全部为空；这证明 abstain
 链路有效，不代表市场方向判断。
+
+## 14. MR7-eval 已实现：forecast 到期核验与校准
+
+`research.forecast_evaluation` 只核验 MR7 冻结的
+`selected_group_spread`。评价单位是一个 forecast date × horizon，不是股票行：
+
+- 只有 forecast 状态为 `available` 才能生成结果；abstain 只进入覆盖率统计，禁止
+  事后补造方向或收益预测。
+- 每个 horizon 必须等预测当日完整股票横截面的 outcome 全部成熟。任一股票缺失时
+  保持 pending，不用剩余股票近似。
+- 按 forecast 当时冻结的 current candidates 和方向，重新计算各候选 high-low 或
+  up-down group spread，再对 top-k direction-adjusted spread 求均值；该值才是
+  `actual_selected_group_spread`。
+- 每条结果保存预测分布、实际价差、方向命中、signed/absolute error、
+  q25-q75 与 q10-q90 覆盖、所有 group factor/outcome ID 和确定性摘要。
+  `evaluated_at` 固定等于完整横截面首次可见时点，不取当前墙钟时间。
+- `forecast_results.jsonl` append-only；相同 result identity 内容变化直接报冲突。
+
+`build_calibration_audit` 按 horizon 分开统计 forecast 数、available/abstain、
+evaluated/pending、方向命中率、平均实际价差、bias、MAE 和区间覆盖率。所有 N 都展示；
+20 个评价日只是版本化人工复核门槛，不会屏蔽小样本指标，也不代表达到门槛即 effective。
+不同 horizon 不合并伪装为更多独立样本。
+
+落盘位置：
+
+```text
+var/research/forecast_evaluation/forecast_results.jsonl
+var/research/forecast_evaluation/calibrations/
+  forecast_calibration_<date>__<select_version>__<forecast_version>__<digest>.json
+  forecast_calibration_<date>__<select_version>__<forecast_version>__<digest>.md
+```
+
+校准文件名包含输入摘要；同一交易日若后来新增成熟结果会写新摘要版本，不覆盖早先
+快照。EOD 顺序现在是：
+
+```text
+snapshot → curve → group → group outcome → select → forecast → evaluation
+```
+
+2026-07-28 的 22 日真实回放共有 110 个 date × horizon forecast，全部为 abstain，
+因此结果账本为 0 行，校准状态为 `no_available_forecasts`。这证明空预测不会被包装成
+命中率；它仍不是市场看空或因子无效结论。
