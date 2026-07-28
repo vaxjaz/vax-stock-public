@@ -32,11 +32,19 @@ def _history_trade_date(stock: Mapping[str, Any]) -> Optional[str]:
     history = stock.get("history_tail") or []
     if not isinstance(history, list) or not history:
         return None
-    dates = [
-        _trade_date((row or {}).get("trade_date"))
-        for row in history
-        if isinstance(row, Mapping)
-    ]
+    dates = []
+    for row in history:
+        if not isinstance(row, Mapping):
+            continue
+        # ``get_history_kline`` normalizes Tushare ``trade_date`` to ``date``.
+        # Keep ``trade_date`` as a compatibility fallback for historical/test
+        # payloads, but fail the row closed if both fields exist and disagree.
+        normalized = _trade_date(row.get("date"))
+        legacy = _trade_date(row.get("trade_date"))
+        if normalized and legacy and normalized != legacy:
+            dates.append(None)
+        else:
+            dates.append(normalized or legacy)
     valid = [value for value in dates if value]
     return max(valid) if valid else None
 

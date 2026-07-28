@@ -14,13 +14,13 @@ def _payload():
             {
                 "code": "601138",
                 "history_tail": [
-                    {"trade_date": "20260724"},
-                    {"trade_date": "20260727"},
+                    {"date": "20260724"},
+                    {"date": "20260727"},
                 ],
             },
             {
                 "code": "002475",
-                "history_tail": [{"trade_date": "20260727"}],
+                "history_tail": [{"date": "20260727"}],
             },
         ],
     }
@@ -47,7 +47,7 @@ def test_freshness_blocks_mixed_index_date_without_wall_clock_fallback():
 
 def test_freshness_blocks_stale_or_missing_stock_history():
     payload = _payload()
-    payload["stocks"][0]["history_tail"] = [{"trade_date": "20260724"}]
+    payload["stocks"][0]["history_tail"] = [{"date": "20260724"}]
     payload["stocks"][1]["history_tail"] = []
     result = assess_eod_freshness(payload)
     assert result["forecast_eligible"] is False
@@ -60,7 +60,7 @@ def test_freshness_blocks_stale_or_missing_stock_history():
 
 def test_freshness_degrades_only_stale_target_when_other_targets_are_ready():
     payload = _payload()
-    payload["stocks"][0]["history_tail"] = [{"trade_date": "20260724"}]
+    payload["stocks"][0]["history_tail"] = [{"date": "20260724"}]
     result = assess_eod_freshness(payload)
     assert result["status"] == "degraded"
     assert result["forecast_eligible"] is True
@@ -88,6 +88,26 @@ def test_freshness_blocks_missing_market_trade_date_instead_of_using_today():
 def test_freshness_digest_changes_when_input_dates_change():
     ready = assess_eod_freshness(_payload())
     changed_payload = _payload()
-    changed_payload["stocks"][0]["history_tail"][-1]["trade_date"] = "20260728"
+    changed_payload["stocks"][0]["history_tail"][-1]["date"] = "20260728"
     changed = assess_eod_freshness(changed_payload)
     assert changed["input_digest"] != ready["input_digest"]
+
+
+def test_freshness_accepts_legacy_trade_date_history_field():
+    payload = _payload()
+    payload["stocks"][0]["history_tail"] = [{"trade_date": "20260727"}]
+    result = assess_eod_freshness(payload)
+    assert result["status"] == "ready"
+    assert result["eligible_codes"] == ["002475", "601138"]
+
+
+def test_freshness_rejects_conflicting_normalized_and_legacy_dates():
+    payload = _payload()
+    payload["stocks"][0]["history_tail"] = [{
+        "date": "20260727",
+        "trade_date": "20260724",
+    }]
+    result = assess_eod_freshness(payload)
+    assert result["status"] == "degraded"
+    assert result["eligible_codes"] == ["002475"]
+    assert result["blocked_targets"][0]["data_date"] is None
