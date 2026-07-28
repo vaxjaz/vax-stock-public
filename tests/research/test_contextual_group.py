@@ -206,6 +206,39 @@ def test_future_membership_and_factor_are_excluded_at_decision_time():
     assert all(row["entity_id"] != "601999" for row in outputs)
 
 
+def test_group_identity_is_stable_across_wall_clock_retries():
+    observations, factors = _inputs()
+    first_manifest, first_outputs, _ = build_contextual_group_run(
+        as_of_trade_date=TRADE_DATE,
+        calculated_at=_timestamp(minute=2),
+        factor_rows=factors,
+        observations=observations,
+        mode="replay",
+    )
+    retry_manifest, retry_outputs, _ = build_contextual_group_run(
+        as_of_trade_date=TRADE_DATE,
+        calculated_at=_timestamp(minute=3),
+        factor_rows=factors,
+        observations=observations,
+        mode="replay",
+    )
+
+    assert retry_manifest["run_id"] == first_manifest["run_id"]
+    assert (
+        retry_manifest["factor_value_digest"]
+        == first_manifest["factor_value_digest"]
+    )
+    assert [row["factor_value_id"] for row in retry_outputs] == [
+        row["factor_value_id"] for row in first_outputs
+    ]
+    assert {row["calculated_at"] for row in first_outputs} == {
+        _timestamp(minute=2)
+    }
+    assert {row["calculated_at"] for row in retry_outputs} == {
+        _timestamp(minute=3)
+    }
+
+
 def test_group_parameters_change_version_and_live_late_run_is_rejected():
     assert group_version(GroupParameters(minimum_cross_section=12)) != GROUP_VERSION
     base_id = materialize_group_id(

@@ -246,6 +246,39 @@ def test_builds_stock_and_point_in_time_track_curves_with_dependency_roots():
     }]
 
 
+def test_curve_identity_is_stable_across_wall_clock_retries():
+    observations, factors = _history()
+    first_manifest, first_outputs, _ = build_causal_curve_run(
+        as_of_trade_date=DATES[-1],
+        calculated_at=_timestamp(DATES[-1], minute=2),
+        factor_rows=factors,
+        observations=observations,
+        mode="replay",
+    )
+    retry_manifest, retry_outputs, _ = build_causal_curve_run(
+        as_of_trade_date=DATES[-1],
+        calculated_at=_timestamp(DATES[-1], minute=3),
+        factor_rows=factors,
+        observations=observations,
+        mode="replay",
+    )
+
+    assert retry_manifest["run_id"] == first_manifest["run_id"]
+    assert (
+        retry_manifest["factor_value_digest"]
+        == first_manifest["factor_value_digest"]
+    )
+    assert [row["factor_value_id"] for row in retry_outputs] == [
+        row["factor_value_id"] for row in first_outputs
+    ]
+    assert {row["calculated_at"] for row in first_outputs} == {
+        _timestamp(DATES[-1], minute=2)
+    }
+    assert {row["calculated_at"] for row in retry_outputs} == {
+        _timestamp(DATES[-1], minute=3)
+    }
+
+
 def test_live_curve_rejects_late_historical_execution():
     observations, factors = _history()
     with pytest.raises(ContractError, match="outside"):

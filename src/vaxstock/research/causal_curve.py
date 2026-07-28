@@ -552,7 +552,7 @@ def _derived_factor(
     if not refs and not observation_ids:
         raise ContractError(f"{factor_id} requires upstream inputs")
     availability = [
-        _aware(row.get("calculated_at"), "upstream factor calculated_at")
+        _aware(row.get("available_at"), "upstream factor available_at")
         for row in factors.values()
     ]
     availability.extend(
@@ -561,7 +561,19 @@ def _derived_factor(
     )
     calculated = _aware(calculated_at, "calculated_at")
     available = max(availability)
-    if calculated < available:
+    dependency_ready_at = max(
+        [
+            available,
+            *(
+                _aware(
+                    row.get("calculated_at"),
+                    "upstream factor calculated_at",
+                )
+                for row in factors.values()
+            ),
+        ]
+    )
+    if calculated < dependency_ready_at:
         raise ContractError("derived factor calculated before an upstream input")
     row: Dict[str, Any] = {
         "schema_version": FACTOR_VALUE_SCHEMA_VERSION,

@@ -10,7 +10,10 @@ from vaxstock.research.point_in_time_store import (
     default_store_paths,
     read_jsonl_strict,
 )
-from vaxstock.services.curve_refresh import replay_curve_features
+from vaxstock.services.curve_refresh import (
+    replay_curve_features,
+    run_curve_refresh,
+)
 
 
 DATES = [
@@ -101,3 +104,34 @@ def test_curve_replay_rejects_invalid_or_reversed_date_ranges(tmp_path):
             start_trade_date="20260702",
             end_trade_date="20260701",
         )
+
+
+def test_live_curve_retry_with_later_wall_clock_is_idempotent(tmp_path):
+    source = tmp_path / "factor_snapshots.jsonl"
+    source.write_text(
+        "".join(
+            json.dumps(row, ensure_ascii=False) + "\n"
+            for row in _snapshots()
+        ),
+        encoding="utf-8",
+    )
+    paths = default_store_paths(tmp_path / "research")
+    replay_legacy_snapshots(snapshots_path=source, paths=paths)
+
+    first = run_curve_refresh(
+        as_of_trade_date=DATES[-1],
+        decision_at="2026-07-16T18:05:00+08:00",
+        mode="live",
+        paths=paths,
+    )
+    second = run_curve_refresh(
+        as_of_trade_date=DATES[-1],
+        decision_at="2026-07-16T18:06:00+08:00",
+        mode="live",
+        paths=paths,
+    )
+
+    assert first["status"] == "written"
+    assert first["stored"]["factors_written"] == 5
+    assert second["status"] == "already_complete"
+    assert second["stored"]["factors_written"] == 0

@@ -127,7 +127,7 @@ def test_live_group_refresh_appends_after_curve_and_is_idempotent(tmp_path):
     )
     second = run_group_refresh(
         as_of_trade_date=DATES[-1],
-        decision_at="2026-07-16T18:05:00+08:00",
+        decision_at="2026-07-16T18:06:00+08:00",
         mode="live",
         paths=paths,
     )
