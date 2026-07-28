@@ -2,11 +2,11 @@
 """Point-in-time walk-forward selection over MR5 group state spreads.
 
 The statistical unit is one complete daily cross-section, never one stock
-row.  Candidate states are deliberately finite and versioned:
-
-* cross-section high minus low;
-* causal-curve slope up minus down;
-* causal-curve acceleration up minus down.
+row.  Every available factor series is tested through its cross-sectional
+state, all five causal-curve states, and available track-relative states.
+The same atomic candidates are also tested separately inside each first-order
+market, macro, and systemic-event context.  High-order interactions are not
+executed until the independent-date count can support them.
 
 This module can rank shadow candidates, but it cannot promote a factor to
 ``effective`` or alter a production action.  Thin history produces an
@@ -32,8 +32,28 @@ from vaxstock.research.contracts import (
 from vaxstock.research.group_outcome import select_eod_group_assignments
 
 
-SELECT_VERSION = "walk_forward_group_spread_v2"
+SELECT_VERSION = "walk_forward_group_spread_v3"
 DEFAULT_HORIZONS = (1, 3, 5, 10, 20)
+EXPLORATORY_WINDOWS = (5, 10, 20)
+EXPLORATORY_REPORT_LIMIT = 20
+AXIS_SIDES = {
+    "cross_section_bucket": ("high", "low"),
+    "curve_slope": ("up", "down"),
+    "curve_acceleration": ("up", "down"),
+    "curve_turning": ("up", "down"),
+    "curve_anomaly": ("positive", "negative"),
+    "curve_change_point": ("up", "down"),
+    "curve_event_presence": ("event", "quiet"),
+    "curve_event_direction": ("positive", "negative"),
+    "track_level_relation": ("above", "below"),
+    "track_slope_relation": ("above", "below"),
+}
+CONDITION_FIELDS = (
+    "market_regime",
+    "macro_regime",
+    "systemic_event_state",
+    "systemic_event_direction",
+)
 
 
 @dataclass(frozen=True)
@@ -79,8 +99,25 @@ def policy_digest(policy: SelectionPolicy, horizon: int) -> str:
             "cross_section_bucket:high-low",
             "curve_slope:up-down",
             "curve_acceleration:up-down",
+            "curve_turning:up-down",
+            "curve_anomaly:positive-negative",
+            "curve_change_point:up-down",
+            "curve_event_presence:event-quiet",
+            "curve_event_direction:positive-negative",
+            "track_level_relation:above-below",
+            "track_slope_relation:above-below",
         ],
+        "conditioning": {
+            "mode": "unconditional_plus_each_first_order_context",
+            "fields": list(CONDITION_FIELDS),
+            "high_order_interactions": "not_executed",
+        },
         "statistical_unit": "complete_daily_cross_section",
+        "exploratory_diagnostics": {
+            "windows": list(EXPLORATORY_WINDOWS),
+            "report_limit_per_finding_type": EXPLORATORY_REPORT_LIMIT,
+            "forecast_eligible": False,
+        },
     })
 
 
@@ -107,14 +144,33 @@ def _aware(value: Any, field: str) -> datetime:
     return parsed
 
 
-def _candidate_id(axis: str, series_id: str) -> str:
-    return f"candidate_{canonical_digest({'axis': axis, 'series_id': series_id})}"
+def _candidate_id(
+    axis: str,
+    series_id: str,
+    *,
+    concept: Optional[str] = None,
+    condition: Optional[Mapping[str, str]] = None,
+) -> str:
+    identity = {
+        "axis": axis,
+        "series_id": series_id,
+        "concept": concept,
+        "condition": dict(condition or {}),
+    }
+    return f"candidate_{canonical_digest(identity)}"
+
+
+def _event_direction(event: str) -> Optional[str]:
+    for suffix in ("positive", "negative", "up", "down"):
+        if event.endswith(f"_{suffix}"):
+            return suffix
+    return None
 
 
 def _candidate_states(
     group: Mapping[str, Any],
-) -> Iterable[Tuple[str, str, str]]:
-    """Yield ``(candidate_id, axis, side)`` from one frozen group vector."""
+) -> Iterable[Dict[str, Any]]:
+    """Yield all legal atomic axes plus each first-order context."""
 
     value = group.get("value")
     factor_groups = (
@@ -124,48 +180,140 @@ def _candidate_states(
     )
     if not isinstance(factor_groups, Mapping):
         raise ContractError("stock group factor_groups must be an object")
-    for series_id, raw_state in sorted(factor_groups.items()):
+    raw_context = value.get("selection_context")
+    if raw_context is None:
+        raw_context = {}
+    if not isinstance(raw_context, Mapping):
+        raise ContractError("stock selection_context must be an object")
+    contexts = {
+        field: str(raw_context[field]).strip()
+        for field in CONDITION_FIELDS
+        if raw_context.get(field) is not None
+        and str(raw_context.get(field)).strip()
+    }
+
+    def candidates(
+        *,
+        axis: str,
+        series_id: str,
+        side: str,
+        concept: Optional[str] = None,
+    ) -> Iterable[Dict[str, Any]]:
+        if axis not in AXIS_SIDES or side not in AXIS_SIDES[axis]:
+            return
+        variants: List[Optional[Dict[str, str]]] = [None]
+        variants.extend(
+            {field: contexts[field]} for field in sorted(contexts)
+        )
+        for condition in variants:
+            yield {
+                "candidate_id": _candidate_id(
+                    axis,
+                    series_id,
+                    concept=concept,
+                    condition=condition,
+                ),
+                "axis": axis,
+                "series_id": series_id,
+                "concept": concept,
+                "condition": dict(condition or {}),
+                "side": side,
+            }
+
+    for raw_series_id, raw_state in sorted(factor_groups.items()):
+        series_id = str(raw_series_id)
         if not isinstance(raw_state, Mapping):
             raise ContractError("stock factor-group state must be an object")
         cross = raw_state.get("cross_section")
         if isinstance(cross, Mapping) and cross.get("status") == "available":
             bucket = cross.get("bucket")
-            if bucket in {"high", "low"}:
-                axis = "cross_section_bucket"
-                yield _candidate_id(axis, str(series_id)), axis, str(bucket)
+            if bucket in AXIS_SIDES["cross_section_bucket"]:
+                yield from candidates(
+                    axis="cross_section_bucket",
+                    series_id=series_id,
+                    side=str(bucket),
+                )
 
         curve = raw_state.get("curve_state_vector")
-        if curve is None:
-            continue
-        if not isinstance(curve, Sequence) or isinstance(curve, (str, bytes)):
-            raise ContractError("curve_state_vector must be an array")
-        for index, axis in ((0, "curve_slope"), (1, "curve_acceleration")):
-            state = curve[index] if len(curve) > index else None
-            if state in {"up", "down"}:
-                yield _candidate_id(axis, str(series_id)), axis, str(state)
-
-
-def _series_by_candidate(
-    groups: Mapping[Tuple[str, str], Mapping[str, Any]],
-) -> Dict[str, str]:
-    result = {}
-    for group in groups.values():
-        value = group.get("value")
-        factor_groups = (
-            value.get("factor_groups")
-            if isinstance(value, Mapping)
-            else None
-        )
-        if not isinstance(factor_groups, Mapping):
-            continue
-        for series_id in factor_groups:
-            for axis in (
-                "cross_section_bucket",
-                "curve_slope",
-                "curve_acceleration",
+        if curve is not None:
+            if not isinstance(curve, Sequence) or isinstance(
+                curve, (str, bytes)
             ):
-                result[_candidate_id(axis, str(series_id))] = str(series_id)
-    return result
+                raise ContractError("curve_state_vector must be an array")
+            for index, axis in (
+                (0, "curve_slope"),
+                (1, "curve_acceleration"),
+                (2, "curve_turning"),
+                (3, "curve_anomaly"),
+                (4, "curve_change_point"),
+            ):
+                state = curve[index] if len(curve) > index else None
+                if state in AXIS_SIDES[axis]:
+                    yield from candidates(
+                        axis=axis,
+                        series_id=series_id,
+                        side=str(state),
+                    )
+
+        event_ready = raw_state.get("curve_event_detection_ready")
+        if event_ready is not None and not isinstance(event_ready, bool):
+            raise ContractError(
+                "curve_event_detection_ready must be boolean or null"
+            )
+        raw_events = raw_state.get("curve_candidate_events")
+        if raw_events is None:
+            raw_events = []
+        if not isinstance(raw_events, list):
+            raise ContractError("curve_candidate_events must be an array")
+        events = [
+            str(event).strip()
+            for event in raw_events
+            if str(event).strip()
+        ]
+        if event_ready:
+            yield from candidates(
+                axis="curve_event_presence",
+                series_id=series_id,
+                side="event" if events else "quiet",
+            )
+            event_directions = {
+                (
+                    "positive"
+                    if direction in {"positive", "up"}
+                    else "negative"
+                )
+                for direction in (
+                    _event_direction(event) for event in events
+                )
+                if direction in {"positive", "negative", "up", "down"}
+            }
+            if len(event_directions) == 1:
+                yield from candidates(
+                    axis="curve_event_direction",
+                    series_id=series_id,
+                    side=next(iter(event_directions)),
+                )
+
+        track_relations = raw_state.get("track_relation_vectors") or {}
+        if not isinstance(track_relations, Mapping):
+            raise ContractError("track_relation_vectors must be an object")
+        for concept, relation in sorted(track_relations.items()):
+            if not isinstance(relation, Sequence) or isinstance(
+                relation, (str, bytes)
+            ):
+                raise ContractError("track relation vector must be an array")
+            for index, axis in (
+                (0, "track_level_relation"),
+                (1, "track_slope_relation"),
+            ):
+                state = relation[index] if len(relation) > index else None
+                if state in AXIS_SIDES[axis]:
+                    yield from candidates(
+                        axis=axis,
+                        series_id=series_id,
+                        side=str(state),
+                        concept=str(concept),
+                    )
 
 
 def build_candidate_sessions(
@@ -198,6 +346,7 @@ def build_candidate_sessions(
 
     outcomes: Dict[Tuple[str, str], Dict[str, Any]] = {}
     outcome_conflicts = 0
+    superseded_outcomes_excluded = 0
     for raw in outcome_rows:
         row = dict(raw)
         validate_group_outcome_sample(row)
@@ -206,6 +355,27 @@ def build_candidate_sessions(
         if _aware(row["outcome_available_at"], "outcome_available_at") > final_decision:
             continue
         key = (str(row["as_of_trade_date"]), str(row["code"]))
+        group = groups.get(key)
+        if group is None:
+            continue
+        group_value = group.get("value")
+        current_group_version = (
+            group_value.get("group_version")
+            if isinstance(group_value, Mapping)
+            else None
+        )
+        if (
+            row.get("group_version") != current_group_version
+            or row.get("group_factor_version") != group.get("factor_version")
+        ):
+            superseded_outcomes_excluded += 1
+            continue
+        if row.get("group_factor_value_id") != group.get("factor_value_id"):
+            outcome_conflicts += 1
+            raise ContractError(
+                "group outcome points to a different current-version group "
+                f"at {key[0]}/{key[1]}/T+{horizon}"
+            )
         previous = outcomes.get(key)
         if previous is not None:
             if canonical_digest(previous) != canonical_digest(row):
@@ -216,11 +386,24 @@ def build_candidate_sessions(
             continue
         outcomes[key] = row
 
-    series_by_candidate = _series_by_candidate(groups)
+    all_series = set()
+    for group in groups.values():
+        value = group.get("value")
+        factor_groups = (
+            value.get("factor_groups")
+            if isinstance(value, Mapping)
+            else None
+        )
+        if not isinstance(factor_groups, Mapping):
+            raise ContractError("stock group factor_groups must be an object")
+        all_series.update(str(series_id) for series_id in factor_groups)
+
+    candidate_catalog: Dict[str, Dict[str, Any]] = {}
     sessions: List[Dict[str, Any]] = []
     incomplete_dates = {}
     usable_dates = 0
     side_failures = 0
+    side_failures_by_axis = Counter()
     for trade_date in sorted(expected_codes):
         codes = expected_codes[trade_date]
         available_codes = {
@@ -250,24 +433,37 @@ def build_candidate_sessions(
         sides: Dict[str, Dict[str, List[float]]] = defaultdict(
             lambda: defaultdict(list)
         )
-        axes = {}
         for code, outcome in date_outcomes.items():
             group = groups[(trade_date, code)]
             if outcome["group_factor_value_id"] != group["factor_value_id"]:
                 raise ContractError(
                     f"group identity mismatch at {trade_date}/{code}/T+{horizon}"
                 )
-            for candidate_id, axis, side in _candidate_states(group):
+            for candidate in _candidate_states(group):
+                candidate_id = str(candidate["candidate_id"])
+                side = str(candidate["side"])
                 sides[candidate_id][side].append(float(outcome["excess_ret"]))
-                axes[candidate_id] = axis
+                identity = {
+                    "candidate_id": candidate_id,
+                    "series_id": str(candidate["series_id"]),
+                    "axis": str(candidate["axis"]),
+                    "concept": candidate.get("concept"),
+                    "condition": dict(candidate.get("condition") or {}),
+                }
+                previous = candidate_catalog.get(candidate_id)
+                if (
+                    previous is not None
+                    and canonical_digest(previous) != canonical_digest(identity)
+                ):
+                    raise ContractError(
+                        f"candidate identity collision: {candidate_id}"
+                    )
+                candidate_catalog[candidate_id] = identity
 
         for candidate_id in sorted(sides):
-            axis = axes[candidate_id]
-            positive, negative = (
-                ("high", "low")
-                if axis == "cross_section_bucket"
-                else ("up", "down")
-            )
+            identity = candidate_catalog[candidate_id]
+            axis = identity["axis"]
+            positive, negative = AXIS_SIDES[axis]
             positive_values = sides[candidate_id].get(positive, [])
             negative_values = sides[candidate_id].get(negative, [])
             if (
@@ -275,11 +471,14 @@ def build_candidate_sessions(
                 or len(negative_values) < policy.min_side_stocks
             ):
                 side_failures += 1
+                side_failures_by_axis[axis] += 1
                 continue
             sessions.append({
                 "candidate_id": candidate_id,
-                "series_id": series_by_candidate[candidate_id],
+                "series_id": identity["series_id"],
                 "axis": axis,
+                "concept": identity["concept"],
+                "condition": identity["condition"],
                 "positive_state": positive,
                 "negative_state": negative,
                 "as_of_trade_date": trade_date,
@@ -303,6 +502,47 @@ def build_candidate_sessions(
             })
 
     candidate_counts = Counter(row["candidate_id"] for row in sessions)
+    catalog_rows = []
+    axis_candidate_counts = Counter()
+    axis_session_rows = Counter()
+    for candidate_id in sorted(candidate_catalog):
+        identity = candidate_catalog[candidate_id]
+        independent_dates = int(candidate_counts.get(candidate_id, 0))
+        axis_candidate_counts[identity["axis"]] += 1
+        axis_session_rows[identity["axis"]] += independent_dates
+        catalog_rows.append({
+            **identity,
+            "independent_dates": independent_dates,
+            "status": (
+                "tested"
+                if independent_dates
+                else "no_complete_sided_sessions"
+            ),
+        })
+
+    factor_coverage = []
+    for series_id in sorted(all_series):
+        candidates = [
+            row for row in catalog_rows if row["series_id"] == series_id
+        ]
+        complete_sessions = sum(
+            int(row["independent_dates"]) for row in candidates
+        )
+        factor_coverage.append({
+            "series_id": series_id,
+            "candidate_axes_seen": sorted({
+                str(row["axis"]) for row in candidates
+            }),
+            "candidate_ids": sorted(
+                str(row["candidate_id"]) for row in candidates
+            ),
+            "complete_candidate_sessions": complete_sessions,
+            "status": (
+                "tested"
+                if complete_sessions
+                else "unavailable_or_one_sided"
+            ),
+        })
     return sessions, {
         "horizon_sessions": horizon,
         "decision_at": final_decision.isoformat(timespec="seconds"),
@@ -314,8 +554,23 @@ def build_candidate_sessions(
         "candidate_session_rows": len(sessions),
         "candidate_tests": len(candidate_counts),
         "candidate_independent_date_counts": dict(sorted(candidate_counts.items())),
+        "candidate_catalog": catalog_rows,
+        "factor_coverage": factor_coverage,
+        "factor_series_total": len(all_series),
+        "factor_series_tested": sum(
+            row["status"] == "tested" for row in factor_coverage
+        ),
+        "factor_series_untested": sum(
+            row["status"] != "tested" for row in factor_coverage
+        ),
+        "axis_candidate_counts": dict(sorted(axis_candidate_counts.items())),
+        "axis_session_rows": dict(sorted(axis_session_rows.items())),
         "side_minimum_failures": side_failures,
+        "side_minimum_failures_by_axis": dict(
+            sorted(side_failures_by_axis.items())
+        ),
         "outcome_conflicts": outcome_conflicts,
+        "superseded_outcomes_excluded": superseded_outcomes_excluded,
         "statistical_unit": "complete_daily_cross_section",
     }
 
@@ -344,6 +599,125 @@ def _summary(rows: Sequence[Mapping[str, Any]]) -> Dict[str, Any]:
             else None
         ),
         "serial_correlation_adjustment": "none; inference disabled",
+    }
+
+
+def _direction(value: float) -> Optional[str]:
+    if math.isclose(value, 0.0, rel_tol=0.0, abs_tol=1e-15):
+        return None
+    return "positive" if value > 0 else "negative"
+
+
+def _exploratory_diagnostics(
+    sessions: Sequence[Mapping[str, Any]],
+    *,
+    policy: SelectionPolicy,
+) -> Dict[str, Any]:
+    """Expose real-data changes without promoting short samples to forecast."""
+
+    by_candidate: Dict[str, List[Mapping[str, Any]]] = defaultdict(list)
+    for row in sessions:
+        by_candidate[str(row["candidate_id"])].append(row)
+
+    evidence = []
+    for candidate_id, raw_rows in by_candidate.items():
+        rows = sorted(
+            raw_rows,
+            key=lambda row: str(row["as_of_trade_date"]),
+        )
+        first = rows[0]
+        full = _summary(rows)
+        full_direction = _direction(float(full["median_spread"]))
+        windows = {}
+        for window in EXPLORATORY_WINDOWS:
+            if len(rows) < window:
+                continue
+            stats = _summary(rows[-window:])
+            windows[str(window)] = {
+                "independent_dates": stats["independent_dates"],
+                "mean_spread": stats["mean_spread"],
+                "median_spread": stats["median_spread"],
+                "positive_rate": stats["positive_rate"],
+                "direction": _direction(float(stats["median_spread"])),
+            }
+        comparable_directions = [
+            str(row["direction"])
+            for row in windows.values()
+            if row["direction"] is not None
+        ]
+        recent_direction = (
+            windows[str(EXPLORATORY_WINDOWS[0])]["direction"]
+            if str(EXPLORATORY_WINDOWS[0]) in windows
+            else None
+        )
+        recent_reversal = bool(
+            full_direction is not None
+            and recent_direction is not None
+            and full_direction != recent_direction
+        )
+        direction_consistent = bool(
+            full_direction is not None
+            and comparable_directions
+            and all(
+                direction == full_direction
+                for direction in comparable_directions
+            )
+        )
+        evidence.append({
+            "candidate_id": candidate_id,
+            "series_id": str(first["series_id"]),
+            "axis": str(first["axis"]),
+            "concept": first.get("concept"),
+            "condition": dict(first.get("condition") or {}),
+            "independent_dates": int(full["independent_dates"]),
+            "full_history": {
+                "mean_spread": full["mean_spread"],
+                "median_spread": full["median_spread"],
+                "positive_rate": full["positive_rate"],
+                "direction": full_direction,
+            },
+            "rolling_windows": windows,
+            "recent_reversal": recent_reversal,
+            "direction_consistent": direction_consistent,
+            "forecast_eligible": False,
+            "evidence_status": (
+                "eligible_for_walk_forward_training"
+                if len(rows) >= policy.min_train_dates
+                else "exploratory_below_training_minimum"
+            ),
+        })
+
+    def rank_key(row: Mapping[str, Any]) -> Tuple[Any, ...]:
+        median = abs(float(row["full_history"]["median_spread"]))
+        return (
+            -int(row["independent_dates"]),
+            -median,
+            str(row["candidate_id"]),
+        )
+
+    reversals = sorted(
+        (row for row in evidence if row["recent_reversal"]),
+        key=rank_key,
+    )
+    consistent = sorted(
+        (row for row in evidence if row["direction_consistent"]),
+        key=rank_key,
+    )
+    return {
+        "candidate_count": len(evidence),
+        "recent_reversal_count": len(reversals),
+        "direction_consistent_count": len(consistent),
+        "windows": list(EXPLORATORY_WINDOWS),
+        "ranking_order": (
+            "independent_dates desc, absolute full-history median spread "
+            "desc, candidate_id; descriptive only"
+        ),
+        "recent_reversals": reversals[:EXPLORATORY_REPORT_LIMIT],
+        "direction_consistent_candidates": (
+            consistent[:EXPLORATORY_REPORT_LIMIT]
+        ),
+        "evidence_label": "candidate_not_validated",
+        "forecast_eligible": False,
     }
 
 
@@ -390,6 +764,8 @@ def _training_candidates(
             "candidate_id": candidate_id,
             "series_id": first["series_id"],
             "axis": first["axis"],
+            "concept": first.get("concept"),
+            "condition": dict(first.get("condition") or {}),
             "direction": direction,
             "ranking_score": abs(float(stats["median_spread"])),
             "training": stats,
@@ -515,6 +891,7 @@ def run_walk_forward_select(
             min_train_dates=policy.min_train_dates,
         )
     current_candidates = current_train[:policy.top_k]
+    exploratory = _exploratory_diagnostics(rows, policy=policy)
     if len(folds) < policy.min_oos_dates:
         status = "abstain"
         reason = "insufficient_independent_oos_dates"
@@ -543,6 +920,7 @@ def run_walk_forward_select(
         "candidate_tests_reaching_train_minimum": len(attempted_candidates),
         "current_candidate_tests": len(current_train),
         "current_candidates": current_candidates,
+        "exploratory_diagnostics": exploratory,
         "oos_independent_dates": len(folds),
         "oos_summary": (
             {

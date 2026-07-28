@@ -97,6 +97,21 @@ def test_legacy_replay_is_long_form_idempotent_and_does_not_touch_source(tmp_pat
     assert len({row["observation_id"] for row in observations}) == len(observations)
     assert len({row["factor_value_id"] for row in factors}) == len(factors)
     assert {row["factor_version"] for row in factors} == {LEGACY_FACTOR_VERSION}
+    universe = next(
+        row
+        for row in observations
+        if (
+            row["entity_type"] == "market"
+            and row["dimension"] == "universe"
+            and row["field"] == "universe_snapshot"
+        )
+    )
+    assert universe["value"] == {
+        "active_codes": ["002475", "601138"],
+        "active_count": 2,
+        "membership_semantics": "exact_frozen_rows",
+        "upstream_completeness": "unverified_legacy_source",
+    }
     assert next(
         row for row in factors
         if row["entity_id"] == "002475" and row["factor_id"] == "legacy.missing_metric"

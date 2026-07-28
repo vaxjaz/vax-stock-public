@@ -36,7 +36,7 @@ from vaxstock.research.point_in_time_store import (
 
 LEGACY_SNAPSHOT_SOURCE = "legacy.factor_snapshots"
 LEGACY_SOURCE_REF = "var/eval/factor_snapshots.jsonl"
-LEGACY_FEATURE_SET_VERSION = "legacy_snapshot_long_v1"
+LEGACY_FEATURE_SET_VERSION = "legacy_snapshot_long_v2"
 LEGACY_FACTOR_VERSION = "legacy_snapshot_v1"
 NOT_EXECUTED = "not_executed"
 CHINA_TZ = timezone(timedelta(hours=8))
@@ -178,6 +178,25 @@ def build_legacy_snapshot_run(
     batch_capture = max(
         captures.values(),
         key=lambda value: datetime.fromisoformat(value.replace("Z", "+00:00")),
+    )
+    universe_revision = f"legacy_universe_{canonical_digest(universe_codes)}"
+    observations.append(
+        _observation(
+            entity_type="market",
+            entity_id="CN-A",
+            dimension="universe",
+            field="universe_snapshot",
+            value={
+                "active_codes": universe_codes,
+                "active_count": len(universe_codes),
+                "membership_semantics": "exact_frozen_rows",
+                "upstream_completeness": "unverified_legacy_source",
+            },
+            trade_date=trade_date,
+            captured_at=batch_capture,
+            source_ref=f"{LEGACY_SOURCE_REF}#{trade_date}:universe",
+            revision_id=universe_revision,
+        )
     )
     market_revision = f"legacy_market_{next(iter(market_digests))}"
     observations.append(

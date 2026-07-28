@@ -25,10 +25,17 @@ from vaxstock.research.contracts import (
 )
 
 
-FORECAST_VERSION = "conditional_group_spread_v1"
+FORECAST_VERSION = "conditional_group_spread_v2"
 FORECAST_STRATEGY = "walk_forward_selected_group_spread"
 FORECAST_TARGET = "selected_group_spread"
 PRIMARY_BENCHMARK = "000001.SH"
+
+
+def _candidate_condition(candidate: Mapping[str, Any]) -> Dict[str, Any]:
+    raw = candidate.get("condition", {})
+    if not isinstance(raw, Mapping):
+        raise ContractError("current candidate condition must be an object")
+    return dict(raw)
 
 
 def _finite_values(values: Iterable[Any], field: str) -> List[float]:
@@ -170,6 +177,12 @@ def _available_forecast(
             "candidate_id": str(candidate.get("candidate_id") or ""),
             "series_id": str(candidate.get("series_id") or ""),
             "axis": str(candidate.get("axis") or ""),
+            "concept": (
+                str(candidate.get("concept"))
+                if candidate.get("concept") is not None
+                else None
+            ),
+            "condition": _candidate_condition(candidate),
             "direction": candidate.get("direction"),
             "training_independent_dates": (
                 (candidate.get("training") or {}).get("independent_dates")
@@ -182,6 +195,7 @@ def _available_forecast(
         not candidate["candidate_id"]
         or not candidate["series_id"]
         or not candidate["axis"]
+        or not isinstance(candidate["condition"], dict)
         or isinstance(candidate["direction"], bool)
         or candidate["direction"] not in {-1, 1}
         or isinstance(candidate["training_independent_dates"], bool)
@@ -224,8 +238,10 @@ def _available_forecast(
             "fraction of independent OOS folds sharing the median direction"
         ),
         "conditioning_scope": (
-            "selected group-state axes; current market regime recorded in "
-            "group inputs but not separately estimated"
+            "all available group axes plus independently tested first-order "
+            "market_regime, macro_regime, systemic_event_state, and "
+            "systemic_event_direction conditions; no untested high-order "
+            "interaction"
         ),
         "evidence_label": "shadow_conditional_distribution",
         "production_eligible": False,

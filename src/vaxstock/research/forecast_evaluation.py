@@ -34,8 +34,8 @@ from vaxstock.research.walk_forward_select import (
 )
 
 
-EVALUATOR_VERSION = "selected_group_spread_eval_v1"
-CALIBRATION_VERSION = "forecast_calibration_v1"
+EVALUATOR_VERSION = "selected_group_spread_eval_v2"
+CALIBRATION_VERSION = "forecast_calibration_v2"
 MINIMUM_EVALUATED_DATES = 20
 
 
@@ -67,10 +67,19 @@ def _policy(selection: Mapping[str, Any]) -> SelectionPolicy:
 
 def _candidate_identity(candidate: Mapping[str, Any]) -> Dict[str, Any]:
     training = candidate.get("training")
+    condition = candidate.get("condition", {})
+    if not isinstance(condition, Mapping):
+        raise ContractError("candidate condition must be an object")
     return {
         "candidate_id": str(candidate.get("candidate_id") or ""),
         "series_id": str(candidate.get("series_id") or ""),
         "axis": str(candidate.get("axis") or ""),
+        "concept": (
+            str(candidate.get("concept"))
+            if candidate.get("concept") is not None
+            else None
+        ),
+        "condition": dict(condition),
         "direction": candidate.get("direction"),
         "training_independent_dates": (
             training.get("independent_dates")
@@ -125,6 +134,14 @@ def _complete_cross_section(
         raise ContractError(
             "forecast baseline has no EOD group cross-section"
         )
+    expected_group_versions = {
+        (row.get("value") or {}).get("group_version")
+        for row in target_groups.values()
+        if isinstance(row.get("value"), Mapping)
+    }
+    expected_factor_versions = {
+        row.get("factor_version") for row in target_groups.values()
+    }
 
     outcomes: Dict[str, Dict[str, Any]] = {}
     for raw in outcome_rows:
@@ -135,7 +152,23 @@ def _complete_cross_section(
             or int(row["horizon_sessions"]) != horizon_sessions
         ):
             continue
+        if (
+            row.get("group_version") not in expected_group_versions
+            or row.get("group_factor_version")
+            not in expected_factor_versions
+        ):
+            continue
         code = str(row["code"])
+        current_group = target_groups.get(code)
+        if (
+            current_group is not None
+            and row.get("group_factor_value_id")
+            != current_group.get("factor_value_id")
+        ):
+            raise ContractError(
+                "forecast outcome points to a different current-version "
+                f"group at {as_of_trade_date}/{code}/T+{horizon_sessions}"
+            )
         previous = outcomes.get(code)
         if (
             previous is not None
@@ -251,6 +284,9 @@ def _build_result(
         if (
             session["series_id"] != candidate["series_id"]
             or session["axis"] != candidate["axis"]
+            or session.get("concept") != candidate["concept"]
+            or dict(session.get("condition") or {})
+            != candidate["condition"]
         ):
             raise ContractError(
                 "selected candidate identity changed at evaluation"

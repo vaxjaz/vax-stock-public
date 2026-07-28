@@ -69,6 +69,11 @@ def _load_group_observations(paths: StorePaths) -> List[Dict[str, Any]]:
                 and row.get("dimension") == "market_context"
                 and row.get("field") == "market_snapshot"
             )
+            or (
+                row.get("entity_type") == "market"
+                and row.get("dimension") == "universe"
+                and row.get("field") == "universe_snapshot"
+            )
         )
     ]
 

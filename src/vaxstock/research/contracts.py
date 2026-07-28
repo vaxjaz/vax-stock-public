@@ -895,6 +895,12 @@ def validate_forecast_audit(record: Mapping[str, Any]) -> None:
                     )
                 for field in ("candidate_id", "series_id", "axis"):
                     _require_text(candidate, field)
+                condition = candidate.get("condition", {})
+                if not isinstance(condition, Mapping):
+                    raise ContractError(
+                        "forecast candidate condition must be an object"
+                    )
+                canonical_digest(dict(condition))
                 if (
                     isinstance(candidate.get("direction"), bool)
                     or candidate.get("direction") not in {-1, 1}

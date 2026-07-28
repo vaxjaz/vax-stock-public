@@ -46,12 +46,12 @@ from vaxstock.research.contracts import (
 
 
 CHINA_TZ = timezone(timedelta(hours=8))
-FEATURE_SET_VERSION = "contextual_multiview_group_feature_set_v1"
-GROUP_VERSION = "contextual_multiview_group_v1"
+FEATURE_SET_VERSION = "contextual_multiview_group_feature_set_v2"
+GROUP_VERSION = "contextual_multiview_group_v2"
 GROUP_CONTEXT_FACTOR_ID = "group_context_vector"
 STOCK_GROUP_FACTOR_ID = "stock_group_vector"
-GROUP_CONTEXT_FACTOR_VERSION = "group_context_vector_v1"
-STOCK_GROUP_FACTOR_VERSION = "stock_group_vector_v1"
+GROUP_CONTEXT_FACTOR_VERSION = "group_context_vector_v2"
+STOCK_GROUP_FACTOR_VERSION = "stock_group_vector_v2"
 GROUP_DIMENSION = "research_group"
 NOT_EXECUTED = "not_executed"
 CURVE_STATE_FIELDS = (
@@ -72,6 +72,8 @@ class GroupParameters:
     minimum_distinct_values: int = 3
     lower_quantile: float = 1.0 / 3.0
     upper_quantile: float = 2.0 / 3.0
+    systemic_event_breadth_threshold: float = 0.5
+    minimum_event_cluster_stocks: int = 3
 
 
 DEFAULT_PARAMETERS = GroupParameters()
@@ -124,6 +126,10 @@ def _validate_parameters(parameters: GroupParameters) -> None:
     for name, value in (
         ("lower_quantile", parameters.lower_quantile),
         ("upper_quantile", parameters.upper_quantile),
+        (
+            "systemic_event_breadth_threshold",
+            parameters.systemic_event_breadth_threshold,
+        ),
     ):
         if (
             isinstance(value, bool)
@@ -137,6 +143,18 @@ def _validate_parameters(parameters: GroupParameters) -> None:
         < 1
     ):
         raise ContractError("quantile boundaries must satisfy 0 < lower < upper < 1")
+    if not 0 < float(parameters.systemic_event_breadth_threshold) <= 1:
+        raise ContractError(
+            "systemic_event_breadth_threshold must be within (0, 1]"
+        )
+    if (
+        isinstance(parameters.minimum_event_cluster_stocks, bool)
+        or not isinstance(parameters.minimum_event_cluster_stocks, int)
+        or parameters.minimum_event_cluster_stocks <= 0
+    ):
+        raise ContractError(
+            "minimum_event_cluster_stocks must be a positive integer"
+        )
 
 
 def group_version(parameters: GroupParameters = DEFAULT_PARAMETERS) -> str:
@@ -322,6 +340,65 @@ def _latest_observations(
         ):
             selected[entity_id] = row
     return selected
+
+
+def _exact_universe_snapshot(
+    rows: Sequence[Mapping[str, Any]],
+    *,
+    target: str,
+    decision_at: datetime,
+) -> Dict[str, Any]:
+    candidates = []
+    for raw in rows:
+        row = dict(raw)
+        if not (
+            row.get("entity_type") == "market"
+            and row.get("entity_id") == "CN-A"
+            and row.get("dimension") == "universe"
+            and row.get("field") == "universe_snapshot"
+            and str(row.get("effective_date") or "") == target
+            and _aware(
+                row.get("available_at"), "universe snapshot available_at"
+            )
+            <= decision_at
+        ):
+            continue
+        candidates.append(row)
+    if not candidates:
+        raise ContractError(
+            "exact-date point-in-time universe snapshot is required"
+        )
+    return max(
+        candidates,
+        key=lambda row: (
+            _aware(row["available_at"], "universe snapshot available_at"),
+            str(row["observation_id"]),
+        ),
+    )
+
+
+def _universe_codes(snapshot: Mapping[str, Any]) -> List[str]:
+    value = snapshot.get("value")
+    if not isinstance(value, Mapping):
+        raise ContractError("universe snapshot value must be an object")
+    raw_codes = value.get("active_codes")
+    if not isinstance(raw_codes, list):
+        raise ContractError("universe snapshot active_codes must be a list")
+    codes = [str(code).strip() for code in raw_codes]
+    if any(not code for code in codes) or len(codes) != len(set(codes)):
+        raise ContractError(
+            "universe snapshot active_codes must be unique non-empty strings"
+        )
+    active_count = value.get("active_count")
+    if (
+        isinstance(active_count, bool)
+        or not isinstance(active_count, int)
+        or active_count != len(codes)
+    ):
+        raise ContractError(
+            "universe snapshot active_count does not match active_codes"
+        )
+    return sorted(codes)
 
 
 def materialize_group_id(
@@ -533,6 +610,188 @@ def _vector_series(row: Optional[Mapping[str, Any]]) -> Dict[str, Dict[str, Any]
     }
 
 
+def _event_direction(event: str) -> Optional[str]:
+    for suffix in ("positive", "negative", "up", "down"):
+        if event.endswith(f"_{suffix}"):
+            return suffix
+    return None
+
+
+def _event_field(
+    *,
+    stock_curves: Mapping[str, Mapping[str, Any]],
+    track_curves: Mapping[str, Mapping[str, Any]],
+    universe_codes: Sequence[str],
+    parameters: GroupParameters,
+) -> Dict[str, Any]:
+    """Aggregate raw curve events without deleting their common component."""
+
+    eligible_by_series: Dict[str, set[str]] = {}
+    cluster_members: Dict[Tuple[str, str], set[str]] = {}
+    event_family_members: Dict[str, set[str]] = {}
+    event_family_series: Dict[str, set[str]] = {}
+    event_stocks = set()
+    event_count = 0
+    direction_counts: Dict[str, int] = {}
+    type_counts: Dict[str, int] = {}
+    for code in universe_codes:
+        curve = stock_curves.get(code)
+        series = _vector_series(curve)
+        for series_id, state in series.items():
+            eligible_by_series.setdefault(series_id, set()).add(code)
+            events = state.get("candidate_events") or []
+            if not isinstance(events, list):
+                raise ContractError("curve candidate_events must be a list")
+            for raw_event in events:
+                event = str(raw_event).strip()
+                if not event:
+                    continue
+                event_count += 1
+                event_stocks.add(code)
+                cluster_members.setdefault((series_id, event), set()).add(code)
+                event_family_members.setdefault(event, set()).add(code)
+                event_family_series.setdefault(event, set()).add(series_id)
+                event_type = event.rsplit("_", 1)[0]
+                type_counts[event_type] = type_counts.get(event_type, 0) + 1
+                direction = _event_direction(event)
+                if direction:
+                    direction_counts[direction] = (
+                        direction_counts.get(direction, 0) + 1
+                    )
+
+    clusters = []
+    for (series_id, event), members in sorted(cluster_members.items()):
+        eligible = len(eligible_by_series.get(series_id) or ())
+        breadth = len(members) / eligible if eligible else None
+        systemic = bool(
+            breadth is not None
+            and breadth >= parameters.systemic_event_breadth_threshold
+            and len(members) >= parameters.minimum_event_cluster_stocks
+        )
+        clusters.append({
+            "cluster_id": canonical_digest({
+                "series_id": series_id,
+                "event": event,
+            }),
+            "series_id": series_id,
+            "event": event,
+            "direction": _event_direction(event),
+            "member_count": len(members),
+            "eligible_count": eligible,
+            "breadth": breadth,
+            "member_codes": sorted(members),
+            "systemic_candidate": systemic,
+        })
+
+    family_clusters = []
+    for event, members in sorted(event_family_members.items()):
+        breadth = len(members) / len(universe_codes) if universe_codes else None
+        systemic = bool(
+            breadth is not None
+            and breadth >= parameters.systemic_event_breadth_threshold
+            and len(members) >= parameters.minimum_event_cluster_stocks
+        )
+        family_clusters.append({
+            "cluster_id": canonical_digest({
+                "scope": "cross_series_event_family",
+                "event": event,
+            }),
+            "event": event,
+            "direction": _event_direction(event),
+            "series_count": len(event_family_series[event]),
+            "series_ids": sorted(event_family_series[event]),
+            "member_count": len(members),
+            "eligible_count": len(universe_codes),
+            "breadth": breadth,
+            "member_codes": sorted(members),
+            "systemic_candidate": systemic,
+        })
+
+    eligible_stock_series = sum(
+        len(codes) for codes in eligible_by_series.values()
+    )
+    universe_count = len(universe_codes)
+    stock_breadth = (
+        len(event_stocks) / universe_count if universe_count else None
+    )
+    systemic_clusters = [
+        row for row in clusters if row["systemic_candidate"]
+    ]
+    systemic_family_clusters = [
+        row for row in family_clusters if row["systemic_candidate"]
+    ]
+    if not event_count:
+        systemic_state = "none"
+    elif systemic_clusters or systemic_family_clusters:
+        systemic_state = "broad"
+    else:
+        systemic_state = "localized"
+    systemic_directions = sorted({
+        str(row["direction"])
+        for row in [*systemic_family_clusters, *systemic_clusters]
+        if row.get("direction")
+    })
+    systemic_direction = (
+        systemic_directions[0]
+        if len(systemic_directions) == 1
+        else ("mixed" if systemic_directions else None)
+    )
+
+    track_events = []
+    for concept, curve in sorted(track_curves.items()):
+        for series_id, state in sorted(_vector_series(curve).items()):
+            events = state.get("candidate_events") or []
+            if not isinstance(events, list):
+                raise ContractError("track curve candidate_events must be a list")
+            for raw_event in events:
+                event = str(raw_event).strip()
+                if event:
+                    track_events.append({
+                        "concept": concept,
+                        "series_id": series_id,
+                        "event": event,
+                        "direction": _event_direction(event),
+                    })
+
+    return {
+        "evidence_label": "candidate_not_validated",
+        "raw_events_preserved_in_curve_factors": True,
+        "systemic_state": systemic_state,
+        "systemic_direction": systemic_direction,
+        "universe_count": universe_count,
+        "curve_eligible_stock_count": sum(
+            code in stock_curves for code in universe_codes
+        ),
+        "eligible_stock_series": eligible_stock_series,
+        "event_count": event_count,
+        "event_density": (
+            event_count / eligible_stock_series
+            if eligible_stock_series
+            else None
+        ),
+        "event_stock_count": len(event_stocks),
+        "event_stock_breadth": stock_breadth,
+        "direction_counts": dict(sorted(direction_counts.items())),
+        "event_type_counts": dict(sorted(type_counts.items())),
+        "clusters": clusters,
+        "event_family_clusters": family_clusters,
+        "systemic_cluster_count": len(systemic_clusters),
+        "systemic_event_family_count": len(systemic_family_clusters),
+        "localized_cluster_count": len(clusters) - len(systemic_clusters),
+        "track_event_count": len(track_events),
+        "track_events": track_events,
+        "thresholds": {
+            "systemic_event_breadth_threshold": (
+                parameters.systemic_event_breadth_threshold
+            ),
+            "minimum_event_cluster_stocks": (
+                parameters.minimum_event_cluster_stocks
+            ),
+            "threshold_status": "structural_candidate_not_effective_claim",
+        },
+    }
+
+
 def _membership_value(row: Mapping[str, Any]) -> Dict[str, Any]:
     value = row.get("value")
     if not isinstance(value, Mapping):
@@ -614,7 +873,13 @@ def build_contextual_group_run(
         for row in observation_rows:
             validate_atomic_observation(row)
 
-    memberships = _latest_observations(
+    universe_snapshot = _exact_universe_snapshot(
+        observation_rows,
+        target=target,
+        decision_at=decision_at,
+    )
+    universe_codes = _universe_codes(universe_snapshot)
+    all_memberships = _latest_observations(
         observation_rows,
         target=target,
         decision_at=decision_at,
@@ -624,6 +889,17 @@ def build_contextual_group_run(
             and row.get("field") == "membership"
         ),
     )
+    missing_memberships = sorted(
+        set(universe_codes) - set(all_memberships)
+    )
+    if missing_memberships:
+        raise ContractError(
+            "universe snapshot members are missing membership facts: "
+            f"{missing_memberships[:3]}"
+        )
+    memberships = {
+        code: all_memberships[code] for code in universe_codes
+    }
     if not memberships:
         raise ContractError("no point-in-time universe memberships for group run")
     markets = _latest_observations(
@@ -704,7 +980,6 @@ def build_contextual_group_run(
 
     group_version_value = group_version(parameters)
     context_factor_version, stock_factor_version = _factor_versions(parameters)
-    universe_codes = sorted(memberships)
     universe_id = f"user_universe_{canonical_digest(universe_codes)[:16]}"
     membership_values = {
         code: _membership_value(row) for code, row in memberships.items()
@@ -752,8 +1027,15 @@ def build_contextual_group_run(
             "series": series_context,
         }
 
+    event_field = _event_field(
+        stock_curves=stock_curves,
+        track_curves=track_curves,
+        universe_codes=universe_codes,
+        parameters=parameters,
+    )
     context_inputs = [
         *current_base,
+        *stock_curves.values(),
         *track_aggregates.values(),
         *track_curves.values(),
     ]
@@ -789,8 +1071,21 @@ def build_contextual_group_run(
                 "universe_id": universe_id,
                 "entity_count": len(universe_codes),
                 "entity_ids": universe_codes,
+                "snapshot_observation_id": universe_snapshot["observation_id"],
+                "snapshot_effective_date": universe_snapshot["effective_date"],
+                "membership_semantics": (
+                    (universe_snapshot.get("value") or {}).get(
+                        "membership_semantics"
+                    )
+                ),
+                "upstream_completeness": (
+                    (universe_snapshot.get("value") or {}).get(
+                        "upstream_completeness"
+                    )
+                ),
             },
             "market": market_context,
+            "event_field": event_field,
             "cross_sections": cross_context,
             "tracks": track_context,
             "parameters": asdict(parameters),
@@ -798,7 +1093,11 @@ def build_contextual_group_run(
         as_of_trade_date=target,
         calculated_at=calculated_iso,
         input_factors=context_inputs,
-        input_observations=[market_observation, *memberships.values()],
+        input_observations=[
+            universe_snapshot,
+            market_observation,
+            *memberships.values(),
+        ],
     )
 
     base_by_code: Dict[str, Dict[str, Dict[str, Any]]] = {}
@@ -837,6 +1136,22 @@ def build_contextual_group_run(
             curve_states = _curve_states(
                 curve_series.get(series_id),
             )
+            curve_state = curve_series.get(series_id)
+            raw_curve_events = (
+                curve_state.get("candidate_events") or []
+                if isinstance(curve_state, Mapping)
+                else []
+            )
+            if not isinstance(raw_curve_events, list):
+                raise ContractError("curve candidate_events must be a list")
+            curve_events = sorted({
+                str(event).strip()
+                for event in raw_curve_events
+                if str(event).strip()
+            })
+            event_detection_ready = any(
+                state is not None for state in curve_states[2:]
+            )
             stock_membership_count += sum(
                 state is not None for state in curve_states
             )
@@ -870,6 +1185,8 @@ def build_contextual_group_run(
             factor_groups[series_id] = {
                 "cross_section": cross_group,
                 "curve_state_vector": curve_states,
+                "curve_candidate_events": curve_events,
+                "curve_event_detection_ready": event_detection_ready,
                 "track_relation_vectors": track_relations,
             }
 
@@ -913,6 +1230,20 @@ def build_contextual_group_run(
                         )
                         for concept in membership["concepts"]
                     },
+                    "selection_context": {
+                        "market_regime": (
+                            market_context["states"].get("regime") or {}
+                        ).get("state"),
+                        "macro_regime": (
+                            market_context["states"].get("macro_regime") or {}
+                        ).get("state"),
+                        "systemic_event_state": event_field["systemic_state"],
+                        "systemic_event_direction": (
+                            event_field["systemic_direction"]
+                            if event_field["systemic_state"] == "broad"
+                            else None
+                        ),
+                    },
                     "factor_groups": factor_groups,
                     "statistical_membership_count": stock_membership_count,
                     "unavailable": sorted(unavailable),
@@ -933,7 +1264,11 @@ def build_contextual_group_run(
         ),
         "observation_ids": sorted(
             str(row["observation_id"])
-            for row in [market_observation, *memberships.values()]
+            for row in [
+                universe_snapshot,
+                market_observation,
+                *memberships.values(),
+            ]
         ),
     }
     manifest = {
@@ -951,6 +1286,8 @@ def build_contextual_group_run(
         "notes": [
             "group assignment is label-free; factor_results/outcomes are not inputs",
             "market, factor, curve and track axes remain separate; no fitted intersections",
+            "the exact-date universe snapshot controls active membership; entry/exit never rewrites history",
+            "raw curve events are preserved and aggregated into systemic/track/localized candidate fields",
             "holding/watchlist role is audit-only because it is an endogenous portfolio state",
             (
                 "concept memberships are point-in-time user-universe labels, "
@@ -988,6 +1325,15 @@ def build_contextual_group_run(
             row.get("status") == "thin_track"
             for row in track_context.values()
         ),
+        "event_count": event_field["event_count"],
+        "event_stock_breadth": event_field["event_stock_breadth"],
+        "systemic_event_state": event_field["systemic_state"],
+        "systemic_event_clusters": event_field["systemic_cluster_count"],
+        "systemic_event_families": event_field[
+            "systemic_event_family_count"
+        ],
+        "systemic_event_direction": event_field["systemic_direction"],
+        "track_event_count": event_field["track_event_count"],
         "stock_group_vectors": len(stock_outputs),
         "partial_stock_vectors": partial_count,
         "statistical_memberships": statistical_membership_count,

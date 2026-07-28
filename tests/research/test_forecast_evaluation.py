@@ -31,6 +31,8 @@ SERIES = "legacy_snapshot::legacy.rsi_14::legacy_snapshot_v1"
 CANDIDATE = "candidate_" + canonical_digest({
     "axis": "cross_section_bucket",
     "series_id": SERIES,
+    "concept": None,
+    "condition": {},
 })
 
 
@@ -231,6 +233,28 @@ def test_available_forecast_evaluates_complete_daily_cross_section():
     assert result["within_q10_q90"] is True
     assert len(result["group_outcome_ids"]) == 6
     validate_forecast_result(result)
+
+
+def test_forecast_evaluation_ignores_superseded_group_outcomes():
+    selection = _selection_audit()
+    forecast = build_forecast_audit(selection)
+    groups, outcomes = _cross_section()
+    old_group = deepcopy(groups[0])
+    old_group["factor_version"] = "stock_group_vector_v1"
+    old_group["value"]["group_version"] = "contextual_multiview_group_v1"
+    old_group["factor_value_id"] = make_factor_value_id(old_group)
+    old_outcome = _outcome(old_group, outcomes[0]["excess_ret"])
+    old_outcome["group_version"] = "contextual_multiview_group_v1"
+
+    results, audit = evaluate_forecast_audit(
+        forecast_audit=forecast,
+        selection_audit=selection,
+        group_factor_rows=groups,
+        outcome_rows=[old_outcome, *outcomes],
+    )
+
+    assert len(results) == 1
+    assert audit["evaluated_forecasts"] == 1
 
 
 def test_partial_cross_section_remains_pending_without_result():

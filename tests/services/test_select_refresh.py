@@ -163,6 +163,10 @@ def test_select_refresh_is_point_in_time_immutable_and_idempotent(tmp_path):
     assert first["status"] == "abstain"
     assert first["write_status"] == "written"
     assert first["production_eligible"] is False
+    assert first["discovery_summary"]["1"]["factor_series_total"] == 1
+    assert first["discovery_summary"]["1"]["factor_series_tested"] == 1
+    assert first["discovery_summary"]["1"]["candidate_tests"] == 1
+    assert first["discovery_summary"]["1"]["forecast_eligible"] is False
     assert second["write_status"] == "already_complete"
     stored = json.loads(
         (

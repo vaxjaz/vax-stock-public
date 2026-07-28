@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from vaxstock.research.contextual_group import (
+    GROUP_CONTEXT_FACTOR_ID,
     GROUP_VERSION,
     STOCK_GROUP_FACTOR_ID,
     GroupParameters,
@@ -13,9 +14,14 @@ from vaxstock.research.contextual_group import (
     group_version,
     materialize_group_id,
 )
+from vaxstock.research.causal_curve import (
+    CURVE_FACTOR_VERSION,
+    STOCK_CURVE_VECTOR_FACTOR_ID,
+)
 from vaxstock.research.contracts import (
     ContractError,
     canonical_digest,
+    factor_input_digest,
     make_factor_value_id,
     make_observation_id,
     validate_factor_value,
@@ -78,8 +84,66 @@ def _factor(code, value, observation, trade_date=TRADE_DATE):
     return row
 
 
+def _curve_factor(code, base_factor, events):
+    refs = [{
+        "factor_value_id": base_factor["factor_value_id"],
+        "as_of_trade_date": base_factor["as_of_trade_date"],
+    }]
+    series_id = factor_series_id(base_factor)
+    row = {
+        "schema_version": 1,
+        "factor_value_id": "",
+        "entity_type": "stock",
+        "entity_id": code,
+        "dimension": "causal_curve",
+        "factor_id": STOCK_CURVE_VECTOR_FACTOR_ID,
+        "factor_version": CURVE_FACTOR_VERSION,
+        "value": {
+            "series": {
+                series_id: {
+                    "sample_count": 20,
+                    "slope_recent": 1.0,
+                    "acceleration": 1.0,
+                    "turning_candidate": (
+                        "up" if "turning_up" in events else None
+                    ),
+                    "anomaly_candidate": None,
+                    "change_point_candidate": None,
+                    "innovation_robust_z": 0.0,
+                    "innovation_zero_scale_break": False,
+                    "candidate_events": list(events),
+                }
+            },
+            "candidate_events": list(events),
+        },
+        "as_of_trade_date": TRADE_DATE,
+        "effective_date": TRADE_DATE,
+        "available_at": base_factor["available_at"],
+        "calculated_at": _timestamp(minute=1),
+        "input_observation_ids": [],
+        "input_factor_refs": refs,
+        "input_digest": factor_input_digest([], refs),
+        "quality": "calculated",
+    }
+    row["factor_value_id"] = make_factor_value_id(row)
+    return row
+
+
 def _inputs():
+    codes = [f"6000{index:02d}" for index in range(9)]
     observations = [
+        _observation(
+            "market",
+            "CN-A",
+            "universe",
+            "universe_snapshot",
+            {
+                "active_codes": codes,
+                "active_count": len(codes),
+                "membership_semantics": "exact_frozen_rows",
+                "upstream_completeness": "test_fixture",
+            },
+        ),
         _observation(
             "market",
             "CN-A",
@@ -89,8 +153,7 @@ def _inputs():
         )
     ]
     factors = []
-    for index in range(9):
-        code = f"6000{index:02d}"
+    for index, code in enumerate(codes):
         observations.append(
             _observation(
                 "stock",
@@ -204,6 +267,152 @@ def test_future_membership_and_factor_are_excluded_at_decision_time():
     )
     assert summary["universe_count"] == 9
     assert all(row["entity_id"] != "601999" for row in outputs)
+
+
+def test_dynamic_universe_allows_entry_and_excludes_historical_exit():
+    observations, factors = _inputs()
+    new_code = "601999"
+    removed_code = "600999"
+    observations[0] = _observation(
+        "market",
+        "CN-A",
+        "universe",
+        "universe_snapshot",
+        {
+            "active_codes": [
+                *[f"6000{index:02d}" for index in range(9)],
+                new_code,
+            ],
+            "active_count": 10,
+            "membership_semantics": "exact_frozen_rows",
+            "upstream_completeness": "test_fixture",
+        },
+    )
+    observations.append(
+        _observation(
+            "stock",
+            new_code,
+            "universe",
+            "membership",
+            {
+                "name": "new",
+                "group": "watchlist",
+                "concepts": ["AI绠楀姏"],
+            },
+        )
+    )
+    observations.append(
+        _observation(
+            "stock",
+            removed_code,
+            "universe",
+            "membership",
+            {
+                "name": "removed",
+                "group": "watchlist",
+                "concepts": ["AI绠楀姏"],
+            },
+            "20260723",
+        )
+    )
+
+    _, outputs, summary = build_contextual_group_run(
+        as_of_trade_date=TRADE_DATE,
+        calculated_at=_timestamp(minute=2),
+        factor_rows=factors,
+        observations=observations,
+        mode="replay",
+    )
+
+    stock_outputs = {
+        row["entity_id"]: row
+        for row in outputs
+        if row["factor_id"] == STOCK_GROUP_FACTOR_ID
+    }
+    assert summary["universe_count"] == 10
+    assert set(stock_outputs) == {
+        *[f"6000{index:02d}" for index in range(9)],
+        new_code,
+    }
+    assert removed_code not in stock_outputs
+    assert stock_outputs[new_code]["value"]["status"] == (
+        "no_eligible_current_factors"
+    )
+    assert stock_outputs[new_code]["value"]["factor_groups"] == {}
+
+
+def test_many_raw_turning_points_become_a_broad_event_candidate():
+    observations, factors = _inputs()
+    curve_factors = [
+        _curve_factor(
+            factor["entity_id"],
+            factor,
+            ["turning_up"] if index < 6 else [],
+        )
+        for index, factor in enumerate(factors)
+    ]
+    _, outputs, summary = build_contextual_group_run(
+        as_of_trade_date=TRADE_DATE,
+        calculated_at=_timestamp(minute=2),
+        factor_rows=[*factors, *curve_factors],
+        observations=observations,
+        mode="replay",
+    )
+
+    context = next(
+        row
+        for row in outputs
+        if row["factor_id"] == GROUP_CONTEXT_FACTOR_ID
+    )
+    event_field = context["value"]["event_field"]
+    assert summary["systemic_event_state"] == "broad"
+    assert summary["systemic_event_direction"] == "up"
+    assert summary["systemic_event_families"] == 1
+    assert summary["event_stock_breadth"] == pytest.approx(6 / 9)
+    assert event_field["event_count"] == 6
+    cluster = next(
+        row
+        for row in event_field["clusters"]
+        if row["event"] == "turning_up"
+    )
+    assert cluster["member_count"] == 6
+    assert cluster["breadth"] == pytest.approx(6 / 9)
+    assert cluster["systemic_candidate"] is True
+    family = next(
+        row
+        for row in event_field["event_family_clusters"]
+        if row["event"] == "turning_up"
+    )
+    assert family["member_count"] == 6
+    assert family["systemic_candidate"] is True
+    assert event_field["thresholds"]["threshold_status"] == (
+        "structural_candidate_not_effective_claim"
+    )
+    context_ref_ids = {
+        row["factor_value_id"] for row in context["input_factor_refs"]
+    }
+    assert {
+        row["factor_value_id"] for row in curve_factors
+    }.issubset(context_ref_ids)
+    assert curve_factors[0]["value"]["series"][
+        factor_series_id(factors[0])
+    ]["candidate_events"] == ["turning_up"]
+    stock_group = next(
+        row
+        for row in outputs
+        if (
+            row["factor_id"] == STOCK_GROUP_FACTOR_ID
+            and row["entity_id"] == factors[0]["entity_id"]
+        )
+    )
+    stock_series = stock_group["value"]["factor_groups"][
+        factor_series_id(factors[0])
+    ]
+    assert stock_series["curve_candidate_events"] == ["turning_up"]
+    assert stock_series["curve_event_detection_ready"] is True
+    assert stock_group["value"]["selection_context"][
+        "systemic_event_direction"
+    ] == "up"
 
 
 def test_group_identity_is_stable_across_wall_clock_retries():

@@ -111,10 +111,16 @@ def run_eod() -> Dict[str, str]:
             mode="live",
         )
         logger.info(
-            "Research v2 groups: status=%s stocks=%s memberships=%s labels=%s",
+            "Research v2 groups: status=%s stocks=%s memberships=%s "
+            "event_state=%s event_breadth=%s event_families=%s labels=%s",
             group_v2.get("status"),
             (group_v2.get("summary") or {}).get("stock_group_vectors"),
             (group_v2.get("summary") or {}).get("statistical_memberships"),
+            (group_v2.get("summary") or {}).get("systemic_event_state"),
+            (group_v2.get("summary") or {}).get("event_stock_breadth"),
+            (group_v2.get("summary") or {}).get(
+                "systemic_event_families"
+            ),
             (group_v2.get("summary") or {}).get("label_usage"),
         )
         group_outcomes_v2 = run_group_outcome_refresh()
@@ -132,6 +138,19 @@ def run_eod() -> Dict[str, str]:
             select_v2.get("status"),
             select_v2.get("write_status"),
             select_v2.get("production_eligible"),
+        )
+        t1_discovery = (
+            (select_v2.get("discovery_summary") or {}).get("1") or {}
+        )
+        logger.info(
+            "Research v2 T+1 discovery: factors=%s/%s candidates=%s "
+            "recent_reversals=%s direction_consistent=%s evidence=%s",
+            t1_discovery.get("factor_series_tested"),
+            t1_discovery.get("factor_series_total"),
+            t1_discovery.get("candidate_tests"),
+            t1_discovery.get("recent_reversal_count"),
+            t1_discovery.get("direction_consistent_count"),
+            t1_discovery.get("evidence_label"),
         )
         if not select_v2.get("audit_path"):
             raise ValueError("Research v2 select audit was not materialized")

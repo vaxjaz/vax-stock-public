@@ -142,6 +142,45 @@ def _write_immutable_audit(path: Path, audit: Mapping[str, Any]) -> str:
     return "written"
 
 
+def _discovery_summary(audit: Mapping[str, Any]) -> Dict[str, Any]:
+    """Return only signal-bearing diagnostics, not the full audit ledger."""
+
+    result = {}
+    for horizon, raw in sorted(
+        (audit.get("horizons") or {}).items(),
+        key=lambda item: int(item[0]),
+    ):
+        if not isinstance(raw, Mapping):
+            continue
+        build = raw.get("build") or {}
+        selection = raw.get("selection") or {}
+        exploratory = selection.get("exploratory_diagnostics") or {}
+        result[str(horizon)] = {
+            "status": selection.get("status"),
+            "independent_dates": selection.get(
+                "independent_dates_available"
+            ),
+            "factor_series_total": build.get("factor_series_total"),
+            "factor_series_tested": build.get("factor_series_tested"),
+            "candidate_tests": build.get("candidate_tests"),
+            "recent_reversal_count": exploratory.get(
+                "recent_reversal_count"
+            ),
+            "direction_consistent_count": exploratory.get(
+                "direction_consistent_count"
+            ),
+            "recent_reversals": list(
+                exploratory.get("recent_reversals") or []
+            )[:3],
+            "direction_consistent_candidates": list(
+                exploratory.get("direction_consistent_candidates") or []
+            )[:3],
+            "evidence_label": exploratory.get("evidence_label"),
+            "forecast_eligible": False,
+        }
+    return result
+
+
 def run_select_refresh(
     *,
     research_paths: Optional[StorePaths] = None,
@@ -253,6 +292,7 @@ def run_select_refresh(
         "audit_path": str(target),
         "outcomes_path": str(outcome_file),
         "status_counts": audit["status_counts"],
+        "discovery_summary": _discovery_summary(audit),
         "production_eligible": False,
     }
     logger.info("Research v2 select audit: %s", result)

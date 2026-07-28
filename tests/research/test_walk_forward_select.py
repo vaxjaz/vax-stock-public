@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -28,8 +29,79 @@ TZ = timezone(timedelta(hours=8))
 SERIES = "legacy_snapshot::legacy.rsi_14::legacy_snapshot_v1"
 
 
-def _group(trade_date, code, side, calculated_at):
+def _group(
+    trade_date,
+    code,
+    side,
+    calculated_at,
+    *,
+    all_axes=False,
+    selection_context=None,
+    include_unavailable_series=False,
+    curve_events=None,
+):
     inputs = [f"obs_{trade_date}_{code}"]
+    factor_groups = {
+        SERIES: {
+            "cross_section": {
+                "status": "available",
+                "bucket": side,
+                "rank_pct": 0.9 if side == "high" else 0.1,
+            },
+            "curve_state_vector": (
+                [
+                    "up",
+                    "up",
+                    "up",
+                    "positive",
+                    "up",
+                ]
+                if all_axes and side == "high"
+                else (
+                    [
+                        "down",
+                        "down",
+                        "down",
+                        "negative",
+                        "down",
+                    ]
+                    if all_axes
+                    else [
+                        "up" if side == "high" else "down",
+                        None,
+                        None,
+                        None,
+                        None,
+                    ]
+                )
+            ),
+            "curve_candidate_events": list(curve_events or []),
+            "curve_event_detection_ready": bool(all_axes),
+            "track_relation_vectors": (
+                {
+                    "AI": (
+                        ["above", "above"]
+                        if side == "high"
+                        else ["below", "below"]
+                    )
+                }
+                if all_axes
+                else {}
+            ),
+        }
+    }
+    if include_unavailable_series:
+        factor_groups["legacy_snapshot::legacy.roe_avg::legacy_snapshot_v1"] = {
+            "cross_section": {
+                "status": "thin_cross_section",
+                "bucket": None,
+                "rank_pct": None,
+            },
+            "curve_state_vector": [None, None, None, None, None],
+            "curve_candidate_events": [],
+            "curve_event_detection_ready": False,
+            "track_relation_vectors": {},
+        }
     row = {
         "schema_version": 1,
         "factor_value_id": "",
@@ -41,23 +113,8 @@ def _group(trade_date, code, side, calculated_at):
         "value": {
             "group_version": GROUP_VERSION,
             "label_usage": "none",
-            "factor_groups": {
-                SERIES: {
-                    "cross_section": {
-                        "status": "available",
-                        "bucket": side,
-                        "rank_pct": 0.9 if side == "high" else 0.1,
-                    },
-                    "curve_state_vector": [
-                        "up" if side == "high" else "down",
-                        None,
-                        None,
-                        None,
-                        None,
-                    ],
-                    "track_relation_vectors": {},
-                }
-            },
+            "selection_context": dict(selection_context or {}),
+            "factor_groups": factor_groups,
         },
         "as_of_trade_date": trade_date,
         "effective_date": trade_date,
@@ -204,6 +261,124 @@ def test_partial_or_not_yet_available_outcome_excludes_entire_date():
     }
 
 
+def test_superseded_group_outcome_version_is_retained_but_not_mixed():
+    groups, outcomes = _cross_section()
+    old_group = deepcopy(groups[0])
+    old_group["factor_version"] = "stock_group_vector_v1"
+    old_group["value"]["group_version"] = "contextual_multiview_group_v1"
+    old_group["factor_value_id"] = make_factor_value_id(old_group)
+    old_outcome = _outcome(
+        old_group,
+        outcomes[0]["outcome_trade_date"],
+        outcomes[0]["outcome_available_at"],
+        outcomes[0]["excess_ret"],
+    )
+    old_outcome["group_version"] = "contextual_multiview_group_v1"
+
+    sessions, audit = build_candidate_sessions(
+        group_factor_rows=groups,
+        outcome_rows=[old_outcome, *outcomes],
+        horizon_sessions=1,
+        decision_at="2026-07-03T06:00:00+08:00",
+    )
+
+    assert len(sessions) == 2
+    assert audit["superseded_outcomes_excluded"] == 1
+    assert audit["outcome_conflicts"] == 0
+
+
+def test_select_covers_all_available_axes_and_reports_untestable_series():
+    context = {
+        "market_regime": "panic",
+        "macro_regime": "contraction",
+        "systemic_event_state": "broad",
+        "systemic_event_direction": "mixed",
+    }
+    group_time = "2026-07-02T05:00:00+08:00"
+    outcome_time = "2026-07-03T05:00:00+08:00"
+    rich_groups = []
+    rich_outcomes = []
+    for index in range(12):
+        code = f"6001{index:02d}"
+        side = "high" if index < 6 else "low"
+        if index < 3:
+            events = ["turning_up"]
+        elif index < 6:
+            events = []
+        elif index < 9:
+            events = ["turning_down"]
+        else:
+            events = []
+        rebuilt = _group(
+            "20260701",
+            code,
+            side,
+            group_time,
+            all_axes=True,
+            selection_context=context,
+            include_unavailable_series=True,
+            curve_events=events,
+        )
+        rich_groups.append(rebuilt)
+        rich_outcomes.append(
+            _outcome(
+                rebuilt,
+                "20260702",
+                outcome_time,
+                0.03 if side == "high" else -0.01,
+            )
+        )
+
+    sessions, audit = build_candidate_sessions(
+        group_factor_rows=rich_groups,
+        outcome_rows=rich_outcomes,
+        horizon_sessions=1,
+        decision_at="2026-07-03T06:00:00+08:00",
+    )
+
+    assert len(sessions) == 50
+    assert {row["axis"] for row in sessions} == {
+        "cross_section_bucket",
+        "curve_slope",
+        "curve_acceleration",
+        "curve_turning",
+        "curve_anomaly",
+        "curve_change_point",
+        "curve_event_presence",
+        "curve_event_direction",
+        "track_level_relation",
+        "track_slope_relation",
+    }
+    assert {tuple(sorted(row["condition"].items())) for row in sessions} == {
+        (),
+        (("market_regime", "panic"),),
+        (("macro_regime", "contraction"),),
+        (("systemic_event_state", "broad"),),
+        (("systemic_event_direction", "mixed"),),
+    }
+    assert audit["factor_series_total"] == 2
+    assert audit["factor_series_tested"] == 1
+    assert audit["factor_series_untested"] == 1
+    coverage = {
+        row["series_id"]: row for row in audit["factor_coverage"]
+    }
+    assert coverage[SERIES]["candidate_axes_seen"] == sorted({
+        "cross_section_bucket",
+        "curve_slope",
+        "curve_acceleration",
+        "curve_turning",
+        "curve_anomaly",
+        "curve_change_point",
+        "curve_event_presence",
+        "curve_event_direction",
+        "track_level_relation",
+        "track_slope_relation",
+    })
+    assert coverage[
+        "legacy_snapshot::legacy.roe_avg::legacy_snapshot_v1"
+    ]["status"] == "unavailable_or_one_sided"
+
+
 def _candidate_rows(count=8):
     rows = []
     base = datetime(2026, 7, 1, tzinfo=TZ)
@@ -291,6 +466,37 @@ def test_default_policy_abstains_on_short_history():
     assert result["independent_dates_available"] == 21
     assert result["oos_independent_dates"] == 0
     assert result["evidence_label"] == "insufficient_history"
+    diagnostics = result["exploratory_diagnostics"]
+    assert diagnostics["candidate_count"] == 1
+    assert diagnostics["direction_consistent_count"] == 1
+    assert diagnostics["forecast_eligible"] is False
+    candidate = diagnostics["direction_consistent_candidates"][0]
+    assert candidate["independent_dates"] == 21
+    assert candidate["rolling_windows"]["5"]["direction"] == "positive"
+    assert candidate["evidence_status"] == (
+        "exploratory_below_training_minimum"
+    )
+
+
+def test_exploratory_diagnostics_exposes_recent_reversal_without_smoothing():
+    rows = _candidate_rows(21)
+    for row in rows[-5:]:
+        row["spread"] = -0.04
+        row["positive_mean_excess"] = -0.02
+        row["negative_mean_excess"] = 0.02
+
+    result = run_walk_forward_select(
+        candidate_sessions=rows,
+        horizon_sessions=1,
+    )
+
+    diagnostics = result["exploratory_diagnostics"]
+    assert diagnostics["recent_reversal_count"] == 1
+    reversal = diagnostics["recent_reversals"][0]
+    assert reversal["full_history"]["direction"] == "positive"
+    assert reversal["rolling_windows"]["5"]["direction"] == "negative"
+    assert reversal["recent_reversal"] is True
+    assert reversal["forecast_eligible"] is False
 
 
 def test_selection_audit_never_promotes_to_production():

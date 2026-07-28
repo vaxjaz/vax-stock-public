@@ -47,6 +47,8 @@ def _selection_audit(*, status="shadow_candidate", values=None):
                 "candidate_id": "candidate_a",
                 "series_id": "legacy_snapshot::legacy.rsi_14::legacy_snapshot_v1",
                 "axis": "cross_section_bucket",
+                "concept": None,
+                "condition": {"market_regime": "panic"},
                 "direction": 1,
                 "ranking_score": 0.02,
                 "training": {
@@ -115,6 +117,9 @@ def test_shadow_selection_becomes_empirical_conditional_distribution():
     assert forecast["distribution"]["q25"] == pytest.approx(0.005)
     assert forecast["distribution"]["q75"] == pytest.approx(0.035)
     assert forecast["current_candidates"][0]["candidate_id"] == "candidate_a"
+    assert forecast["current_candidates"][0]["condition"] == {
+        "market_regime": "panic"
+    }
     assert "not stock price target" in audit["scope"]
     validate_forecast_audit(audit)
 

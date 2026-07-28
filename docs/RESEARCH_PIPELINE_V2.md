@@ -1,8 +1,8 @@
 # Research Pipeline V2 — 决策与统计契约
 
 状态：Research v2 已完成 point-in-time 数据、group、outcome、walk-forward select、
-条件分布 forecast 与到期校准的 shadow 闭环。截至 2026-07-28 的真数据回放样本不足，
-所有 horizon 均 abstain；未经 OOS 检验的模型仍不可用。
+条件分布 forecast 与到期校准的 shadow 闭环。2026-07-28 升级前基线因真数据样本不足，
+所有 horizon 均 abstain；当前 v3 版本待 VPS 全量重放，未经 OOS 检验的模型仍不可用。
 
 ## 1. 目标函数
 
@@ -190,12 +190,21 @@ PYTHONPATH=src python -m vaxstock.services.curve_refresh --replay
   默认至少 9 个有效值、至少 3 个不同值；不足时写明 unavailable，不强制切桶。
 - 股票曲线轴：最近斜率、加速度、turning/anomaly/change-point 候选状态。检测窗口未成熟时
   为 `null`；成熟但未触发时为显式控制状态 `none`，两者不可混。
+- 事件轴：保留每只股票的原始 `candidate_events`，同时形成“事件股 vs 静默股”和
+  正/负方向事件两类可回测横截面；不因事件多就先验认定有效。
 - 赛道轴：成员关系取当时最新可见版本；少于 3 个当前成员标为 `thin_track`。只有已形成
   赛道中位数/曲线的因子，才生成股票相对赛道 level/slope 状态。
 
-当前赛道成员来源是每日冻结的用户观察池 `concepts` 标签，不是官方行业指数的历史成分。
+每个交易日另存一条精确 `universe_snapshot`。当日 group 只使用该快照的
+`active_codes`：新调入标的即使没有历史，也会保留当日向量并对缺历史的轴写 unavailable；
+已调出标的保留历史事实，但不会继续进入当前横截面。当前赛道成员来源是每日冻结的用户
+观察池 `concepts` 标签，不是官方行业指数的历史成分。
 因此 `track_aggregate_vector` 的含义是“当前观察池内同标签股票中位数”，不能冒充行业
 benchmark；将来接入官方 point-in-time 成分时必须新增 source/factor/group version。
+
+原始事件还会按“同一因子×同一事件”和“跨因子的同类事件”分别计算成员数与观察池
+breadth。只有同类事件达到结构性宽度和最少股票数才记为 `broad` 候选；大量互不相关的
+单股事件仍是 `localized`。该宽度阈值只是待回测的结构起点，不是有效信号结论。
 
 这些轴不会在 group 阶段被拼成一个高维 cluster。后续 select 可以在训练窗内检验有限交叉，
 但必须报告独立交易日数、多重尝试次数和 OOS 表现。`holding/watchlist` 是用户组合决策的
@@ -263,15 +272,23 @@ PYTHONPATH=src python -m vaxstock.services.group_outcome_refresh
 
 ## 12. MR6b 已实现：walk-forward select 与强制弃权
 
-`research.walk_forward_select` 的初始候选空间固定为三个有限状态轴：
+`research.walk_forward_select` 的候选空间按所有当日可用 `factor_groups` 自动展开，
+当前包括十类有限状态轴：
 
 - 横截面三分位：high 组减 low 组；
-- 因果曲线斜率：up 组减 down 组；
-- 因果曲线加速度：up 组减 down 组。
+- 因果曲线的斜率、加速度、turning、anomaly、change-point；
+- 曲线事件存在性：event 组减 quiet 组；事件方向：positive 组减 negative 组；
+- 股票相对所属赛道的 level 与 slope。
+
+每个原子候选同时保留无条件版本，并分别在 market regime、macro regime、系统性事件
+状态和系统性事件方向四种一阶条件下单独检验。当前独立日期不足以支持高阶交叉，故不做
+多条件笛卡尔积。审计文件必须列出完整 `factor_coverage` 和 `candidate_catalog`：
+可检验的因子进入统计；因数据缺失、单侧不足而无法检验的因子也必须逐项列明，禁止静默
+漏选。
 
 每个候选在每个 baseline 交易日只形成一条“完整日横截面价差”，同日几十只股票不再
 冒充几十个独立样本。任一股票的目标 horizon 尚未成熟或在当时不可见，该日期整个候选
-横截面剔除，不以剩余股票补齐。默认策略 `walk_forward_group_spread_v2` 使用 expanding
+横截面剔除，不以剩余股票补齐。默认策略 `walk_forward_group_spread_v3` 使用 expanding
 walk-forward；训练标签必须在验证日之前结束且在当时已经可见，并按 horizon 应用
 embargo。默认门槛为 40 个训练日、20 个 OOS 日、每侧至少 3 只股票；这些只是版本化
 研究 guardrail，不是“达到门槛即有效”的统计定理。
@@ -282,12 +299,20 @@ OOS 价差。报告披露每折候选尝试数、独立日期数、purge/embargo
 即使 OOS 日期达到门槛也只允许 `shadow_candidate + manual_review_required`；
 `production_eligible` 固定为 false，不改旧评分、持仓动作、D 线或盘中信号。
 
+训练门槛以下也不再只返回一个空的 abstain。`exploratory_diagnostics` 对每个实际形成完整
+横截面的候选保留全历史及最近 5/10/20 个独立日的方向，显式列出“近期方向反转”和
+“多窗口方向一致”候选。它用于尽早发现因子失效/切换，原始短窗不会被长窗平滑覆盖；
+但始终标为 `candidate_not_validated`、`forecast_eligible=false`，不能绕过 walk-forward
+门槛进入预测或交易。
+
 `services.select_refresh` 在 EOD 的 group outcome 之后实时重算当日选择审计，并按
 交易日与算法版本不可变写入
 `var/research/selections/selection_audit_YYYYMMDD__<select_version>.json`。重跑输入相同
 返回 `already_complete`；算法升级以新版本文件前滚，不覆盖旧版历史。
 
-2026-07-28 真数据回放结论为全部弃权：
+下表是 2026-07-28 升级前 `walk_forward_group_spread_v2` 的真数据迁移基线，仅证明
+当时所有 horizon 均弃权。v3 扩展全部曲线/事件/赛道轴后的候选数必须在 VPS 重放后
+重新读取审计文件，不得沿用下表的 51：
 
 | horizon | 完整独立日 | 候选尝试数 | OOS 独立日 | 结论 |
 |---|---:|---:|---:|---|
@@ -299,6 +324,21 @@ OOS 价差。报告披露每折候选尝试数、独立日期数、purge/embargo
 
 这不是“模型判断市场没有机会”，而是“现有独立时间样本不足以判断哪些 group 状态
 effective”。它阻止系统再次把高维逐票行数包装成有效统计。
+
+v2/v3 版本前滚后必须做一次历史重放，旧文件保留但不会混入新版本：
+
+```bash
+PYTHONPATH=src python -m vaxstock.research.legacy_snapshot_replay
+PYTHONPATH=src python -m vaxstock.services.curve_refresh --replay
+PYTHONPATH=src python -m vaxstock.services.group_refresh --replay
+PYTHONPATH=src python -m vaxstock.services.group_outcome_refresh
+PYTHONPATH=src python -m vaxstock.services.select_refresh
+PYTHONPATH=src python -m vaxstock.services.forecast_refresh
+```
+
+其中 snapshot v2 补写逐日 `universe_snapshot`，group/select/forecast 以新版本文件前滚。
+append-only outcome 中的旧 group 版本继续保留审计，但新 select 明确排除，不能与新版本
+混算或误报冲突。
 
 ## 13. MR7 已实现：条件分布 forecast
 
