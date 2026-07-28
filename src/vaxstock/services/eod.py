@@ -32,6 +32,7 @@ from vaxstock.services.eval_recorder import SNAPSHOTS_FILE, record_and_backfill
 from vaxstock.services.eod_predictor import predictions_from_payload, record_predictions
 from vaxstock.services.forecast_planner import enqueue_observation_job
 from vaxstock.services.group_refresh import run_group_refresh
+from vaxstock.services.group_outcome_refresh import run_group_outcome_refresh
 from vaxstock.services.prediction_evaluator import evaluate_from_files
 from vaxstock.sources.tushare_src import TushareSource
 
@@ -111,9 +112,17 @@ def run_eod() -> Dict[str, str]:
             (group_v2.get("summary") or {}).get("statistical_memberships"),
             (group_v2.get("summary") or {}).get("label_usage"),
         )
+        group_outcomes_v2 = run_group_outcome_refresh()
+        logger.info(
+            "Research v2 group outcomes: status=%s written=%s samples=%s",
+            group_outcomes_v2.get("status"),
+            (group_outcomes_v2.get("stored") or {}).get("written"),
+            (group_outcomes_v2.get("summary") or {}).get("samples_ready"),
+        )
     except Exception as e:
         logger.warning(
-            f"Research v2 snapshot/curve/group persistence failed: {str(e)[:120]}"
+            "Research v2 snapshot/curve/group/outcome persistence failed: "
+            f"{str(e)[:120]}"
         )
 
     # D-line closeout is market-data-only and never reads user executions.

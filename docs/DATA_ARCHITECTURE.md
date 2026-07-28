@@ -655,3 +655,8 @@ var/research/
   `(group_version, axis, state, series_id, concept)` 调用
   `contextual_group.materialize_group_id` 确定性生成。group manifest 明确写
   `label_usage=none`、`select_version=not_executed`、`forecast_version=not_executed`。
+- `var/research/outcomes/group_outcomes.jsonl` 是 MR6a 的 append-only 标签连接账本。
+  每行绑定一个冻结的 `stock_group_vector` 与一个成熟 horizon，保留
+  `outcome_available_at`、结果首次完整原始行号、上证综指 legacy benchmark 边界及
+  input digest。它不回写 factor/group，也不构成 effective 结论。统计有效样本首先按
+  `independent_session_id=as_of_trade_date` 聚类，不能把同日多股票、多期限当成独立日。

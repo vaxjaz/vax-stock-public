@@ -20,6 +20,7 @@ OBSERVATION_SCHEMA_VERSION = 1
 FACTOR_VALUE_SCHEMA_VERSION = 1
 FORECAST_SCHEMA_VERSION = 1
 RUN_MANIFEST_SCHEMA_VERSION = 1
+GROUP_OUTCOME_SCHEMA_VERSION = 1
 
 
 class ContractError(ValueError):
@@ -123,6 +124,32 @@ class RunManifest(TypedDict):
     notes: List[str]
 
 
+class GroupOutcomeSample(TypedDict):
+    """One matured horizon outcome joined to one frozen group assignment."""
+
+    schema_version: int
+    outcome_id: str
+    as_of_trade_date: str
+    code: str
+    group_factor_value_id: str
+    group_factor_version: str
+    group_version: str
+    group_available_at: str
+    group_calculated_at: str
+    horizon_sessions: int
+    outcome_trade_date: str
+    outcome_available_at: str
+    ret: float
+    benchmark_ret: float
+    excess_ret: float
+    benchmark_code: str
+    benchmark_kind: str
+    source: str
+    source_ref: str
+    independent_session_id: str
+    input_digest: str
+
+
 def canonical_digest(value: Any) -> str:
     """Return a deterministic SHA-256 digest for JSON-compatible input."""
 
@@ -218,6 +245,19 @@ def make_run_id(record: Mapping[str, Any]) -> str:
         "input_digest": record.get("input_digest"),
     }
     return f"run_{canonical_digest(identity)}"
+
+
+def make_group_outcome_id(record: Mapping[str, Any]) -> str:
+    """Build the immutable identity of one group/horizon outcome."""
+
+    identity = {
+        "as_of_trade_date": record.get("as_of_trade_date"),
+        "code": record.get("code"),
+        "group_factor_value_id": record.get("group_factor_value_id"),
+        "horizon_sessions": record.get("horizon_sessions"),
+        "source": record.get("source"),
+    }
+    return f"outcome_{canonical_digest(identity)}"
 
 
 def _require_text(record: Mapping[str, Any], field: str) -> str:
@@ -446,3 +486,87 @@ def validate_forecast_output(record: Mapping[str, Any]) -> None:
         raise ContractError("available forecast requires expected_excess_return")
     if not math.isfinite(float(expected)):
         raise ContractError("expected_excess_return must be finite")
+
+
+def validate_group_outcome_sample(record: Mapping[str, Any]) -> None:
+    """Validate one mature label without permitting a point-in-time shortcut."""
+
+    if record.get("schema_version") != GROUP_OUTCOME_SCHEMA_VERSION:
+        raise ContractError("unsupported group outcome schema_version")
+    baseline = _parse_trade_date(
+        record.get("as_of_trade_date"), "as_of_trade_date"
+    )
+    outcome_date = _parse_trade_date(
+        record.get("outcome_trade_date"), "outcome_trade_date"
+    )
+    if outcome_date <= baseline:
+        raise ContractError("outcome_trade_date must follow as_of_trade_date")
+    for field in (
+        "outcome_id",
+        "code",
+        "group_factor_value_id",
+        "group_factor_version",
+        "group_version",
+        "benchmark_code",
+        "benchmark_kind",
+        "source",
+        "source_ref",
+        "independent_session_id",
+        "input_digest",
+    ):
+        _require_text(record, field)
+    if record.get("independent_session_id") != baseline:
+        raise ContractError("independent_session_id must equal as_of_trade_date")
+    group_available = _parse_aware_timestamp(
+        record.get("group_available_at"), "group_available_at"
+    )
+    group_calculated = _parse_aware_timestamp(
+        record.get("group_calculated_at"), "group_calculated_at"
+    )
+    outcome_available = _parse_aware_timestamp(
+        record.get("outcome_available_at"), "outcome_available_at"
+    )
+    if group_calculated < group_available:
+        raise ContractError("group_calculated_at cannot precede group_available_at")
+    if outcome_available < group_calculated:
+        raise ContractError("outcome cannot be available before its group assignment")
+
+    horizon = record.get("horizon_sessions")
+    if (
+        isinstance(horizon, bool)
+        or not isinstance(horizon, int)
+        or horizon <= 0
+    ):
+        raise ContractError("horizon_sessions must be a positive integer")
+    numeric = {}
+    for field in ("ret", "benchmark_ret", "excess_ret"):
+        value = record.get(field)
+        if (
+            isinstance(value, bool)
+            or not isinstance(value, (int, float))
+            or not math.isfinite(float(value))
+        ):
+            raise ContractError(f"{field} must be a finite number")
+        numeric[field] = float(value)
+    if not math.isclose(
+        numeric["excess_ret"],
+        numeric["ret"] - numeric["benchmark_ret"],
+        rel_tol=0.0,
+        abs_tol=1e-12,
+    ):
+        raise ContractError("excess_ret must equal ret - benchmark_ret")
+    expected_digest = canonical_digest({
+        "group_factor_value_id": record.get("group_factor_value_id"),
+        "horizon_sessions": horizon,
+        "outcome_trade_date": outcome_date,
+        "outcome_available_at": record.get("outcome_available_at"),
+        "ret": numeric["ret"],
+        "benchmark_ret": numeric["benchmark_ret"],
+        "excess_ret": numeric["excess_ret"],
+        "benchmark_code": record.get("benchmark_code"),
+        "source": record.get("source"),
+    })
+    if record.get("input_digest") != expected_digest:
+        raise ContractError("group outcome input_digest does not match inputs")
+    if record.get("outcome_id") != make_group_outcome_id(record):
+        raise ContractError("outcome_id does not match immutable identity")

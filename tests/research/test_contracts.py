@@ -11,12 +11,14 @@ from vaxstock.research.contracts import (
     assert_factor_available_as_of,
     canonical_digest,
     factor_input_digest,
+    make_group_outcome_id,
     make_factor_value_id,
     make_observation_id,
     make_run_id,
     validate_atomic_observation,
     validate_factor_value,
     validate_forecast_output,
+    validate_group_outcome_sample,
     validate_run_manifest,
 )
 
@@ -118,6 +120,45 @@ def _forecast(status="available"):
     return row
 
 
+def _group_outcome():
+    row = {
+        "schema_version": 1,
+        "outcome_id": "",
+        "as_of_trade_date": "20260724",
+        "code": "601138",
+        "group_factor_value_id": "factor_group",
+        "group_factor_version": "stock_group_vector_v1",
+        "group_version": "contextual_multiview_group_v1",
+        "group_available_at": "2026-07-25T05:03:10+08:00",
+        "group_calculated_at": "2026-07-25T05:03:11+08:00",
+        "horizon_sessions": 1,
+        "outcome_trade_date": "20260727",
+        "outcome_available_at": "2026-07-28T05:03:11+08:00",
+        "ret": 0.03,
+        "benchmark_ret": 0.01,
+        "excess_ret": 0.02,
+        "benchmark_code": "000001.SH",
+        "benchmark_kind": "legacy_market_index",
+        "source": "legacy.factor_results",
+        "source_ref": "var/eval/factor_results.jsonl#20260724:601138:T+1",
+        "independent_session_id": "20260724",
+        "input_digest": "",
+    }
+    row["input_digest"] = canonical_digest({
+        "group_factor_value_id": row["group_factor_value_id"],
+        "horizon_sessions": row["horizon_sessions"],
+        "outcome_trade_date": row["outcome_trade_date"],
+        "outcome_available_at": row["outcome_available_at"],
+        "ret": row["ret"],
+        "benchmark_ret": row["benchmark_ret"],
+        "excess_ret": row["excess_ret"],
+        "benchmark_code": row["benchmark_code"],
+        "source": row["source"],
+    })
+    row["outcome_id"] = make_group_outcome_id(row)
+    return row
+
+
 def test_contract_module_is_standard_library_leaf():
     source = (_ROOT / "src" / "vaxstock" / "research" / "contracts.py").read_text(
         encoding="utf-8"
@@ -160,6 +201,34 @@ def test_point_in_time_guard_rejects_lookahead():
     assert_available_as_of(row, "2026-07-27T18:31:00+08:00")
     with pytest.raises(ContractError, match="look-ahead"):
         assert_available_as_of(row, "2026-07-27T18:29:59+08:00")
+
+
+def test_group_outcome_requires_mature_consistent_point_in_time_label():
+    row = _group_outcome()
+    validate_group_outcome_sample(row)
+
+    with pytest.raises(ContractError, match="must follow"):
+        validate_group_outcome_sample(
+            dict(row, outcome_trade_date=row["as_of_trade_date"])
+        )
+    with pytest.raises(ContractError, match="before its group"):
+        validate_group_outcome_sample(
+            dict(row, outcome_available_at="2026-07-25T05:03:00+08:00")
+        )
+    bad_excess = dict(row, excess_ret=0.03)
+    bad_excess["input_digest"] = canonical_digest({
+        "group_factor_value_id": bad_excess["group_factor_value_id"],
+        "horizon_sessions": bad_excess["horizon_sessions"],
+        "outcome_trade_date": bad_excess["outcome_trade_date"],
+        "outcome_available_at": bad_excess["outcome_available_at"],
+        "ret": bad_excess["ret"],
+        "benchmark_ret": bad_excess["benchmark_ret"],
+        "excess_ret": bad_excess["excess_ret"],
+        "benchmark_code": bad_excess["benchmark_code"],
+        "source": bad_excess["source"],
+    })
+    with pytest.raises(ContractError, match="ret - benchmark_ret"):
+        validate_group_outcome_sample(bad_excess)
 
 
 def test_factor_and_run_identities_are_versioned_and_deterministic():

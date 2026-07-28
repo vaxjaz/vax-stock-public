@@ -238,3 +238,23 @@ D 线已经具备 EOD 观察任务生成器;下一步不应把 D 线样本混入
 3. `/intraday/ask` 是否只读 A/B/C/D 已冻结 evidence、T-1 基准、lite 快照和已冻结 forecast。
 4. 主动盘面体检的输入来源, 以及哪些字段必须标记为盘中未定稿。
 
+## MR6a group outcome 连接层
+
+- `research.group_outcome` 读取 MR5 EOD group 与 legacy 增量结果行，按字段/期限
+  严格合并，冻结结果首次完整时点并连接 group；它不执行 select/forecast。
+- `services.group_outcome_refresh` 将连接结果写入
+  `var/research/outcomes/group_outcomes.jsonl`。写入使用跨进程锁、身份冲突检测、
+  `fsync` 和 append-only 幂等语义。
+- EOD 调用顺序固定为 legacy snapshot → curve → group → group outcome。
+- 离线回放必须报告独立交易日数；股票×期限行数不能当作独立样本数。
+
+## MR6a group outcome 连接层
+
+- `research.group_outcome` 读取 MR5 EOD group 与 legacy 增量结果行，按字段/期限
+  严格合并，冻结结果首次完整时点并连接 group；它不执行 select/forecast。
+- `services.group_outcome_refresh` 将连接结果写入
+  `var/research/outcomes/group_outcomes.jsonl`。写入使用跨进程锁、身份冲突检测、
+  `fsync` 和 append-only 幂等语义。
+- EOD 调用顺序固定为 legacy snapshot → curve → group → group outcome。
+- 离线回放必须报告独立交易日数；股票×期限行数不能当作独立样本数。
+

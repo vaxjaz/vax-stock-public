@@ -222,3 +222,77 @@ PYTHONPATH=src python -m vaxstock.services.group_refresh --replay
 三步均幂等。EOD 和盘前 E 维刷新在曲线落盘后立即运行 group，因此不会因报告缓存等待到
 下一个交易日；如果市场/成员/因子时点证据不完整，当前 run 阻断或局部 unavailable，
 不会回填中性组。
+
+## 11. MR6a 已实现：group 与成熟 outcome 的严格连接层
+
+`research.group_outcome` 不做因子筛选，也不宣称任何因子有效。它把 legacy
+`factor_results.jsonl` 的增量结果按 `(trade_date, code, horizon, field)` 严格合并，
+并连接到同一 `(trade_date, code)` 最早一次包含 EOD 基础因子的 MR5
+`stock_group_vector`：
+
+- 同一字段/期限出现不同值时直接报冲突，不采用最后一行覆盖。
+- `ret / mkt_ret / excess / horizon_trade_date` 首次齐全的原始行冻结为
+  `outcome_available_at`；历史 `filled_ts` 无时区时按项目交易时区
+  `Asia/Shanghai` 解释，并显式记录 `availability_timezone_inferred=true`。
+- 强校验 `excess_ret = ret - benchmark_ret`。该 legacy benchmark 经
+  `services.eval_recorder.BENCHMARK_INDEX` 源码验证为 `000001.SH` 上证综指；
+  它不是赛道 benchmark，不能冒充未来的行业/赛道超额口径。
+- 每个标签保存 group factor identity、group 计算/可见时点、结果首次完整行号、
+  来源引用和输入摘要。结果先于 group 可见会触发 look-ahead 错误。
+- 输出追加到 `var/research/outcomes/group_outcomes.jsonl`；写入带跨进程锁、
+  `fsync`、身份冲突检测和重跑幂等。
+
+EOD 顺序为基础快照 → curve → group → group outcome。当前阶段仍明确写
+`selection_status=not_executed`、`forecast_status=not_executed`，不进入报告动作、
+盘中通知、旧评分或自动调参。
+
+历史审计命令：
+
+```bash
+PYTHONPATH=src python -m vaxstock.research.legacy_snapshot_replay
+PYTHONPATH=src python -m vaxstock.services.curve_refresh --replay
+PYTHONPATH=src python -m vaxstock.services.group_refresh --replay
+PYTHONPATH=src python -m vaxstock.services.group_outcome_refresh
+```
+
+2026-07-28 本地真实回放得到 9,660 个成熟的股票×期限标签、21 个独立基准
+交易日、0 个结果冲突和 0 个缺失 group；重复运行新增 0 行。统计层必须把
+“股票×期限行数”和“独立基准交易日数”分开，不能把 9,660 行伪装成 9,660 个
+独立样本。21 个交易日只验证连接层、时点和幂等，不足以证明因子 effective。
+
+## 11. MR6a 已实现：group 与成熟 outcome 的严格连接层
+
+`research.group_outcome` 不做因子筛选，也不宣称任何因子有效。它把 legacy
+`factor_results.jsonl` 的增量结果按 `(trade_date, code, horizon, field)` 严格合并，
+并连接到同一 `(trade_date, code)` 最早一次包含 EOD 基础因子的 MR5
+`stock_group_vector`：
+
+- 同一字段/期限出现不同值时直接报冲突，不采用最后一行覆盖。
+- `ret / mkt_ret / excess / horizon_trade_date` 首次齐全的原始行冻结为
+  `outcome_available_at`；历史 `filled_ts` 无时区时按项目交易时区
+  `Asia/Shanghai` 解释，并显式记录 `availability_timezone_inferred=true`。
+- 强校验 `excess_ret = ret - benchmark_ret`。该 legacy benchmark 经
+  `services.eval_recorder.BENCHMARK_INDEX` 源码验证为 `000001.SH` 上证综指；
+  它不是赛道 benchmark，不能冒充未来的行业/赛道超额口径。
+- 每个标签保存 group factor identity、group 计算/可见时点、结果首次完整行号、
+  来源引用和输入摘要。结果先于 group 可见会触发 look-ahead 错误。
+- 输出追加到 `var/research/outcomes/group_outcomes.jsonl`；写入带跨进程锁、
+  `fsync`、身份冲突检测和重跑幂等。
+
+EOD 顺序为基础快照 → curve → group → group outcome。当前阶段仍明确写
+`selection_status=not_executed`、`forecast_status=not_executed`，不进入报告动作、
+盘中通知、旧评分或自动调参。
+
+历史审计命令：
+
+```bash
+PYTHONPATH=src python -m vaxstock.research.legacy_snapshot_replay
+PYTHONPATH=src python -m vaxstock.services.curve_refresh --replay
+PYTHONPATH=src python -m vaxstock.services.group_refresh --replay
+PYTHONPATH=src python -m vaxstock.services.group_outcome_refresh
+```
+
+2026-07-28 本地真实回放得到 9,660 个成熟的股票×期限标签、21 个独立基准
+交易日、0 个结果冲突和 0 个缺失 group；重复运行新增 0 行。统计层必须把
+“股票×期限行数”和“独立基准交易日数”分开，不能把 9,660 行伪装成 9,660 个
+独立样本。21 个交易日只验证连接层、时点和幂等，不足以证明因子 effective。
