@@ -21,6 +21,7 @@ FACTOR_VALUE_SCHEMA_VERSION = 1
 FORECAST_SCHEMA_VERSION = 1
 RUN_MANIFEST_SCHEMA_VERSION = 1
 GROUP_OUTCOME_SCHEMA_VERSION = 1
+SELECTION_AUDIT_SCHEMA_VERSION = 1
 
 
 class ContractError(ValueError):
@@ -148,6 +149,20 @@ class GroupOutcomeSample(TypedDict):
     source_ref: str
     independent_session_id: str
     input_digest: str
+
+
+class SelectionAudit(TypedDict):
+    """One immutable point-in-time walk-forward selection audit."""
+
+    schema_version: int
+    as_of_trade_date: str
+    decision_at: str
+    select_version: str
+    input_digest: str
+    horizons: Dict[str, Any]
+    status_counts: Dict[str, int]
+    production_eligible: bool
+    promotion_status: str
 
 
 def canonical_digest(value: Any) -> str:
@@ -570,3 +585,71 @@ def validate_group_outcome_sample(record: Mapping[str, Any]) -> None:
         raise ContractError("group outcome input_digest does not match inputs")
     if record.get("outcome_id") != make_group_outcome_id(record):
         raise ContractError("outcome_id does not match immutable identity")
+
+
+def validate_selection_audit(record: Mapping[str, Any]) -> None:
+    """Reject a selection artifact that weakens the research-only boundary."""
+
+    if record.get("schema_version") != SELECTION_AUDIT_SCHEMA_VERSION:
+        raise ContractError("unsupported selection audit schema_version")
+    _parse_trade_date(record.get("as_of_trade_date"), "as_of_trade_date")
+    _parse_aware_timestamp(record.get("decision_at"), "decision_at")
+    for field in ("select_version", "input_digest", "promotion_status"):
+        _require_text(record, field)
+    if record.get("production_eligible") is not False:
+        raise ContractError("selection audit must not be production eligible")
+    if record.get("promotion_status") != "manual_review_required":
+        raise ContractError("selection promotion requires manual review")
+
+    horizons = record.get("horizons")
+    if not isinstance(horizons, Mapping) or not horizons:
+        raise ContractError("selection horizons must be a non-empty object")
+    counts: Dict[str, int] = {}
+    for raw_horizon, raw_result in horizons.items():
+        try:
+            horizon = int(str(raw_horizon))
+        except (TypeError, ValueError) as exc:
+            raise ContractError("selection horizon key must be positive") from exc
+        if horizon <= 0 or not isinstance(raw_result, Mapping):
+            raise ContractError("selection horizon entry is invalid")
+        build = raw_result.get("build")
+        selection = raw_result.get("selection")
+        if not isinstance(build, Mapping) or not isinstance(selection, Mapping):
+            raise ContractError("selection horizon requires build and selection")
+        if build.get("horizon_sessions") != horizon:
+            raise ContractError("selection build horizon mismatch")
+        if selection.get("horizon_sessions") != horizon:
+            raise ContractError("selection result horizon mismatch")
+        if selection.get("select_version") != record.get("select_version"):
+            raise ContractError("selection version mismatch")
+        if selection.get("production_eligible") is not False:
+            raise ContractError("selection result must not be production eligible")
+        if selection.get("promotion_status") != "manual_review_required":
+            raise ContractError("selection result requires manual review")
+        status = selection.get("status")
+        if status not in {"abstain", "shadow_candidate"}:
+            raise ContractError("unsupported selection status")
+        if status == "abstain" and not str(
+            selection.get("abstain_reason") or ""
+        ).strip():
+            raise ContractError("abstain selection requires a reason")
+        if status == "shadow_candidate":
+            policy = selection.get("policy")
+            if not isinstance(policy, Mapping):
+                raise ContractError("shadow candidate requires policy")
+            minimum_oos = policy.get("min_oos_dates")
+            if (
+                isinstance(minimum_oos, bool)
+                or not isinstance(minimum_oos, int)
+                or minimum_oos <= 0
+            ):
+                raise ContractError(
+                    "shadow candidate requires positive min_oos_dates"
+                )
+            if int(selection.get("oos_independent_dates") or 0) < minimum_oos:
+                raise ContractError(
+                    "shadow candidate has insufficient independent OOS dates"
+                )
+        counts[str(status)] = counts.get(str(status), 0) + 1
+    if record.get("status_counts") != dict(sorted(counts.items())):
+        raise ContractError("selection status_counts mismatch")

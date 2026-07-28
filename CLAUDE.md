@@ -119,6 +119,8 @@ tracks/__init__.py 严禁 import ai 或任何会触网/加载重依赖(akshare/p
         - [x] E4-5 Prediction Layer2: action/direction/confidence/环境/概念分桶评估; live/replay 分开展示,pending 不进指标
         - [x] E4-6 EOD 摘要接入: 报告/邮件显示 target 日预测核验概览,无数据时显示待积累
         - [x] E4-7 Rule suggestions: `research.rule_suggester` 已接入 EOD 尾部,只给规则升级建议,不自动改参数
+    - [x] Research v2 MR6a: strict legacy result merge, first-complete availability freeze, MR5 group join, append-only outcome ledger, EOD integration
+    - [x] Research v2 MR6b: complete daily cross-section walk-forward select with availability gate, purge/embargo, multiple-trial disclosure, and forced abstention
 - [ ] **MR7 文档/README 全面同步**
 
 ---

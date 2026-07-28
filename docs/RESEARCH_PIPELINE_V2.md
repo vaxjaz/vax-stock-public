@@ -260,6 +260,82 @@ PYTHONPATH=src python -m vaxstock.services.group_outcome_refresh
 “股票×期限行数”和“独立基准交易日数”分开，不能把 9,660 行伪装成 9,660 个
 独立样本。21 个交易日只验证连接层、时点和幂等，不足以证明因子 effective。
 
+## 12. MR6b 已实现：walk-forward select 与强制弃权
+
+`research.walk_forward_select` 的初始候选空间固定为三个有限状态轴：
+
+- 横截面三分位：high 组减 low 组；
+- 因果曲线斜率：up 组减 down 组；
+- 因果曲线加速度：up 组减 down 组。
+
+每个候选在每个 baseline 交易日只形成一条“完整日横截面价差”，同日几十只股票不再
+冒充几十个独立样本。任一股票的目标 horizon 尚未成熟或在当时不可见，该日期整个候选
+横截面剔除，不以剩余股票补齐。默认策略 `walk_forward_group_spread_v1` 使用 expanding
+walk-forward；训练标签必须在验证日之前结束且在当时已经可见，并按 horizon 应用
+embargo。默认门槛为 40 个训练日、20 个 OOS 日、每侧至少 3 只股票；这些只是版本化
+研究 guardrail，不是“达到门槛即有效”的统计定理。
+
+训练窗只用候选历史日价差的中位数绝对值排序，并冻结方向；验证日才计算方向调整后的
+OOS 价差。报告披露每折候选尝试数、独立日期数、purge/embargo、OOS 表现和全部策略
+参数。普通日标准误与 t-like 只标为 descriptive，明确未做序列相关推断，不能当 p 值。
+即使 OOS 日期达到门槛也只允许 `shadow_candidate + manual_review_required`；
+`production_eligible` 固定为 false，不改旧评分、持仓动作、D 线或盘中信号。
+
+`services.select_refresh` 在 EOD 的 group outcome 之后实时重算当日选择审计，并按
+交易日不可变写入 `var/research/selections/selection_audit_YYYYMMDD.json`。重跑输入相同
+返回 `already_complete`；同一历史决策日结果变化则报冲突，不以缓存覆盖。
+
+2026-07-28 真数据回放结论为全部弃权：
+
+| horizon | 完整独立日 | 候选尝试数 | OOS 独立日 | 结论 |
+|---|---:|---:|---:|---|
+| T+1 | 21 | 51 | 0 | abstain |
+| T+3 | 19 | 51 | 0 | abstain |
+| T+5 | 17 | 51 | 0 | abstain |
+| T+10 | 12 | 51 | 0 | abstain |
+| T+20 | 2 | 19 | 0 | abstain |
+
+这不是“模型判断市场没有机会”，而是“现有独立时间样本不足以判断哪些 group 状态
+effective”。它阻止系统再次把高维逐票行数包装成有效统计。
+
+## 12. MR6b 已实现：walk-forward select 与强制弃权
+
+`research.walk_forward_select` 的初始候选空间固定为三个有限状态轴：
+
+- 横截面三分位：high 组减 low 组；
+- 因果曲线斜率：up 组减 down 组；
+- 因果曲线加速度：up 组减 down 组。
+
+每个候选在每个 baseline 交易日只形成一条“完整日横截面价差”，同日几十只股票不再
+冒充几十个独立样本。任一股票的目标 horizon 尚未成熟或在当时不可见，该日期整个候选
+横截面剔除，不以剩余股票补齐。默认策略 `walk_forward_group_spread_v1` 使用 expanding
+walk-forward；训练标签必须在验证日之前结束且在当时已经可见，并按 horizon 应用
+embargo。默认门槛为 40 个训练日、20 个 OOS 日、每侧至少 3 只股票；这些只是版本化
+研究 guardrail，不是“达到门槛即有效”的统计定理。
+
+训练窗只用候选历史日价差的中位数绝对值排序，并冻结方向；验证日才计算方向调整后的
+OOS 价差。报告披露每折候选尝试数、独立日期数、purge/embargo、OOS 表现和全部策略
+参数。普通日标准误与 t-like 只标为 descriptive，明确未做序列相关推断，不能当 p 值。
+即使 OOS 日期达到门槛也只允许 `shadow_candidate + manual_review_required`；
+`production_eligible` 固定为 false，不改旧评分、持仓动作、D 线或盘中信号。
+
+`services.select_refresh` 在 EOD 的 group outcome 之后实时重算当日选择审计，并按
+交易日不可变写入 `var/research/selections/selection_audit_YYYYMMDD.json`。重跑输入相同
+返回 `already_complete`；同一历史决策日结果变化则报冲突，不以缓存覆盖。
+
+2026-07-28 真数据回放结论为全部弃权：
+
+| horizon | 完整独立日 | 候选尝试数 | OOS 独立日 | 结论 |
+|---|---:|---:|---:|---|
+| T+1 | 21 | 51 | 0 | abstain |
+| T+3 | 19 | 51 | 0 | abstain |
+| T+5 | 17 | 51 | 0 | abstain |
+| T+10 | 12 | 51 | 0 | abstain |
+| T+20 | 2 | 19 | 0 | abstain |
+
+这不是“模型判断市场没有机会”，而是“现有独立时间样本不足以判断哪些 group 状态
+effective”。它阻止系统再次把高维逐票行数包装成有效统计。
+
 ## 11. MR6a 已实现：group 与成熟 outcome 的严格连接层
 
 `research.group_outcome` 不做因子筛选，也不宣称任何因子有效。它把 legacy

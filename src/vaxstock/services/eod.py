@@ -34,6 +34,7 @@ from vaxstock.services.forecast_planner import enqueue_observation_job
 from vaxstock.services.group_refresh import run_group_refresh
 from vaxstock.services.group_outcome_refresh import run_group_outcome_refresh
 from vaxstock.services.prediction_evaluator import evaluate_from_files
+from vaxstock.services.select_refresh import run_select_refresh
 from vaxstock.sources.tushare_src import TushareSource
 
 logger = logging.getLogger(__name__)
@@ -119,9 +120,18 @@ def run_eod() -> Dict[str, str]:
             (group_outcomes_v2.get("stored") or {}).get("written"),
             (group_outcomes_v2.get("summary") or {}).get("samples_ready"),
         )
+        select_v2 = run_select_refresh(
+            as_of_trade_date=research_trade_date,
+        )
+        logger.info(
+            "Research v2 select: status=%s write=%s production=%s",
+            select_v2.get("status"),
+            select_v2.get("write_status"),
+            select_v2.get("production_eligible"),
+        )
     except Exception as e:
         logger.warning(
-            "Research v2 snapshot/curve/group/outcome persistence failed: "
+            "Research v2 snapshot/curve/group/outcome/select failed: "
             f"{str(e)[:120]}"
         )
 

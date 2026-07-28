@@ -660,3 +660,7 @@ var/research/
   `outcome_available_at`、结果首次完整原始行号、上证综指 legacy benchmark 边界及
   input digest。它不回写 factor/group，也不构成 effective 结论。统计有效样本首先按
   `independent_session_id=as_of_trade_date` 聚类，不能把同日多股票、多期限当成独立日。
+- `var/research/selections/selection_audit_YYYYMMDD.json` 冻结该决策时点可见的
+  walk-forward select 审计。每个 horizon 保存完整横截面日数、候选尝试数、
+  purge/embargo 参数、逐折训练摘要与 OOS 价差。该文件是研究快照，不是 forecast，
+  不进入生产动作；同一历史日期禁止覆盖。
