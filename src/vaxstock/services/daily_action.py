@@ -439,6 +439,18 @@ def send_close_review_email(action_result: Dict[str, Any], *, mail_state_path=No
 
 def refresh_and_send_daily_action(*, target_trade_date=None, degraded: bool = False,
                                   mail_state_path=None, send_func=None, **refresh_kwargs) -> Dict[str, Any]:
+    if not config.SECRETS.get("legacy_daily_action_output_enabled", False):
+        return {
+            "action": {
+                "status": "disabled_legacy_output",
+                "target_trade_date": target_trade_date,
+            },
+            "mail": {
+                "status": "disabled_legacy_output",
+                "sent": False,
+                "target_trade_date": target_trade_date,
+            },
+        }
     action_result = refresh_daily_action(
         target_trade_date=target_trade_date,
         degraded=degraded,
@@ -466,6 +478,18 @@ def refresh_and_send_close_review(*, target_trade_date, mail_state_path=None,
         return {
             "action": {"status": "skipped_already_sent", "target_trade_date": target},
             "mail": {"status": "already_sent", "sent": False, "target_trade_date": target},
+        }
+    if not config.SECRETS.get("legacy_daily_action_output_enabled", False):
+        return {
+            "action": {
+                "status": "disabled_legacy_output",
+                "target_trade_date": target,
+            },
+            "mail": {
+                "status": "disabled_legacy_output",
+                "sent": False,
+                "target_trade_date": target,
+            },
         }
     if reference_quote_loader is not None and "reference_quotes" not in refresh_kwargs:
         refresh_kwargs["reference_quotes"] = reference_quote_loader()

@@ -67,6 +67,9 @@ _ENV_OVERRIDES: Dict[str, str] = {
     "cleanup_keep_days": "CLEANUP_KEEP_DAYS",
     "legacy_prediction_report_enabled": "LEGACY_PREDICTION_REPORT_ENABLED",
     "legacy_daily_research_enabled": "LEGACY_DAILY_RESEARCH_ENABLED",
+    "legacy_daily_action_output_enabled": (
+        "LEGACY_DAILY_ACTION_OUTPUT_ENABLED"
+    ),
 }
 
 # 需要类型转换的字段(来自环境变量的值恒为字符串)
@@ -75,6 +78,7 @@ _BOOL_FIELDS = {
     "auto_concept_sync",
     "legacy_prediction_report_enabled",
     "legacy_daily_research_enabled",
+    "legacy_daily_action_output_enabled",
 }
 _INT_FIELDS = {"cleanup_keep_days", "codex_timeout", "codex_dline_timeout"}
 _FLOAT_FIELDS = {"yield_10y_pct"}
@@ -128,6 +132,7 @@ def _load_secrets() -> Dict[str, Any]:
         # 用户报告，也不再每天生成重复的旧研究结论。
         "legacy_prediction_report_enabled": False,
         "legacy_daily_research_enabled": False,
+        "legacy_daily_action_output_enabled": False,
     }
 
     # 第一步: secrets.json 兜底

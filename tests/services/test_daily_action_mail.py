@@ -6,8 +6,9 @@ from pathlib import Path
 
 from vaxstock import config
 from vaxstock.services.daily_action import (
-    _strategy_output_paths, load_daily_strategy_row, send_close_review_email,
-    send_daily_action_email,
+    _strategy_output_paths, load_daily_strategy_row,
+    refresh_and_send_close_review, refresh_and_send_daily_action,
+    send_close_review_email, send_daily_action_email,
 )
 
 
@@ -94,6 +95,33 @@ def test_missing_mail_config_does_not_create_sent_state():
             assert not state_path.exists()
     finally:
         config.SECRETS = saved
+
+
+def test_legacy_daily_outputs_are_disabled_by_default_without_generation():
+    from vaxstock.services import daily_action
+
+    saved_secrets = config.SECRETS
+    saved_refresh = daily_action.refresh_daily_action
+    try:
+        config.SECRETS = _secrets()
+        daily_action.refresh_daily_action = lambda **kwargs: (_ for _ in ()).throw(
+            AssertionError("disabled legacy output must not be generated")
+        )
+        daily = refresh_and_send_daily_action(target_trade_date="20260713")
+        close = refresh_and_send_close_review(
+            target_trade_date="20260713",
+            reference_quote_loader=lambda: (_ for _ in ()).throw(
+                AssertionError("disabled legacy output must not fetch quotes")
+            ),
+        )
+        assert daily["mail"]["status"] == "disabled_legacy_output"
+        assert close["mail"]["status"] == "disabled_legacy_output"
+        assert daily["mail"]["sent"] is False
+        assert close["mail"]["sent"] is False
+    finally:
+        config.SECRETS = saved_secrets
+        daily_action.refresh_daily_action = saved_refresh
+
 
 def test_load_daily_strategy_row_requires_matching_target():
     with tempfile.TemporaryDirectory() as tmp:

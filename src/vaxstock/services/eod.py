@@ -8,7 +8,7 @@ api/intraday/cron unit 留 PR-C。
   TushareSource(token)                                          sources.tushare_src
   collect_payload(source) -> (payload, track_results)           services.collect
   compact_for_claude(payload) -> claude_data                    report.claude_md
-  build_claude_markdown(claude_data, track_results=) -> str     report.claude_md
+  build_research_eod_markdown(claude_data, research=) -> str   report.research_eod
   store_report(payload, claude_data, markdown) -> {paths}       report.store
 
 铁律: 顶层取数失败不吞(应可见); A/B/C 落盘后由 D-line worker 统一生成并发送每日操作邮件。
@@ -21,7 +21,10 @@ from typing import Any, Dict, Optional
 from vaxstock import config
 from vaxstock.analysis.freshness import assess_eod_freshness
 from vaxstock.research.legacy_snapshot_replay import record_legacy_snapshot_trade_date
-from vaxstock.report.claude_md import build_claude_markdown, compact_for_claude
+from vaxstock.report.claude_md import compact_for_claude
+from vaxstock.report.research_eod import (
+    build_research_eod_markdown as build_claude_markdown,
+)
 from vaxstock.report.store import store_report
 from vaxstock.services.collect import collect_payload
 from vaxstock.services.curve_refresh import run_curve_refresh
@@ -45,7 +48,7 @@ logger = logging.getLogger(__name__)
 
 
 def run_eod() -> Dict[str, str]:
-    """EOD 全流程: 采集 → 评估回填 → compact → markdown → 落盘 → (门控)邮件。"""
+    """EOD: collect facts, refresh research, render new report, persist data."""
     logger.info("[1/7] 初始化 Tushare 数据源...")
     source = TushareSource(config.SECRETS.get("tushare_token"))
 
@@ -53,6 +56,15 @@ def run_eod() -> Dict[str, str]:
     payload, tracks = collect_payload(source)
     freshness = assess_eod_freshness(payload)
     payload["freshness"] = freshness
+    research_summary: Dict[str, Any] = {
+        "as_of_trade_date": str(
+            ((payload or {}).get("market_overview") or {}).get("trade_date")
+            or ""
+        ).strip(),
+        "status": "not_executed",
+        "production_eligible": False,
+        "stages": {},
+    }
     if freshness["status"] != "ready":
         logger.warning(
             "EOD freshness %s: global=%s blocked_targets=%s",
@@ -76,8 +88,10 @@ def run_eod() -> Dict[str, str]:
     except Exception as e:
         logger.warning(f"MR-Eval 快照/回填失败(不影响落盘): {str(e)[:120]}")
 
-    # Research v2 is a parallel normalized store. The legacy B-line remains
-    # authoritative for current readers while this store accumulates history.
+    # Research v2 is the only human-facing EOD analysis line.  Legacy payload
+    # fields remain available to machine consumers, but the report must never
+    # fall back to the old score/ranking template when this pipeline blocks.
+    research_stage = "snapshot"
     try:
         research_trade_date = str(
             ((payload or {}).get("market_overview") or {}).get("trade_date") or ""
@@ -89,6 +103,14 @@ def run_eod() -> Dict[str, str]:
             mode="live",
             snapshots_path=SNAPSHOTS_FILE,
         )
+        research_summary["stages"]["snapshot"] = {
+            "status": research_v2.get("status"),
+            "reason": research_v2.get("reason"),
+            "metrics": {
+                "observations": research_v2.get("observations_written"),
+                "factors": research_v2.get("factors_written"),
+            },
+        }
         logger.info(
             "Research v2: status=%s observations=%s factors=%s manifest=%s",
             research_v2.get("status"),
@@ -96,20 +118,52 @@ def run_eod() -> Dict[str, str]:
             research_v2.get("factors_written"),
             research_v2.get("manifests_written"),
         )
+        research_stage = "curve"
         curve_v2 = run_curve_refresh(
             as_of_trade_date=research_trade_date,
             mode="live",
         )
+        curve_summary = curve_v2.get("summary") or {}
+        research_summary["stages"]["curve"] = {
+            "status": curve_v2.get("status"),
+            "reason": curve_v2.get("reason"),
+            "metrics": {
+                "outputs": curve_summary.get("outputs"),
+                "candidate_hits": curve_summary.get("candidate_hits"),
+            },
+        }
         logger.info(
             "Research v2 curves: status=%s outputs=%s candidate_hits=%s",
             curve_v2.get("status"),
             (curve_v2.get("summary") or {}).get("outputs"),
             (curve_v2.get("summary") or {}).get("candidate_hits"),
         )
+        research_stage = "group"
         group_v2 = run_group_refresh(
             as_of_trade_date=research_trade_date,
             mode="live",
         )
+        group_summary = group_v2.get("summary") or {}
+        research_summary["stages"]["group"] = {
+            "status": group_v2.get("status"),
+            "reason": group_v2.get("reason"),
+            "metrics": {
+                "stocks": group_summary.get("stock_group_vectors"),
+                "memberships": group_summary.get("statistical_memberships"),
+                "systemic_event_state": group_summary.get(
+                    "systemic_event_state"
+                ),
+                "systemic_event_direction": group_summary.get(
+                    "systemic_event_direction"
+                ),
+                "event_stock_breadth": group_summary.get(
+                    "event_stock_breadth"
+                ),
+                "systemic_event_families": group_summary.get(
+                    "systemic_event_families"
+                ),
+            },
+        }
         logger.info(
             "Research v2 groups: status=%s stocks=%s memberships=%s "
             "event_state=%s event_breadth=%s event_families=%s labels=%s",
@@ -123,13 +177,25 @@ def run_eod() -> Dict[str, str]:
             ),
             (group_v2.get("summary") or {}).get("label_usage"),
         )
+        research_stage = "outcome"
         group_outcomes_v2 = run_group_outcome_refresh()
+        outcome_summary = group_outcomes_v2.get("summary") or {}
+        outcome_stored = group_outcomes_v2.get("stored") or {}
+        research_summary["stages"]["outcome"] = {
+            "status": group_outcomes_v2.get("status"),
+            "reason": group_outcomes_v2.get("reason"),
+            "metrics": {
+                "samples_ready": outcome_summary.get("samples_ready"),
+                "samples_written": outcome_stored.get("written"),
+            },
+        }
         logger.info(
             "Research v2 group outcomes: status=%s written=%s samples=%s",
             group_outcomes_v2.get("status"),
             (group_outcomes_v2.get("stored") or {}).get("written"),
             (group_outcomes_v2.get("summary") or {}).get("samples_ready"),
         )
+        research_stage = "select"
         select_v2 = run_select_refresh(
             as_of_trade_date=research_trade_date,
         )
@@ -142,6 +208,19 @@ def run_eod() -> Dict[str, str]:
         t1_discovery = (
             (select_v2.get("discovery_summary") or {}).get("1") or {}
         )
+        research_summary["stages"]["select"] = {
+            "status": select_v2.get("status"),
+            "reason": select_v2.get("reason"),
+            "metrics": {
+                "factor_series_tested": t1_discovery.get(
+                    "factor_series_tested"
+                ),
+                "factor_series_total": t1_discovery.get(
+                    "factor_series_total"
+                ),
+                "candidate_tests": t1_discovery.get("candidate_tests"),
+            },
+        }
         logger.info(
             "Research v2 T+1 discovery: factors=%s/%s candidates=%s "
             "recent_reversals=%s direction_consistent=%s evidence=%s",
@@ -153,35 +232,88 @@ def run_eod() -> Dict[str, str]:
             t1_discovery.get("evidence_label"),
         )
         if not select_v2.get("audit_path"):
-            raise ValueError("Research v2 select audit was not materialized")
-        forecast_v2 = run_forecast_refresh(
-            as_of_trade_date=research_trade_date,
-            selection_path=select_v2["audit_path"],
-        )
-        logger.info(
-            "Research v2 forecast: status=%s write=%s production=%s",
-            forecast_v2.get("status"),
-            forecast_v2.get("write_status"),
-            forecast_v2.get("production_eligible"),
-        )
-        forecast_evaluation_v2 = run_forecast_evaluation_refresh(
-            as_of_trade_date=research_trade_date,
-            decision_at=select_v2["decision_at"],
-        )
-        logger.info(
-            "Research v2 forecast evaluation: status=%s results=%s "
-            "pending=%s calibration=%s production=%s",
-            forecast_evaluation_v2.get("status"),
-            (
-                forecast_evaluation_v2.get("stored") or {}
-            ).get("written"),
-            (
-                forecast_evaluation_v2.get("summary") or {}
-            ).get("pending_forecasts"),
-            forecast_evaluation_v2.get("calibration_status"),
-            forecast_evaluation_v2.get("production_eligible"),
-        )
+            research_summary.update({
+                "status": "blocked",
+                "blocking_stage": "select",
+                "reason": (
+                    select_v2.get("reason")
+                    or "selection_audit_not_materialized"
+                ),
+            })
+        else:
+            research_stage = "forecast"
+            forecast_v2 = run_forecast_refresh(
+                as_of_trade_date=research_trade_date,
+                selection_path=select_v2["audit_path"],
+            )
+            research_summary["stages"]["forecast"] = {
+                "status": forecast_v2.get("status"),
+                "reason": forecast_v2.get("reason"),
+                "metrics": {},
+            }
+            logger.info(
+                "Research v2 forecast: status=%s write=%s production=%s",
+                forecast_v2.get("status"),
+                forecast_v2.get("write_status"),
+                forecast_v2.get("production_eligible"),
+            )
+            research_stage = "evaluation"
+            forecast_evaluation_v2 = run_forecast_evaluation_refresh(
+                as_of_trade_date=research_trade_date,
+                decision_at=select_v2["decision_at"],
+            )
+            evaluation_summary = forecast_evaluation_v2.get("summary") or {}
+            research_summary["stages"]["evaluation"] = {
+                "status": forecast_evaluation_v2.get("status"),
+                "reason": forecast_evaluation_v2.get("reason"),
+                "metrics": {
+                    "pending_forecasts": evaluation_summary.get(
+                        "pending_forecasts"
+                    ),
+                },
+            }
+            production_eligible = bool(
+                select_v2.get("production_eligible")
+                and forecast_v2.get("production_eligible")
+                and forecast_evaluation_v2.get("production_eligible")
+            )
+            research_summary.update({
+                "status": (
+                    "production_eligible"
+                    if production_eligible
+                    else "abstain"
+                ),
+                "production_eligible": production_eligible,
+                "reason": (
+                    None
+                    if production_eligible
+                    else "no_production_eligible_forecast"
+                ),
+            })
+            logger.info(
+                "Research v2 forecast evaluation: status=%s results=%s "
+                "pending=%s calibration=%s production=%s",
+                forecast_evaluation_v2.get("status"),
+                (
+                    forecast_evaluation_v2.get("stored") or {}
+                ).get("written"),
+                evaluation_summary.get("pending_forecasts"),
+                forecast_evaluation_v2.get("calibration_status"),
+                forecast_evaluation_v2.get("production_eligible"),
+            )
     except Exception as e:
+        error = f"{type(e).__name__}: {str(e)[:240]}"
+        research_summary["stages"].setdefault(research_stage, {
+            "status": "failed",
+            "reason": error,
+            "metrics": {},
+        })
+        research_summary.update({
+            "status": "blocked",
+            "blocking_stage": research_stage,
+            "reason": error,
+            "production_eligible": False,
+        })
         logger.warning(
             "Research v2 snapshot/curve/group/outcome/select/forecast/"
             "evaluation failed: "
@@ -253,9 +385,15 @@ def run_eod() -> Dict[str, str]:
 
     logger.info("[4/7] 压缩为 claude_data + 渲染 markdown...")
     claude_data = compact_for_claude(payload)
+    claude_data["freshness"] = freshness
     if prediction_summary:
         claude_data["prediction_summary"] = prediction_summary
-    markdown = build_claude_markdown(claude_data, track_results=tracks)
+    claude_data["research_summary"] = research_summary
+    markdown = build_claude_markdown(
+        claude_data,
+        research_summary=research_summary,
+        track_results=tracks,
+    )
 
     logger.info("[5/7] 报告落盘(var/reports/{date}/)...")
     paths = store_report(payload, claude_data, markdown)

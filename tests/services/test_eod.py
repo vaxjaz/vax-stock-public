@@ -121,11 +121,16 @@ def _install_spies(secrets=None, payload=None, next_trade_date="20260626"):
     def _compact(payload):
         rec["compact_in"] = payload
         _CLAUDE.pop("prediction_summary", None)
+        _CLAUDE.pop("research_summary", None)
         return _CLAUDE
     eod_mod.compact_for_claude = _compact
 
-    def _build(claude_data, track_results=None):
-        rec["build_in"] = {"claude_data": claude_data, "track_results": track_results}
+    def _build(claude_data, research_summary=None, track_results=None):
+        rec["build_in"] = {
+            "claude_data": claude_data,
+            "research_summary": research_summary,
+            "track_results": track_results,
+        }
         return _MD
     eod_mod.build_claude_markdown = _build
 
@@ -354,6 +359,14 @@ def test_eod_orchestration_and_passthrough():
         assert rec["store_in"]["markdown"] == _MD
         assert "summary_call" not in rec
         assert "prediction_summary" not in rec["store_in"]["claude_data"]
+        assert (
+            rec["build_in"]["research_summary"]
+            is rec["store_in"]["claude_data"]["research_summary"]
+        )
+        assert (
+            rec["store_in"]["claude_data"]["research_summary"]["status"]
+            == "abstain"
+        )
         # EOD 只落盘并排队 D 线，不再构造或发送旧摘要邮件。
         assert "digest_in" not in rec
         assert rec["send_calls"] == []

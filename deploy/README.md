@@ -94,6 +94,14 @@ Safety rules:
 
 ## Private daily action artifact
 
+> **Disabled by default.** The paragraph below documents the historical
+> behavior only. Production continues to persist D-line tasks, trigger facts,
+> coverage and evolution paths, but does not render or send the legacy daily
+> action / close-review output. Re-enabling it requires the explicit
+> `LEGACY_DAILY_ACTION_OUTPUT_ENABLED=true` audit switch. Human-facing
+> `claude.md` is now the concise Research v2 status report and never falls back
+> to legacy factor rankings or stock scores.
+
 After `vaxstock-dline-plan.service` reaches a terminal status, it refreshes `var/strategy/daily_action_latest.md` and sends the idempotent `[每日操作]` pre-market plan. During the session, the watcher atomically records per-task quote coverage in gitignored `var/forecast/current_observation_status.json`. After a trigger it also records restart-safe path state in gitignored `current_evolution_status.json`. After close it freezes versioned full-session coverage into append-only `observation_coverage.jsonl` and 15/30-minute plus last-verified-close paths into append-only `forecast_evolution.jsonl`; the next EOD backfills market-only `forecast_results.jsonl` and refreshes triggered-versus-qualified-no-trigger review reports. User executions are never inputs to D-line scoring. After 15:02 it reads same-day D-line v2 facts plus that coverage evidence, writes separate `var/strategy/close_review_<target>.md` / `close_review_latest.md` artifacts without overwriting the pre-market plan, and sends a separately idempotent `[收盘复盘]` email. A D-line trigger is never treated as an executed order; execution remains pending until confirmed holdings are updated. `status=done` sends the normal plan; `partial_done` / `partial_failed` / `missing_payload` sends an explicit degraded plan with all conditional adds disabled. These files contain private account amounts, are gitignored, and are never committed. Missing account data degrades to pending rather than fabricated amounts. The EOD process still writes A/B/C reports and queues D, but no longer sends the legacy digest email itself.
 
 The daily action message includes the exact-baseline `var/evidence/convergence_<baseline>.json` brief after market context. It never substitutes a different-date latest view.
