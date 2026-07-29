@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import os
 import tempfile
 from datetime import datetime, timedelta, timezone
@@ -36,6 +37,7 @@ from vaxstock.tracks.ai import AIDC_BASKET
 
 
 CHINA_TZ = timezone(timedelta(hours=8))
+logger = logging.getLogger(__name__)
 DEFAULT_BENCHMARK = "000300.SH"
 DEFAULT_OUTPUT_DIR = (
     config.STATE_DIR / "research" / "ai_historical_probability"
@@ -189,8 +191,15 @@ def _collect_cn_stock_history(
             "adj_factor": "https://tushare.pro/document/2?doc_id=28",
         },
     }
-    for member in universe:
+    for position, member in enumerate(universe, start=1):
         code = member["code"]
+        logger.info(
+            "[A股历史 %s/%s] %s %s",
+            position,
+            len(universe),
+            code,
+            member.get("name") or "",
+        )
         daily = source.get_daily_history_range(
             code,
             start_date=start_date,
@@ -210,6 +219,13 @@ def _collect_cn_stock_history(
                     "daily_missing" if not daily else "adj_factor_missing"
                 ),
             })
+            logger.warning(
+                "[A股历史 %s/%s] %s excluded: %s",
+                position,
+                len(universe),
+                code,
+                audit["excluded_codes"][-1]["reason"],
+            )
             continue
         basic = source.get_daily_basic_history_range(
             code,
@@ -280,9 +296,22 @@ def _collect_cn_stock_history(
                 "code": code,
                 "reason": "no_valid_adjusted_close",
             })
+            logger.warning(
+                "[A股历史 %s/%s] %s excluded: no valid adjusted close",
+                position,
+                len(universe),
+                code,
+            )
             continue
         output.extend(_records(merged, ("trade_date", "code")))
         audit["complete_codes"].append(code)
+        logger.info(
+            "[A股历史 %s/%s] %s complete: %s rows",
+            position,
+            len(universe),
+            code,
+            len(merged),
+        )
     audit["complete_codes"] = sorted(audit["complete_codes"])
     audit["daily_basic_missing_codes"] = sorted(
         audit["daily_basic_missing_codes"]
@@ -423,11 +452,18 @@ def run_ai_probability_refresh(
     root = Path(output_dir or DEFAULT_OUTPUT_DIR)
     universe = _ai_universe()
     if dataset_dir:
+        logger.info("读取冻结历史数据集: %s", dataset_dir)
         stocks, benchmark, anchors, dataset_manifest = load_dataset(dataset_dir)
         dataset_digest = dataset_manifest["dataset_digest"]
         source_audit = dataset_manifest.get("source_audit") or {}
         stored_dataset_dir = Path(dataset_dir)
     else:
+        logger.info(
+            "开始拉取AI历史数据: %s..%s, 股票=%s",
+            start,
+            end,
+            len(universe),
+        )
         market_source = source or TushareSource(
             token=config.SECRETS.get("tushare_token")
         )
@@ -456,6 +492,11 @@ def run_ai_probability_refresh(
             end_date=end,
             force_refresh=force_refresh,
         )
+        logger.info("沪深300历史完成: %s rows", len(benchmark))
+        logger.info(
+            "开始拉取海外锚: %s",
+            ",".join(ANCHOR_SYMBOLS),
+        )
         anchors = anchor_fetcher(
             symbols=ANCHOR_SYMBOLS,
             start_date=start,
@@ -467,6 +508,7 @@ def run_ai_probability_refresh(
                 "reason": "overseas_anchor_history_unavailable",
                 "source_audit": cn_audit,
             }
+        logger.info("海外锚历史完成: %s rows", len(anchors))
         source_audit = {
             "cn_stocks": cn_audit,
             "benchmark": {
@@ -496,6 +538,10 @@ def run_ai_probability_refresh(
             start_date=start,
             end_date=end,
         )
+        logger.info(
+            "冻结历史数据集完成: %s",
+            stored_dataset_dir,
+        )
 
     configured_codes = [row["code"] for row in universe]
     run_spec = {
@@ -512,6 +558,7 @@ def run_ai_probability_refresh(
         f"__{run_spec_digest[:10]}.json"
     )
     if forecast_path.exists():
+        logger.info("相同数据和参数已完成，直接复用: %s", forecast_path)
         stored_forecast = json.loads(
             forecast_path.read_text(encoding="utf-8")
         )
@@ -544,6 +591,7 @@ def run_ai_probability_refresh(
             "production_eligible": False,
         }
 
+    logger.info("构建AI赛道历史面板")
     panel, panel_audit = build_ai_track_panel(
         stock_rows=stocks,
         benchmark_rows=benchmark,
@@ -551,18 +599,24 @@ def run_ai_probability_refresh(
         universe_codes=configured_codes,
         horizons=horizons,
     )
+    logger.info(
+        "估计赛道概率并运行walk-forward验证=%s",
+        run_validation,
+    )
     forecast = build_ai_probability_forecast(
         panel=panel,
         panel_audit=panel_audit,
         horizons=horizons,
         run_validation=run_validation,
     )
+    logger.info("构建逐票条件面板")
     stock_panels = build_ai_stock_panels(
         stock_rows=stocks,
         track_panel=panel,
         universe_codes=configured_codes,
         horizons=horizons,
     )
+    logger.info("估计逐票相对AI条件概率: %s stocks", len(stock_panels))
     stock_forecasts = build_ai_stock_probability_forecasts(
         stock_panels=stock_panels,
         as_of_trade_date=forecast["as_of_trade_date"],
@@ -587,6 +641,7 @@ def run_ai_probability_refresh(
     forecast_digest = canonical_digest(forecast)
     forecast["forecast_digest"] = forecast_digest
     write_status = _write_immutable_json(forecast_path, forecast)
+    logger.info("概率结果完成: %s (%s)", forecast_path, write_status)
     latest = {
         "schema_version": 1,
         "model_version": MODEL_VERSION,
@@ -612,6 +667,10 @@ def run_ai_probability_refresh(
 
 
 def main(argv=None) -> int:
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(message)s",
+    )
     parser = argparse.ArgumentParser(
         description="Build AI probability research from historical raw data"
     )
@@ -630,7 +689,7 @@ def main(argv=None) -> int:
         force_refresh=args.force_refresh,
         run_validation=not args.skip_validation,
     )
-    print(json.dumps(result, ensure_ascii=False, sort_keys=True))
+    print(json.dumps(result, ensure_ascii=False, sort_keys=True), flush=True)
     return 0 if result.get("status") == "complete" else 2
 
 
