@@ -14,7 +14,7 @@
     "down_ratio": 0.5012671976828386,
     "macro_regime": "🟡 中性",
     "above_ma60_pct": 10.055180870631514,
-    "margin_data_date": "20260727",
+    "margin_data_date": "20260728",
     "margin_stale": true,
     "ai_track": {
       "track_name": "AI算力",
@@ -22,7 +22,7 @@
       "vetoes": [
         [
           "海外闸门",
-          "SOX 跌破MA50(12780),近1月动量转负(-12.5%) → AI上限砍半"
+          "SOX 跌破MA50(12759),近1月动量转负(-19.5%) → AI上限砍半"
         ]
       ],
       "pending": []
@@ -161,5 +161,5 @@
     "user_execution_used": false,
     "llm_interpretation_used": false
   },
-  "facts_digest": "58400df67eb6bd1c38258cff9bd8f2b3bfd08368b98551be6398732fae50297e"
+  "facts_digest": "320ab7aa53a699b78fb6fcf0fd8e9138c23778c964decf98fe81c325c8ce23bd"
 }
