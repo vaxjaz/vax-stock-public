@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-29 09:03:45",
+  "generated_at": "2026-07-29 09:16:22",
   "data_sources": [
     "sina_realtime",
     "tushare_pro_lv2000"
@@ -85,7 +85,7 @@
         "change_pct": 0.0,
         "amplitude_pct": 0.0,
         "trade_date": "2026-07-29",
-        "trade_time": "09:03:48",
+        "trade_time": "09:16:29",
         "source": "sina"
       },
       "metrics": {
@@ -512,7 +512,7 @@
         "change_pct": 0.0,
         "amplitude_pct": 0.0,
         "trade_date": "2026-07-29",
-        "trade_time": "09:03:39",
+        "trade_time": "09:16:30",
         "source": "sina"
       },
       "metrics": {
@@ -936,7 +936,7 @@
         "change_pct": 0.0,
         "amplitude_pct": 0.0,
         "trade_date": "2026-07-29",
-        "trade_time": "09:03:34",
+        "trade_time": "09:16:31",
         "source": "sina"
       },
       "metrics": {
@@ -1335,7 +1335,7 @@
         "change_pct": 0.0,
         "amplitude_pct": 0.0,
         "trade_date": "2026-07-29",
-        "trade_time": "09:03:47",
+        "trade_time": "09:16:32",
         "source": "sina"
       },
       "metrics": {
@@ -1744,7 +1744,7 @@
         "change_pct": 0.0,
         "amplitude_pct": 0.0,
         "trade_date": "2026-07-29",
-        "trade_time": "09:03:53",
+        "trade_time": "09:16:32",
         "source": "sina"
       },
       "metrics": {
@@ -2112,7 +2112,7 @@
         "change_pct": 0.0,
         "amplitude_pct": 0.0,
         "trade_date": "2026-07-29",
-        "trade_time": "09:03:33",
+        "trade_time": "09:16:33",
         "source": "sina"
       },
       "metrics": {
@@ -2546,7 +2546,7 @@
         "change_pct": 0.0,
         "amplitude_pct": 0.0,
         "trade_date": "2026-07-29",
-        "trade_time": "09:03:51",
+        "trade_time": "09:16:33",
         "source": "sina"
       },
       "metrics": {
@@ -2980,7 +2980,7 @@
         "change_pct": 0.0,
         "amplitude_pct": 0.0,
         "trade_date": "2026-07-29",
-        "trade_time": "09:03:44",
+        "trade_time": "09:16:35",
         "source": "sina"
       },
       "metrics": {
@@ -3415,7 +3415,7 @@
         "change_pct": 0.0,
         "amplitude_pct": 0.0,
         "trade_date": "2026-07-29",
-        "trade_time": "09:03:09",
+        "trade_time": "09:16:30",
         "source": "sina"
       },
       "metrics": {
@@ -3850,7 +3850,7 @@
         "change_pct": 0.0,
         "amplitude_pct": 0.0,
         "trade_date": "2026-07-29",
-        "trade_time": "09:03:42",
+        "trade_time": "09:16:30",
         "source": "sina"
       },
       "metrics": {
@@ -4284,7 +4284,7 @@
         "change_pct": 0.0,
         "amplitude_pct": 0.0,
         "trade_date": "2026-07-29",
-        "trade_time": "09:03:18",
+        "trade_time": "09:16:39",
         "source": "sina"
       },
       "metrics": {
@@ -4710,7 +4710,7 @@
         "change_pct": 0.0,
         "amplitude_pct": 0.0,
         "trade_date": "2026-07-29",
-        "trade_time": "09:03:12",
+        "trade_time": "09:16:39",
         "source": "sina"
       },
       "metrics": {
@@ -5144,7 +5144,7 @@
         "change_pct": 0.0,
         "amplitude_pct": 0.0,
         "trade_date": "2026-07-29",
-        "trade_time": "09:03:06",
+        "trade_time": "09:16:39",
         "source": "sina"
       },
       "metrics": {
@@ -5569,7 +5569,7 @@
         "change_pct": 0.0,
         "amplitude_pct": 0.0,
         "trade_date": "2026-07-29",
-        "trade_time": "09:03:27",
+        "trade_time": "09:16:39",
         "source": "sina"
       },
       "metrics": {
@@ -5995,7 +5995,7 @@
         "change_pct": 0.0,
         "amplitude_pct": 0.0,
         "trade_date": "2026-07-29",
-        "trade_time": "09:03:37",
+        "trade_time": "09:16:37",
         "source": "sina"
       },
       "metrics": {
@@ -6430,7 +6430,7 @@
         "change_pct": 0.0,
         "amplitude_pct": 0.0,
         "trade_date": "2026-07-29",
-        "trade_time": "09:03:38",
+        "trade_time": "09:16:41",
         "source": "sina"
       },
       "metrics": {
@@ -6856,7 +6856,7 @@
         "change_pct": 0.0,
         "amplitude_pct": 0.0,
         "trade_date": "2026-07-29",
-        "trade_time": "09:03:33",
+        "trade_time": "09:16:39",
         "source": "sina"
       },
       "metrics": {
@@ -7278,7 +7278,7 @@
         "change_pct": 0.0,
         "amplitude_pct": 0.0,
         "trade_date": "2026-07-29",
-        "trade_time": "09:03:51",
+        "trade_time": "09:16:39",
         "source": "sina"
       },
       "metrics": {
@@ -7677,7 +7677,7 @@
         "change_pct": 0.0,
         "amplitude_pct": 0.0,
         "trade_date": "2026-07-29",
-        "trade_time": "09:03:21",
+        "trade_time": "09:16:39",
         "source": "sina"
       },
       "metrics": {
@@ -8076,7 +8076,7 @@
         "change_pct": 0.0,
         "amplitude_pct": 0.0,
         "trade_date": "2026-07-29",
-        "trade_time": "09:03:33",
+        "trade_time": "09:16:39",
         "source": "sina"
       },
       "metrics": {
@@ -8477,7 +8477,7 @@
         "change_pct": 0.0,
         "amplitude_pct": 0.0,
         "trade_date": "2026-07-29",
-        "trade_time": "09:03:30",
+        "trade_time": "09:15:54",
         "source": "sina"
       },
       "metrics": {
@@ -8878,7 +8878,7 @@
         "change_pct": 0.0,
         "amplitude_pct": 0.0,
         "trade_date": "2026-07-29",
-        "trade_time": "09:03:45",
+        "trade_time": "09:16:45",
         "source": "sina"
       },
       "metrics": {
@@ -9302,7 +9302,7 @@
         "change_pct": 0.0,
         "amplitude_pct": 0.0,
         "trade_date": "2026-07-29",
-        "trade_time": "09:03:49",
+        "trade_time": "09:16:49",
         "source": "sina"
       },
       "metrics": {
@@ -9708,7 +9708,7 @@
         "change_pct": 0.0,
         "amplitude_pct": 0.0,
         "trade_date": "2026-07-29",
-        "trade_time": "09:04:09",
+        "trade_time": "09:16:48",
         "source": "sina"
       },
       "metrics": {
@@ -10133,7 +10133,7 @@
         "change_pct": 0.0,
         "amplitude_pct": 0.0,
         "trade_date": "2026-07-29",
-        "trade_time": "09:03:50",
+        "trade_time": "09:16:50",
         "source": "sina"
       },
       "metrics": {
@@ -10531,7 +10531,7 @@
         "change_pct": 0.0,
         "amplitude_pct": 0.0,
         "trade_date": "2026-07-29",
-        "trade_time": "09:03:24",
+        "trade_time": "09:16:48",
         "source": "sina"
       },
       "metrics": {
@@ -10958,7 +10958,7 @@
         "change_pct": 0.0,
         "amplitude_pct": 0.0,
         "trade_date": "2026-07-29",
-        "trade_time": "09:03:33",
+        "trade_time": "09:16:48",
         "source": "sina"
       },
       "metrics": {
@@ -11353,7 +11353,7 @@
         "change_pct": 0.0,
         "amplitude_pct": 0.0,
         "trade_date": "2026-07-29",
-        "trade_time": "09:03:49",
+        "trade_time": "09:16:52",
         "source": "sina"
       },
       "metrics": {
@@ -11779,7 +11779,7 @@
         "change_pct": 0.0,
         "amplitude_pct": 3.8377192982456143,
         "trade_date": "2026-07-29",
-        "trade_time": "09:04:00",
+        "trade_time": "09:16:54",
         "source": "sina"
       },
       "metrics": {
@@ -12213,7 +12213,7 @@
         "change_pct": 0.0,
         "amplitude_pct": 0.0,
         "trade_date": "2026-07-29",
-        "trade_time": "09:04:15",
+        "trade_time": "09:16:57",
         "source": "sina"
       },
       "metrics": {
@@ -12646,7 +12646,7 @@
         "change_pct": 0.0,
         "amplitude_pct": 0.0,
         "trade_date": "2026-07-29",
-        "trade_time": "09:03:45",
+        "trade_time": "09:16:57",
         "source": "sina"
       },
       "metrics": {
@@ -13054,7 +13054,7 @@
         "change_pct": 0.0,
         "amplitude_pct": 0.0,
         "trade_date": "2026-07-29",
-        "trade_time": "09:04:02",
+        "trade_time": "09:16:56",
         "source": "sina"
       },
       "metrics": {
@@ -13462,7 +13462,7 @@
         "change_pct": 0.0,
         "amplitude_pct": 0.0,
         "trade_date": "2026-07-29",
-        "trade_time": "09:04:27",
+        "trade_time": "09:16:57",
         "source": "sina"
       },
       "metrics": {
@@ -13870,7 +13870,7 @@
         "change_pct": 0.0,
         "amplitude_pct": 0.0,
         "trade_date": "2026-07-29",
-        "trade_time": "09:04:10",
+        "trade_time": "09:16:55",
         "source": "sina"
       },
       "metrics": {
@@ -14296,7 +14296,7 @@
         "change_pct": 0.0,
         "amplitude_pct": 0.0,
         "trade_date": "2026-07-29",
-        "trade_time": "09:04:03",
+        "trade_time": "09:16:54",
         "source": "sina"
       },
       "metrics": {
@@ -14670,7 +14670,7 @@
         "change_pct": 0.0,
         "amplitude_pct": 0.0,
         "trade_date": "2026-07-29",
-        "trade_time": "09:04:16",
+        "trade_time": "09:16:58",
         "source": "sina"
       },
       "metrics": {
@@ -15045,7 +15045,7 @@
         "change_pct": 0.0,
         "amplitude_pct": 0.0,
         "trade_date": "2026-07-29",
-        "trade_time": "09:04:03",
+        "trade_time": "09:16:57",
         "source": "sina"
       },
       "metrics": {
@@ -15453,7 +15453,7 @@
         "change_pct": 0.0,
         "amplitude_pct": 0.0,
         "trade_date": "2026-07-29",
-        "trade_time": "09:04:15",
+        "trade_time": "09:15:45",
         "source": "sina"
       },
       "metrics": {
@@ -15861,7 +15861,7 @@
         "change_pct": 0.0,
         "amplitude_pct": 0.0,
         "trade_date": "2026-07-29",
-        "trade_time": "09:03:54",
+        "trade_time": "09:16:57",
         "source": "sina"
       },
       "metrics": {
@@ -16286,7 +16286,7 @@
         "change_pct": 0.0,
         "amplitude_pct": 0.0,
         "trade_date": "2026-07-29",
-        "trade_time": "09:04:10",
+        "trade_time": "09:17:04",
         "source": "sina"
       },
       "metrics": {
@@ -16711,7 +16711,7 @@
         "change_pct": 0.0,
         "amplitude_pct": 0.0,
         "trade_date": "2026-07-29",
-        "trade_time": "09:04:03",
+        "trade_time": "09:17:06",
         "source": "sina"
       },
       "metrics": {
@@ -17232,7 +17232,7 @@
     "pending": "opportunity_scanner 未迁包,待验证"
   },
   "macro": {
-    "timestamp": "2026-07-29T09:03:45.933940",
+    "timestamp": "2026-07-29T09:16:22.180567",
     "indicators": {
       "etf_net_sub": {
         "value_5d_yi": -29.915303999999992,
@@ -17503,9 +17503,9 @@
         "symbol": "DX-Y.NYB",
         "name": "美元指数",
         "unit": "",
-        "price": 101.387,
+        "price": 101.377,
         "prev_close": 101.47,
-        "change_pct": -0.08,
+        "change_pct": -0.09,
         "volume": 0,
         "date": "2026-07-28"
       }

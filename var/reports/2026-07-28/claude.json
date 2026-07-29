@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-29 09:03:45",
+  "generated_at": "2026-07-29 09:16:22",
   "data_sources": [
     "sina_realtime",
     "tushare_pro_lv2000"
@@ -326,9 +326,9 @@
         "symbol": "DX-Y.NYB",
         "name": "美元指数",
         "unit": "",
-        "price": 101.387,
+        "price": 101.377,
         "prev_close": 101.47,
-        "change_pct": -0.08,
+        "change_pct": -0.09,
         "volume": 0,
         "date": "2026-07-28"
       }
@@ -342,7 +342,7 @@
     "pending": "opportunity_scanner 未迁包,待验证"
   },
   "macro": {
-    "timestamp": "2026-07-29T09:03:45.933940",
+    "timestamp": "2026-07-29T09:16:22.180567",
     "indicators": {
       "etf_net_sub": {
         "value_5d_yi": -29.915303999999992,

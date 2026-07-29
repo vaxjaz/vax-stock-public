@@ -5,7 +5,7 @@
 ## 数据口径
 
 - trade_date: 20260728
-- generated_at: 2026-07-29 09:03:45
+- generated_at: 2026-07-29 09:16:22
 - freshness: ready
 - universe: 持仓5 / 观察池36 / 合计41
 
