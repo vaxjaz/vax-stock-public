@@ -19,6 +19,7 @@ from vaxstock.research.contracts import (
 )
 from vaxstock.research.walk_forward_select import (
     SelectionPolicy,
+    _candidate_states,
     build_candidate_sessions,
     build_selection_audit,
     run_walk_forward_select,
@@ -377,6 +378,55 @@ def test_select_covers_all_available_axes_and_reports_untestable_series():
     assert coverage[
         "legacy_snapshot::legacy.roe_avg::legacy_snapshot_v1"
     ]["status"] == "unavailable_or_one_sided"
+
+
+def test_anchor_conditions_only_attach_to_registered_track_relations():
+    context = {
+        "market_regime": "panic",
+        "anchor_nvda_direction": "down",
+        "anchor_equity_majority_direction": "down",
+    }
+    group = _group(
+        "20260701",
+        "600001",
+        "high",
+        "2026-07-02T05:00:00+08:00",
+        all_axes=True,
+        selection_context=context,
+    )
+    relation = group["value"]["factor_groups"][SERIES][
+        "track_relation_vectors"
+    ].pop("AI")
+    group["value"]["factor_groups"][SERIES][
+        "track_relation_vectors"
+    ]["AI算力"] = relation
+    candidates = list(_candidate_states(group))
+
+    cross_conditions = [
+        row["condition"]
+        for row in candidates
+        if row["axis"] == "cross_section_bucket"
+    ]
+    track_conditions = [
+        row["condition"]
+        for row in candidates
+        if (
+            row["axis"] == "track_level_relation"
+            and row["concept"] == "AI算力"
+        )
+    ]
+    assert {"market_regime": "panic"} in cross_conditions
+    assert not any(
+        set(condition) & {
+            "anchor_nvda_direction",
+            "anchor_equity_majority_direction",
+        }
+        for condition in cross_conditions
+    )
+    assert {"anchor_nvda_direction": "down"} in track_conditions
+    assert {
+        "anchor_equity_majority_direction": "down"
+    } in track_conditions
 
 
 def _candidate_rows(count=8):

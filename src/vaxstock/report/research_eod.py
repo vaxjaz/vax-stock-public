@@ -56,6 +56,8 @@ def _stage_line(name: str, stage: Mapping[str, Any]) -> str:
         "factor_series_total",
         "candidate_tests",
         "pending_forecasts",
+        "anchors",
+        "equity_majority_direction",
     ):
         value = metrics.get(key)
         if value is not None:
@@ -103,9 +105,11 @@ def _render_research(summary: Mapping[str, Any]) -> list[str]:
     lines = ["## 新研究链路", ""]
     for key, label in (
         ("snapshot", "基础快照"),
+        ("anchor", "外部锚点时入库"),
         ("curve", "连续曲线"),
         ("group", "动态分组"),
         ("outcome", "结果关联"),
+        ("anchor_forecast", "AI锚概率预测"),
         ("select", "因子选择"),
         ("forecast", "预测"),
         ("evaluation", "预测核验"),
@@ -126,6 +130,54 @@ def _render_research(summary: Mapping[str, Any]) -> list[str]:
                 f" | families={group_metrics.get('systemic_event_families', '待验证')}"
             ),
             "- 事件字段仅为候选观测，不等于已经验证的交易信号。",
+        ])
+
+    anchor_forecast = _mapping(stages.get("anchor_forecast"))
+    anchor_metrics = _mapping(anchor_forecast.get("metrics"))
+    horizons = _mapping(anchor_metrics.get("horizons"))
+    if horizons:
+        lines.extend([
+            "",
+            "### AI外部锚概率（shadow）",
+            "",
+            "| 周期 | 绝对方向 | 上涨概率 | 相对方向 | 正超额概率 | 条件样本N | 证据等级 |",
+            "|---|---|---:|---|---:|---:|---|",
+        ])
+        for horizon, raw in sorted(
+            horizons.items(),
+            key=lambda item: int(item[0]),
+        ):
+            row = _mapping(raw)
+            primary = _mapping(row.get("primary_condition"))
+            absolute_probability = row.get(
+                "probability_positive_return"
+            )
+            probability = row.get("probability_positive_excess")
+            absolute_probability_text = (
+                "待验证"
+                if absolute_probability is None
+                else f"{float(absolute_probability) * 100:.1f}%"
+            )
+            probability_text = (
+                "待验证"
+                if probability is None
+                else f"{float(probability) * 100:.1f}%"
+            )
+            lines.append(
+                f"| T+{horizon}"
+                f" | {row.get('absolute_direction') or 'ABSTAIN'}"
+                f" | {absolute_probability_text}"
+                f" | {row.get('direction') or 'ABSTAIN'}"
+                f" | {probability_text}"
+                f" | {primary.get('independent_dates', 0)}"
+                f" | {row.get('evidence_label') or '待验证'} |"
+            )
+        lines.extend([
+            "",
+            "- 同时显示观察池“AI算力”概念篮子的绝对涨跌概率与相对上证指数的超额概率；"
+            "上证指数只是当前可审计旧基准，不是理想行业基准。",
+            "- 概率使用小样本收缩估计，尚未经过独立样本外校准；"
+            "不构成个股价格目标或持仓动作。",
         ])
     return lines
 

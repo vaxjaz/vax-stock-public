@@ -38,11 +38,17 @@ from vaxstock.services.forecast_evaluation_refresh import (
     run_forecast_evaluation_refresh,
 )
 from vaxstock.services.forecast_refresh import run_forecast_refresh
+from vaxstock.services.global_anchor_refresh import (
+    run_global_anchor_refresh,
+)
 from vaxstock.services.group_refresh import run_group_refresh
 from vaxstock.services.group_outcome_refresh import run_group_outcome_refresh
 from vaxstock.services.prediction_evaluator import evaluate_from_files
 from vaxstock.services.research_eod_mail import send_research_eod_email
 from vaxstock.services.select_refresh import run_select_refresh
+from vaxstock.services.anchor_forecast_refresh import (
+    run_anchor_forecast_refresh,
+)
 from vaxstock.sources.tushare_src import TushareSource
 
 logger = logging.getLogger(__name__)
@@ -119,6 +125,48 @@ def run_eod() -> Dict[str, str]:
             research_v2.get("factors_written"),
             research_v2.get("manifests_written"),
         )
+        research_stage = "anchor"
+        try:
+            anchor_v2 = run_global_anchor_refresh(
+                as_of_trade_date=research_trade_date,
+                us_market=(payload or {}).get("us_market") or {},
+                mode="live",
+            )
+            anchor_summary = anchor_v2.get("summary") or {}
+            research_summary["stages"]["anchor"] = {
+                "status": anchor_v2.get("status"),
+                "reason": anchor_v2.get("reason"),
+                "metrics": {
+                    "anchors": len(
+                        anchor_summary.get("available_anchor_keys") or []
+                    ),
+                    "equity_majority_direction": (
+                        anchor_summary.get(
+                            "equity_majority_direction"
+                        )
+                    ),
+                    "missing_symbols": anchor_summary.get(
+                        "missing_symbols"
+                    ),
+                },
+            }
+            logger.info(
+                "Research v2 anchors: status=%s anchors=%s majority=%s",
+                anchor_v2.get("status"),
+                anchor_summary.get("available_anchor_keys"),
+                anchor_summary.get("equity_majority_direction"),
+            )
+        except Exception as exc:
+            error = f"{type(exc).__name__}: {str(exc)[:200]}"
+            research_summary["stages"]["anchor"] = {
+                "status": "failed",
+                "reason": error,
+                "metrics": {},
+            }
+            logger.warning(
+                "Research v2 anchor refresh failed (shadow only): %s",
+                error,
+            )
         research_stage = "curve"
         curve_v2 = run_curve_refresh(
             as_of_trade_date=research_trade_date,
@@ -196,6 +244,35 @@ def run_eod() -> Dict[str, str]:
             (group_outcomes_v2.get("stored") or {}).get("written"),
             (group_outcomes_v2.get("summary") or {}).get("samples_ready"),
         )
+        research_stage = "anchor_forecast"
+        try:
+            anchor_forecast_v2 = run_anchor_forecast_refresh(
+                as_of_trade_date=research_trade_date,
+            )
+            research_summary["stages"]["anchor_forecast"] = {
+                "status": anchor_forecast_v2.get("status"),
+                "reason": anchor_forecast_v2.get("reason"),
+                "metrics": {
+                    "horizons": anchor_forecast_v2.get("horizons") or {},
+                    "audit_path": anchor_forecast_v2.get("audit_path"),
+                },
+            }
+            logger.info(
+                "Research v2 anchor forecast: status=%s path=%s",
+                anchor_forecast_v2.get("status"),
+                anchor_forecast_v2.get("audit_path"),
+            )
+        except Exception as exc:
+            error = f"{type(exc).__name__}: {str(exc)[:200]}"
+            research_summary["stages"]["anchor_forecast"] = {
+                "status": "failed",
+                "reason": error,
+                "metrics": {},
+            }
+            logger.warning(
+                "Research v2 anchor forecast failed (shadow only): %s",
+                error,
+            )
         research_stage = "select"
         select_v2 = run_select_refresh(
             as_of_trade_date=research_trade_date,

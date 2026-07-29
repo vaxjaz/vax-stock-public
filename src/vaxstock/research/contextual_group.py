@@ -43,15 +43,21 @@ from vaxstock.research.contracts import (
     validate_atomic_observation,
     validate_factor_value,
 )
+from vaxstock.research.global_anchor_dimension import (
+    ANCHOR_CONTEXT_ENTITY_ID,
+    ANCHOR_CONTEXT_FACTOR_ID,
+    ANCHOR_CONTEXT_FACTOR_VERSION,
+    DIMENSION as GLOBAL_ANCHOR_DIMENSION,
+)
 
 
 CHINA_TZ = timezone(timedelta(hours=8))
-FEATURE_SET_VERSION = "contextual_multiview_group_feature_set_v2"
-GROUP_VERSION = "contextual_multiview_group_v2"
+FEATURE_SET_VERSION = "contextual_multiview_group_feature_set_v3"
+GROUP_VERSION = "contextual_multiview_group_v3"
 GROUP_CONTEXT_FACTOR_ID = "group_context_vector"
 STOCK_GROUP_FACTOR_ID = "stock_group_vector"
-GROUP_CONTEXT_FACTOR_VERSION = "group_context_vector_v2"
-STOCK_GROUP_FACTOR_VERSION = "stock_group_vector_v2"
+GROUP_CONTEXT_FACTOR_VERSION = "group_context_vector_v3"
+STOCK_GROUP_FACTOR_VERSION = "stock_group_vector_v3"
 GROUP_DIMENSION = "research_group"
 NOT_EXECUTED = "not_executed"
 CURVE_STATE_FIELDS = (
@@ -836,6 +842,58 @@ def _market_context(
     }
 
 
+def _global_anchor_context(
+    factor: Optional[Mapping[str, Any]],
+) -> Dict[str, Any]:
+    """Expose reviewed market-anchor states without treating them as stocks."""
+
+    allowed = (
+        "anchor_nvda_direction",
+        "anchor_soxx_direction",
+        "anchor_qqq_direction",
+        "anchor_vix_direction",
+        "anchor_equity_majority_direction",
+    )
+    if not isinstance(factor, Mapping):
+        return {
+            "status": "source_missing",
+            "factor_value_id": None,
+            "states": {field: None for field in allowed},
+            "returns_pct": {},
+            "source_session_dates": {},
+            "timing_semantics": None,
+        }
+    value = factor.get("value")
+    if not isinstance(value, Mapping):
+        raise ContractError("global anchor context factor value must be an object")
+    raw_states = value.get("states") or {}
+    if not isinstance(raw_states, Mapping):
+        raise ContractError("global anchor context states must be an object")
+    states = {}
+    for field in allowed:
+        raw = raw_states.get(field)
+        state = str(raw).strip() if raw is not None else None
+        if state is not None and state not in {"up", "down", "flat", "mixed"}:
+            raise ContractError(f"invalid global anchor state: {field}={state}")
+        states[field] = state
+    returns = value.get("returns_pct") or {}
+    sessions = value.get("source_session_dates") or {}
+    if not isinstance(returns, Mapping) or not isinstance(sessions, Mapping):
+        raise ContractError("global anchor returns/sessions must be objects")
+    return {
+        "status": (
+            "available"
+            if states.get("anchor_equity_majority_direction")
+            else "partial"
+        ),
+        "factor_value_id": str(factor["factor_value_id"]),
+        "states": states,
+        "returns_pct": dict(returns),
+        "source_session_dates": dict(sessions),
+        "timing_semantics": value.get("timing_semantics"),
+    }
+
+
 def build_contextual_group_run(
     *,
     as_of_trade_date: str,
@@ -931,6 +989,32 @@ def build_contextual_group_run(
     ]
     if not current_base:
         raise ContractError("no eligible current factors for group run")
+
+    anchor_index = _resolve_factors(
+        factors,
+        decision_at=decision_at,
+        predicate=lambda row: (
+            str(row.get("as_of_trade_date") or "") == target
+            and row.get("entity_type") == "market"
+            and row.get("entity_id") == ANCHOR_CONTEXT_ENTITY_ID
+            and row.get("dimension") == GLOBAL_ANCHOR_DIMENSION
+            and row.get("factor_id") == ANCHOR_CONTEXT_FACTOR_ID
+            and row.get("factor_version") == ANCHOR_CONTEXT_FACTOR_VERSION
+            and row.get("quality") == "calculated"
+        ),
+    )
+    anchor_factor = (
+        max(
+            anchor_index.values(),
+            key=lambda row: (
+                _aware(row["calculated_at"], "anchor calculated_at"),
+                str(row["factor_value_id"]),
+            ),
+        )
+        if anchor_index
+        else None
+    )
+    global_anchor_context = _global_anchor_context(anchor_factor)
 
     stock_curve_index = _resolve_factors(
         factors,
@@ -1039,6 +1123,8 @@ def build_contextual_group_run(
         *track_aggregates.values(),
         *track_curves.values(),
     ]
+    if anchor_factor is not None:
+        context_inputs.append(anchor_factor)
     context_factor = _derived_factor(
         entity_type="market",
         entity_id=universe_id,
@@ -1085,6 +1171,7 @@ def build_contextual_group_run(
                 ),
             },
             "market": market_context,
+            "global_anchor": global_anchor_context,
             "event_field": event_field,
             "cross_sections": cross_context,
             "tracks": track_context,
@@ -1194,7 +1281,13 @@ def build_contextual_group_run(
             state.get("status") == "available"
             for state in market_context["states"].values()
         )
-        stock_membership_count += market_membership_count
+        anchor_membership_count = sum(
+            state is not None
+            for state in global_anchor_context["states"].values()
+        )
+        stock_membership_count += (
+            market_membership_count + anchor_membership_count
+        )
         statistical_membership_count += stock_membership_count
         status = "available" if current_series else "no_eligible_current_factors"
         if unavailable or not current_series:
@@ -1243,6 +1336,7 @@ def build_contextual_group_run(
                             if event_field["systemic_state"] == "broad"
                             else None
                         ),
+                        **global_anchor_context["states"],
                     },
                     "factor_groups": factor_groups,
                     "statistical_membership_count": stock_membership_count,
@@ -1290,6 +1384,10 @@ def build_contextual_group_run(
             "raw curve events are preserved and aggregated into systemic/track/localized candidate fields",
             "holding/watchlist role is audit-only because it is an endogenous portfolio state",
             (
+                "global anchor states are pre-open market context; they are "
+                "not cross-sectional stock factors or executable returns"
+            ),
+            (
                 "concept memberships are point-in-time user-universe labels, "
                 "not official industry-index constituent history"
             ),
@@ -1333,6 +1431,8 @@ def build_contextual_group_run(
             "systemic_event_family_count"
         ],
         "systemic_event_direction": event_field["systemic_direction"],
+        "global_anchor_status": global_anchor_context["status"],
+        "global_anchor_states": global_anchor_context["states"],
         "track_event_count": event_field["track_event_count"],
         "stock_group_vectors": len(stock_outputs),
         "partial_stock_vectors": partial_count,

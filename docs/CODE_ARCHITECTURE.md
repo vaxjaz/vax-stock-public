@@ -192,6 +192,7 @@ flowchart TD
 | `services.eval_recorder.backfill` | `var/eval/factor_results.jsonl` | append-only, 默认机械记录连续日 horizon, 同 key 多行按 horizon 合并读取 |
 | `research.point_in_time_store` | `var/research/observations.jsonl` + `factor_values/YYYYMMDD.jsonl` + `run_manifests.jsonl` | append-only；版本冲突报错；manifest 最后提交 |
 | `research.expectation_dimension` | `report_rc` / `forecast` / `daily_basic` 的已验证结果 | 纯函数生成 E 维原始事实和候选因子；不执行 group/select/forecast，不改生产动作 |
+| `research.global_anchor_dimension` | EOD 已取得的 `payload.us_market` | 生成 NVDA/SOXX/QQQ/VIX 的 point-in-time F 维事实与方向上下文；缺失不补中性值 |
 | `research.causal_curve` | Research v2 长表因子 + point-in-time membership | 生成股票/赛道曲线向量、导数及候选变点；纯函数，不触网，不下结论 |
 | `research.contextual_group` | 当时可见的市场、成员、基础因子与曲线向量 | label-free 多视角分组；市场/横截面/股票曲线/相对赛道轴分开，持仓角色仅审计 |
 | `services.expectation_refresh` | 全持仓 + 全观察池 | `trade_cal` 锚定交易日；09:25 截止；显式调用后才触网和落盘 |
@@ -215,6 +216,8 @@ flowchart TD
 | `research.legacy_snapshot_replay` | legacy `factor_snapshots.jsonl` | 幂等迁移/回放到 Research v2，不修改源文件 |
 | `services.curve_refresh --replay` | Research v2 基础因子与成员关系 | 顺序生成股票/赛道因果曲线向量；不执行 group/select/forecast |
 | `services.group_refresh --replay` | Research v2 当日因子、曲线、市场与成员事实 | 生成 `group_context_vector` / `stock_group_vector`；`select/forecast=not_executed` |
+| `services.global_anchor_refresh` | 已保存的 `var/reports/*/payload.json` | 幂等回放 F 维外部锚事实；不重新触网、不修改历史报告 |
+| `services.anchor_forecast_refresh` | F 维上下文 + point-in-time 成员 + merged outcomes | 输出 AI 篮子绝对/相对方向概率审计；小样本保留概率但方向弃权 |
 
 研究层原则:
 

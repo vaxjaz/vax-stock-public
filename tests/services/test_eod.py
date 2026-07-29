@@ -46,6 +46,7 @@ _PATHS = {"payload": "/r/2026-06-25/payload.json",
 _SEAMS = ["TushareSource", "collect_payload", "compact_for_claude",
           "build_claude_markdown", "store_report",
           "record_and_backfill", "record_legacy_snapshot_trade_date",
+          "run_global_anchor_refresh", "run_anchor_forecast_refresh",
           "run_curve_refresh", "run_group_refresh", "run_group_outcome_refresh",
           "run_select_refresh", "run_forecast_refresh",
           "run_forecast_evaluation_refresh",
@@ -170,6 +171,23 @@ def _install_spies(secrets=None, payload=None, next_trade_date="20260626"):
         }
     eod_mod.record_legacy_snapshot_trade_date = _research_v2
 
+    def _anchor_v2(*, as_of_trade_date, us_market, mode):
+        rec["order"].append("anchor_v2")
+        rec["anchor_v2_call"] = {
+            "as_of_trade_date": as_of_trade_date,
+            "us_market": us_market,
+            "mode": mode,
+        }
+        return {
+            "status": "written",
+            "summary": {
+                "available_anchor_keys": ["nvda", "qqq", "soxx", "vix"],
+                "equity_majority_direction": "down",
+                "missing_symbols": [],
+            },
+        }
+    eod_mod.run_global_anchor_refresh = _anchor_v2
+
     def _curve_v2(*, as_of_trade_date, mode):
         rec["order"].append("curve_v2")
         rec["curve_v2_call"] = {
@@ -207,6 +225,19 @@ def _install_spies(secrets=None, payload=None, next_trade_date="20260626"):
             "summary": {"samples_ready": 1},
         }
     eod_mod.run_group_outcome_refresh = _group_outcomes_v2
+
+    def _anchor_forecast_v2(*, as_of_trade_date):
+        rec["order"].append("anchor_forecast_v2")
+        rec["anchor_forecast_v2_call"] = {
+            "as_of_trade_date": as_of_trade_date,
+        }
+        return {
+            "status": "estimated",
+            "production_eligible": False,
+            "audit_path": "/research/anchor_forecast.json",
+            "horizons": {"1": {"status": "estimated"}},
+        }
+    eod_mod.run_anchor_forecast_refresh = _anchor_forecast_v2
 
     def _select_v2(*, as_of_trade_date):
         rec["order"].append("select_v2")
@@ -400,6 +431,11 @@ def test_eod_orchestration_and_passthrough():
             "mode": "live",
             "snapshots_path": eod_mod.SNAPSHOTS_FILE,
         }
+        assert rec["anchor_v2_call"] == {
+            "as_of_trade_date": "20260625",
+            "us_market": {},
+            "mode": "live",
+        }
         assert rec["curve_v2_call"] == {
             "as_of_trade_date": "20260625",
             "mode": "live",
@@ -409,6 +445,9 @@ def test_eod_orchestration_and_passthrough():
             "mode": "live",
         }
         assert rec["group_outcomes_v2_called"] is True
+        assert rec["anchor_forecast_v2_call"] == {
+            "as_of_trade_date": "20260625",
+        }
         assert rec["select_v2_call"] == {
             "as_of_trade_date": "20260625",
         }
@@ -438,8 +477,9 @@ def test_eod_orchestration_and_passthrough():
                                          "baseline_trade_date": "20260625",
                                          "task_codes": ["601138"]}
         assert rec["order"] == [
-            "regime_audit", "e1", "research_v2", "curve_v2", "group_v2",
-            "group_outcomes_v2", "select_v2", "forecast_v2",
+            "regime_audit", "e1", "research_v2", "anchor_v2",
+            "curve_v2", "group_v2", "group_outcomes_v2",
+            "anchor_forecast_v2", "select_v2", "forecast_v2",
             "forecast_evaluation_v2",
             "d_closeout", "pred_eval", "next_trade",
             "pred_live", "pred_record", "evidence", "convergence", "store",

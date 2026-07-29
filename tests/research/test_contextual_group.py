@@ -27,6 +27,12 @@ from vaxstock.research.contracts import (
     validate_factor_value,
     validate_run_manifest,
 )
+from vaxstock.research.global_anchor_dimension import (
+    ANCHOR_CONTEXT_ENTITY_ID,
+    ANCHOR_CONTEXT_FACTOR_ID,
+    ANCHOR_CONTEXT_FACTOR_VERSION,
+    DIMENSION as GLOBAL_ANCHOR_DIMENSION,
+)
 
 
 CHINA_TZ = timezone(timedelta(hours=8))
@@ -123,6 +129,50 @@ def _curve_factor(code, base_factor, events):
         "input_observation_ids": [],
         "input_factor_refs": refs,
         "input_digest": factor_input_digest([], refs),
+        "quality": "calculated",
+    }
+    row["factor_value_id"] = make_factor_value_id(row)
+    return row
+
+
+def _anchor_factor(observation_id):
+    inputs = [observation_id]
+    row = {
+        "schema_version": 1,
+        "factor_value_id": "",
+        "entity_type": "market",
+        "entity_id": ANCHOR_CONTEXT_ENTITY_ID,
+        "dimension": GLOBAL_ANCHOR_DIMENSION,
+        "factor_id": ANCHOR_CONTEXT_FACTOR_ID,
+        "factor_version": ANCHOR_CONTEXT_FACTOR_VERSION,
+        "value": {
+            "states": {
+                "anchor_nvda_direction": "up",
+                "anchor_soxx_direction": "down",
+                "anchor_qqq_direction": "down",
+                "anchor_vix_direction": "up",
+                "anchor_equity_majority_direction": "down",
+            },
+            "returns_pct": {
+                "nvda": 0.2,
+                "soxx": -4.8,
+                "qqq": -1.0,
+                "vix": 2.0,
+            },
+            "source_session_dates": {
+                "nvda": TRADE_DATE,
+                "soxx": TRADE_DATE,
+                "qqq": TRADE_DATE,
+                "vix": TRADE_DATE,
+            },
+            "timing_semantics": "completed overseas session",
+        },
+        "as_of_trade_date": TRADE_DATE,
+        "effective_date": TRADE_DATE,
+        "available_at": _timestamp(minute=1),
+        "calculated_at": _timestamp(minute=1),
+        "input_observation_ids": inputs,
+        "input_digest": factor_input_digest(inputs),
         "quality": "calculated",
     }
     row["factor_value_id"] = make_factor_value_id(row)
@@ -446,6 +496,41 @@ def test_group_identity_is_stable_across_wall_clock_retries():
     assert {row["calculated_at"] for row in retry_outputs} == {
         _timestamp(minute=3)
     }
+
+
+def test_global_anchor_is_a_market_context_not_a_cross_section_factor():
+    observations, factors = _inputs()
+    anchor = _anchor_factor(observations[0]["observation_id"])
+    _, outputs, summary = build_contextual_group_run(
+        as_of_trade_date=TRADE_DATE,
+        calculated_at=_timestamp(minute=2),
+        factor_rows=[*factors, anchor],
+        observations=observations,
+        mode="replay",
+    )
+
+    context = next(
+        row for row in outputs
+        if row["factor_id"] == GROUP_CONTEXT_FACTOR_ID
+    )
+    stock = next(
+        row for row in outputs
+        if row["factor_id"] == STOCK_GROUP_FACTOR_ID
+    )
+    assert summary["global_anchor_status"] == "available"
+    assert context["value"]["global_anchor"]["factor_value_id"] == (
+        anchor["factor_value_id"]
+    )
+    assert stock["value"]["selection_context"][
+        "anchor_equity_majority_direction"
+    ] == "down"
+    assert all(
+        "global_anchor" not in series_id
+        for series_id in stock["value"]["factor_groups"]
+    )
+    assert {
+        ref["factor_value_id"] for ref in context["input_factor_refs"]
+    } >= {anchor["factor_value_id"]}
 
 
 def test_group_parameters_change_version_and_live_late_run_is_rejected():

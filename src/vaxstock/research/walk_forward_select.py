@@ -32,7 +32,7 @@ from vaxstock.research.contracts import (
 from vaxstock.research.group_outcome import select_eod_group_assignments
 
 
-SELECT_VERSION = "walk_forward_group_spread_v3"
+SELECT_VERSION = "walk_forward_group_spread_v4"
 DEFAULT_HORIZONS = (1, 3, 5, 10, 20)
 EXPLORATORY_WINDOWS = (5, 10, 20)
 EXPLORATORY_REPORT_LIMIT = 20
@@ -53,7 +53,37 @@ CONDITION_FIELDS = (
     "macro_regime",
     "systemic_event_state",
     "systemic_event_direction",
+    "anchor_nvda_direction",
+    "anchor_soxx_direction",
+    "anchor_qqq_direction",
+    "anchor_vix_direction",
+    "anchor_equity_majority_direction",
 )
+ANCHOR_CONDITION_FIELDS = {
+    "anchor_nvda_direction",
+    "anchor_soxx_direction",
+    "anchor_qqq_direction",
+    "anchor_vix_direction",
+    "anchor_equity_majority_direction",
+}
+ANCHOR_RELATION_REGISTRY_VERSION = "anchor_relation_registry_v1"
+ANCHOR_RELATION_CONCEPTS = {
+    "anchor_nvda_direction": {
+        "AI算力", "服务器", "AI硬件", "AI芯片",
+    },
+    "anchor_soxx_direction": {
+        "AI算力", "AI芯片", "半导体", "半导体设备", "半导体材料",
+    },
+    "anchor_qqq_direction": {
+        "AI算力", "AI硬件", "AI芯片", "IDC",
+    },
+    "anchor_vix_direction": {
+        "AI算力", "AI硬件", "AI芯片", "服务器", "半导体", "IDC",
+    },
+    "anchor_equity_majority_direction": {
+        "AI算力", "AI硬件", "AI芯片", "服务器", "半导体", "IDC",
+    },
+}
 
 
 @dataclass(frozen=True)
@@ -111,6 +141,15 @@ def policy_digest(policy: SelectionPolicy, horizon: int) -> str:
             "mode": "unconditional_plus_each_first_order_context",
             "fields": list(CONDITION_FIELDS),
             "high_order_interactions": "not_executed",
+            "anchor_relation_registry_version": (
+                ANCHOR_RELATION_REGISTRY_VERSION
+            ),
+            "anchor_relation_concepts": {
+                field: sorted(concepts)
+                for field, concepts in sorted(
+                    ANCHOR_RELATION_CONCEPTS.items()
+                )
+            },
         },
         "statistical_unit": "complete_daily_cross_section",
         "exploratory_diagnostics": {
@@ -203,7 +242,16 @@ def _candidate_states(
             return
         variants: List[Optional[Dict[str, str]]] = [None]
         variants.extend(
-            {field: contexts[field]} for field in sorted(contexts)
+            {field: contexts[field]}
+            for field in sorted(contexts)
+            if (
+                field not in ANCHOR_CONDITION_FIELDS
+                or (
+                    concept is not None
+                    and str(concept)
+                    in ANCHOR_RELATION_CONCEPTS.get(field, set())
+                )
+            )
         )
         for condition in variants:
             yield {
