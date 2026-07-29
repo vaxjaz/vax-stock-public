@@ -51,7 +51,8 @@ _SEAMS = ["TushareSource", "collect_payload", "compact_for_claude",
           "run_forecast_evaluation_refresh",
           "run_dline_closeout", "run_evidence_ledger",
           "run_evidence_convergence", "evaluate_from_files", "predictions_from_payload",
-          "record_predictions", "enqueue_observation_job",
+          "record_predictions", "send_research_eod_email",
+          "enqueue_observation_job",
           "_next_trade_date"]
 
 
@@ -140,6 +141,16 @@ def _install_spies(secrets=None, payload=None, next_trade_date="20260626"):
         rec["store_in"] = {"payload": payload, "claude_data": claude_data, "markdown": markdown}
         return _PATHS
     eod_mod.store_report = _store
+
+    def _research_mail(**kwargs):
+        rec["order"].append("research_mail")
+        rec["research_mail_call"] = kwargs
+        return {
+            "status": "sent",
+            "sent": True,
+            "target_trade_date": kwargs.get("trade_date"),
+        }
+    eod_mod.send_research_eod_email = _research_mail
 
 
     def _eval(payload, source):
@@ -357,6 +368,11 @@ def test_eod_orchestration_and_passthrough():
         assert rec["store_in"]["payload"] is _PAYLOAD
         assert rec["store_in"]["claude_data"] is _CLAUDE
         assert rec["store_in"]["markdown"] == _MD
+        assert rec["research_mail_call"] == {
+            "trade_date": "20260625",
+            "markdown": _MD,
+            "report_paths": _PATHS,
+        }
         assert "summary_call" not in rec
         assert "prediction_summary" not in rec["store_in"]["claude_data"]
         assert (
@@ -427,7 +443,7 @@ def test_eod_orchestration_and_passthrough():
             "forecast_evaluation_v2",
             "d_closeout", "pred_eval", "next_trade",
             "pred_live", "pred_record", "evidence", "convergence", "store",
-            "d_enqueue",
+            "research_mail", "d_enqueue",
         ]
         assert rec.get("layer2_called") is None
         assert rec.get("factor_weight_review_called") is None
@@ -449,6 +465,23 @@ def test_research_v2_failure_is_visible_but_does_not_block_eod():
         assert "research_v2_failed" in rec["order"]
         assert "d_closeout" in rec["order"]
         assert "store" in rec["order"]
+    finally:
+        restore()
+
+
+def test_research_eod_mail_failure_does_not_block_persistence_or_dline():
+    rec, restore = _install_spies(secrets={"email_enabled": True})
+    try:
+        def _fail(**kwargs):
+            rec["order"].append("research_mail_failed")
+            raise RuntimeError("smtp temporary failure")
+
+        eod_mod.send_research_eod_email = _fail
+        assert eod_mod.run_eod() == _PATHS
+        assert rec["order"].index("store") < rec["order"].index(
+            "research_mail_failed"
+        )
+        assert "d_enqueue" in rec["order"]
     finally:
         restore()
 

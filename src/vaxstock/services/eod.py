@@ -41,6 +41,7 @@ from vaxstock.services.forecast_refresh import run_forecast_refresh
 from vaxstock.services.group_refresh import run_group_refresh
 from vaxstock.services.group_outcome_refresh import run_group_outcome_refresh
 from vaxstock.services.prediction_evaluator import evaluate_from_files
+from vaxstock.services.research_eod_mail import send_research_eod_email
 from vaxstock.services.select_refresh import run_select_refresh
 from vaxstock.sources.tushare_src import TushareSource
 
@@ -397,6 +398,24 @@ def run_eod() -> Dict[str, str]:
 
     logger.info("[5/7] 报告落盘(var/reports/{date}/)...")
     paths = store_report(payload, claude_data, markdown)
+    try:
+        mail_result = send_research_eod_email(
+            trade_date=research_summary.get("as_of_trade_date"),
+            markdown=markdown,
+            report_paths=paths,
+        )
+        logger.info(
+            "Research EOD mail: status=%s sent=%s target=%s reason=%s",
+            mail_result.get("status"),
+            mail_result.get("sent"),
+            mail_result.get("target_trade_date"),
+            mail_result.get("reason"),
+        )
+    except Exception as e:
+        logger.warning(
+            "Research EOD mail failed without sent marker; next EOD may retry: "
+            f"{type(e).__name__}: {str(e)[:160]}"
+        )
     _enqueue_d_observation_job(paths, payload, prediction_run)
 
     # 用户邮件由异步 D-line worker 在任务完成后统一发送。这里保留 A/B/C
