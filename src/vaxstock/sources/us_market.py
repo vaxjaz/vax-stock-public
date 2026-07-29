@@ -24,6 +24,7 @@ import 本模块不触发任何网络请求。
 """
 
 import logging
+import threading
 import time
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
@@ -69,6 +70,7 @@ MACRO = [
 VIX_NORMAL  = 20
 VIX_CAUTION = 30
 VIX_PANIC   = 40
+YF_HISTORY_TIMEOUT = 90
 
 
 # ==================== 数据拉取 ====================
@@ -176,6 +178,118 @@ def fetch_us_market_data() -> Dict[str, Any]:
         logger.info(f"  VIX={result['vix']:.1f} | 情绪={result['sentiment']}")
 
     return result
+
+
+def normalise_history_frame(
+    frame,
+    symbols,
+) -> List[Dict[str, Any]]:
+    """Normalize an actual yfinance history frame into source rows.
+
+    yfinance returns a two-level column index for multi-symbol downloads and a
+    single-level index for one symbol.  Keeping normalization separate makes
+    the first-contact field contract testable without network access.
+    """
+    import pandas as pd
+
+    if frame is None or len(frame) == 0:
+        return []
+    requested = [str(symbol) for symbol in symbols]
+    rows: List[Dict[str, Any]] = []
+    multi = isinstance(frame.columns, pd.MultiIndex)
+    for symbol in requested:
+        if multi:
+            level0 = set(map(str, frame.columns.get_level_values(0)))
+            level1 = set(map(str, frame.columns.get_level_values(1)))
+            if symbol in level0:
+                part = frame[symbol]
+            elif symbol in level1:
+                part = frame.xs(symbol, axis=1, level=1)
+            else:
+                continue
+        else:
+            if len(requested) != 1:
+                continue
+            part = frame
+        if "Close" not in part.columns:
+            continue
+        for index, raw in part.iterrows():
+            close = pd.to_numeric(
+                pd.Series([raw.get("Close")]), errors="coerce"
+            ).iloc[0]
+            if pd.isna(close) or float(close) <= 0:
+                continue
+            volume = pd.to_numeric(
+                pd.Series([raw.get("Volume")]), errors="coerce"
+            ).iloc[0]
+            rows.append({
+                "session_date": str(index.date()).replace("-", ""),
+                "symbol": symbol,
+                "adj_close": float(close),
+                "volume": (
+                    None if pd.isna(volume) else float(volume)
+                ),
+                "source": "yfinance.download(auto_adjust=True)",
+            })
+    return sorted(rows, key=lambda row: (row["session_date"], row["symbol"]))
+
+
+def fetch_us_market_history(
+    *,
+    symbols,
+    start_date,
+    end_date,
+    timeout=YF_HISTORY_TIMEOUT,
+) -> Optional[List[Dict[str, Any]]]:
+    """Fetch adjusted daily history with a real wall-clock timeout.
+
+    ``end_date`` is inclusive at this boundary; yfinance's exclusive end is
+    advanced by one calendar day inside the adapter.
+    """
+    start = datetime.strptime(str(start_date), "%Y%m%d")
+    end = datetime.strptime(str(end_date), "%Y%m%d")
+    if end < start:
+        raise ValueError("end_date cannot precede start_date")
+    requested = [str(symbol) for symbol in symbols]
+    if not requested:
+        raise ValueError("symbols cannot be empty")
+    box: Dict[str, Any] = {}
+
+    def _run():
+        try:
+            import yfinance as yf
+
+            box["frame"] = yf.download(
+                tickers=requested,
+                start=start.strftime("%Y-%m-%d"),
+                end=(end + timedelta(days=1)).strftime("%Y-%m-%d"),
+                auto_adjust=True,
+                actions=False,
+                progress=False,
+                group_by="ticker",
+                threads=False,
+                timeout=min(30, int(timeout)),
+            )
+        except Exception as exc:
+            box["error"] = exc
+
+    worker = threading.Thread(
+        target=_run,
+        name="yf_ai_history",
+        daemon=True,
+    )
+    worker.start()
+    worker.join(timeout)
+    if worker.is_alive():
+        logger.warning("yfinance historical download timed out after %ss", timeout)
+        return None
+    if "error" in box:
+        logger.warning(
+            "yfinance historical download failed: %s",
+            str(box["error"])[:120],
+        )
+        return None
+    return normalise_history_frame(box.get("frame"), requested)
 
 
 # ==================== 情绪判断 ====================

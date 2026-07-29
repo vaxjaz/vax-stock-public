@@ -193,6 +193,7 @@ flowchart TD
 | `research.point_in_time_store` | `var/research/observations.jsonl` + `factor_values/YYYYMMDD.jsonl` + `run_manifests.jsonl` | append-only；版本冲突报错；manifest 最后提交 |
 | `research.expectation_dimension` | `report_rc` / `forecast` / `daily_basic` 的已验证结果 | 纯函数生成 E 维原始事实和候选因子；不执行 group/select/forecast，不改生产动作 |
 | `research.global_anchor_dimension` | EOD 已取得的 `payload.us_market` | 生成 NVDA/SOXX/QQQ/VIX 的 point-in-time F 维事实与方向上下文；缺失不补中性值 |
+| `research.ai_historical_probability` | 多年复权A股行情、沪深300及完成的海外锚交易日 | 不依赖A/B/C/D的AI赛道/个股条件概率纯计算；语义分组、稳定因子选择、相似状态估计及赛道层walk-forward |
 | `research.causal_curve` | Research v2 长表因子 + point-in-time membership | 生成股票/赛道曲线向量、导数及候选变点；纯函数，不触网，不下结论 |
 | `research.contextual_group` | 当时可见的市场、成员、基础因子与曲线向量 | label-free 多视角分组；市场/横截面/股票曲线/相对赛道轴分开，持仓角色仅审计 |
 | `services.expectation_refresh` | 全持仓 + 全观察池 | `trade_cal` 锚定交易日；09:25 截止；显式调用后才触网和落盘 |
@@ -204,6 +205,7 @@ flowchart TD
 | `services.forecast_planner.record_observation_tasks` | `var/forecast/observation_tasks.jsonl` + `current_tasks.json` | observation_tasks append-only; current 可物化覆盖 |
 | `services.forecast_recorder.record_forecast` | `var/forecast/forecasts.jsonl` | append-only, 每次盘中触发一行 |
 | `services.pool_admin` | `script/config/watchlist.json` + `var/pool_audit.jsonl` | watchlist 覆盖写, audit append-only |
+| `services.ai_probability_refresh` | `var/research/ai_historical_probability` | 内容寻址保存历史原始数据集与概率结果；同数据+同参数幂等，不接管EOD/盘中动作 |
 
 ## 离线研究层
 
@@ -218,6 +220,7 @@ flowchart TD
 | `services.group_refresh --replay` | Research v2 当日因子、曲线、市场与成员事实 | 生成 `group_context_vector` / `stock_group_vector`；`select/forecast=not_executed` |
 | `services.global_anchor_refresh` | 已保存的 `var/reports/*/payload.json` | 幂等回放 F 维外部锚事实；不重新触网、不修改历史报告 |
 | `services.anchor_forecast_refresh` | F 维上下文 + point-in-time 成员 + merged outcomes | 输出 AI 篮子绝对/相对方向概率审计；小样本保留概率但方向弃权 |
+| `services.ai_probability_refresh` | Tushare多年复权行情/估值 + yfinance多年海外锚，或已冻结数据集 | 输出不依赖旧快照的AI赛道概率和逐票相对AI概率；详见 `docs/AI_HISTORICAL_PROBABILITY.md` |
 
 研究层原则:
 

@@ -379,6 +379,180 @@ class TushareSource:
         self._cache_set(cache_key, records)
         return records
 
+    def get_daily_history_range(
+            self,
+            code,
+            *,
+            start_date,
+            end_date,
+            force_refresh=False,
+    ):
+        """Return raw daily bars for an explicit immutable research range.
+
+        This adapter does not substitute ``now()`` for either boundary.  It is
+        used by the historical probability engine, whose replay identity must
+        be controlled by caller-supplied market dates.
+        """
+        ts_code = self.code_to_ts(code)
+        start = str(start_date).strip()
+        end = str(end_date).strip()
+        cache_key = f"research_daily_{ts_code}_{start}_{end}"
+        cached = None if force_refresh else self._cache_get(
+            cache_key, CACHE_TTL["daily"]
+        )
+        if cached is not None:
+            return cached
+        fields = (
+            "ts_code,trade_date,open,high,low,close,pre_close,"
+            "change,pct_chg,vol,amount"
+        )
+        df = self._safe_call(
+            "daily",
+            ts_code=ts_code,
+            start_date=start,
+            end_date=end,
+            fields=fields,
+        )
+        if df is None:
+            return None
+        required = {"ts_code", "trade_date", "close"}
+        if not required.issubset(set(df.columns)):
+            logger.warning(
+                "daily history fields missing for %s: %s",
+                ts_code,
+                sorted(required - set(df.columns)),
+            )
+            return None
+        records = df.sort_values("trade_date").to_dict("records")
+        self._cache_set(cache_key, records)
+        return records
+
+    def get_daily_basic_history_range(
+            self,
+            code,
+            *,
+            start_date,
+            end_date,
+            force_refresh=False,
+    ):
+        """Return historical valuation/liquidity rows for an exact range."""
+        ts_code = self.code_to_ts(code)
+        start = str(start_date).strip()
+        end = str(end_date).strip()
+        cache_key = f"research_daily_basic_{ts_code}_{start}_{end}"
+        cached = None if force_refresh else self._cache_get(
+            cache_key, CACHE_TTL["daily_basic"]
+        )
+        if cached is not None:
+            return cached
+        fields = (
+            "ts_code,trade_date,turnover_rate,volume_ratio,pe,pe_ttm,"
+            "pb,ps,ps_ttm,total_mv,circ_mv"
+        )
+        df = self._safe_call(
+            "daily_basic",
+            ts_code=ts_code,
+            start_date=start,
+            end_date=end,
+            fields=fields,
+        )
+        if df is None:
+            return None
+        required = {"ts_code", "trade_date"}
+        if not required.issubset(set(df.columns)):
+            logger.warning(
+                "daily_basic history fields missing for %s: %s",
+                ts_code,
+                sorted(required - set(df.columns)),
+            )
+            return None
+        records = df.sort_values("trade_date").to_dict("records")
+        self._cache_set(cache_key, records)
+        return records
+
+    def get_adj_factor_history_range(
+            self,
+            code,
+            *,
+            start_date,
+            end_date,
+            force_refresh=False,
+    ):
+        """Return Tushare adjustment factors for an exact research range."""
+        ts_code = self.code_to_ts(code)
+        start = str(start_date).strip()
+        end = str(end_date).strip()
+        cache_key = f"research_adj_factor_{ts_code}_{start}_{end}"
+        cached = None if force_refresh else self._cache_get(
+            cache_key, CACHE_TTL["daily"]
+        )
+        if cached is not None:
+            return cached
+        fields = "ts_code,trade_date,adj_factor"
+        df = self._safe_call(
+            "adj_factor",
+            ts_code=ts_code,
+            start_date=start,
+            end_date=end,
+            fields=fields,
+        )
+        if df is None:
+            return None
+        required = {"ts_code", "trade_date", "adj_factor"}
+        if not required.issubset(set(df.columns)):
+            logger.warning(
+                "adj_factor history fields missing for %s: %s",
+                ts_code,
+                sorted(required - set(df.columns)),
+            )
+            return None
+        records = df.sort_values("trade_date").to_dict("records")
+        self._cache_set(cache_key, records)
+        return records
+
+    def get_index_daily_history_range(
+            self,
+            index_code,
+            *,
+            start_date,
+            end_date,
+            force_refresh=False,
+    ):
+        """Return benchmark index daily bars for an exact research range."""
+        code = str(index_code).strip()
+        start = str(start_date).strip()
+        end = str(end_date).strip()
+        cache_key = f"research_index_daily_{code}_{start}_{end}"
+        cached = None if force_refresh else self._cache_get(
+            cache_key, CACHE_TTL["index_daily"]
+        )
+        if cached is not None:
+            return cached
+        fields = (
+            "ts_code,trade_date,open,high,low,close,pre_close,"
+            "change,pct_chg,vol,amount"
+        )
+        df = self._safe_call(
+            "index_daily",
+            ts_code=code,
+            start_date=start,
+            end_date=end,
+            fields=fields,
+        )
+        if df is None:
+            return None
+        required = {"ts_code", "trade_date", "close"}
+        if not required.issubset(set(df.columns)):
+            logger.warning(
+                "index_daily history fields missing for %s: %s",
+                code,
+                sorted(required - set(df.columns)),
+            )
+            return None
+        records = df.sort_values("trade_date").to_dict("records")
+        self._cache_set(cache_key, records)
+        return records
+
     # ============ 资金流向 (2000分) ============
 
     def get_moneyflow(self, code, days=10):
