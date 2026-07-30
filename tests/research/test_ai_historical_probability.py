@@ -10,6 +10,7 @@ from vaxstock.research.ai_historical_probability import (
     build_ai_stock_panels,
     build_ai_stock_probability_forecasts,
     build_ai_track_panel,
+    run_daily_walk_forward_backtest,
     select_stable_factors,
 )
 
@@ -197,3 +198,84 @@ def test_stock_layer_estimates_excess_against_ai_track_not_market_benchmark():
     assert "ai_track_excess" in row
     assert row["validation_status"] == "not_run_for_stock_layer_v1"
     assert forecasts[codes[0]]["production_eligible"] is False
+
+
+def test_daily_backtest_keeps_every_date_and_builds_offset_cohorts():
+    codes, stocks, benchmark, anchors = _fixture_history(360)
+    panel, _ = build_ai_track_panel(
+        stock_rows=stocks,
+        benchmark_rows=benchmark,
+        anchor_rows=anchors,
+        universe_codes=codes,
+        horizons=[5],
+    )
+
+    result = run_daily_walk_forward_backtest(
+        panel,
+        horizon=5,
+        target_kind="excess",
+        bootstrap_repetitions=20,
+    )
+
+    assert result["attempted_daily_dates"] == len(panel) - 120
+    assert result["estimated_daily_predictions"] > 100
+    assert result["settled_daily_predictions"] > 100
+    assert result["pending_daily_predictions"] == 5
+    assert len(result["offset_cohorts"]) == 5
+    estimated_rows = [
+        row for row in result["rows"]
+        if row["forecast_status"] == "estimated"
+    ]
+    assert len({
+        row["forecast_trade_date"] for row in estimated_rows
+    }) == len(estimated_rows)
+    for offset in range(5):
+        positions = [
+            row["session_position"] for row in estimated_rows
+            if row["evaluation_status"] == "settled"
+            and row["cohort_offset"] == offset
+        ]
+        assert all(
+            right - left == 5
+            for left, right in zip(positions, positions[1:])
+        )
+
+
+def test_daily_backtest_excludes_labels_not_known_at_forecast_time():
+    codes, stocks, benchmark, anchors = _fixture_history(360)
+    panel, _ = build_ai_track_panel(
+        stock_rows=stocks,
+        benchmark_rows=benchmark,
+        anchor_rows=anchors,
+        universe_codes=codes,
+        horizons=[5],
+    )
+    cutoff = panel.index[260]
+    kwargs = {
+        "horizon": 5,
+        "target_kind": "excess",
+        "start_trade_date": cutoff.strftime("%Y%m%d"),
+        "end_trade_date": cutoff.strftime("%Y%m%d"),
+        "bootstrap_repetitions": 0,
+    }
+    original = run_daily_walk_forward_backtest(panel, **kwargs)
+    poisoned = panel.copy()
+    illegal = (
+        (poisoned.index < cutoff)
+        & (poisoned["target_date_5"] > cutoff)
+    )
+    poisoned.loc[illegal, "target_excess_return_5"] = 999.0
+    replayed = run_daily_walk_forward_backtest(poisoned, **kwargs)
+
+    original_row = original["rows"][0]
+    replayed_row = replayed["rows"][0]
+    assert original_row["forecast_status"] == "estimated"
+    assert replayed_row["forecast_status"] == "estimated"
+    assert (
+        original_row["probability_positive"]
+        == replayed_row["probability_positive"]
+    )
+    assert (
+        original_row["selected_factor_ids"]
+        == replayed_row["selected_factor_ids"]
+    )

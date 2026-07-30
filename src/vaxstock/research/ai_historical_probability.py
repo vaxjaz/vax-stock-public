@@ -20,7 +20,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 from statistics import NormalDist
-from typing import Any, Dict, Iterable, Mapping, Optional, Sequence
+from typing import Any, Callable, Dict, Iterable, Mapping, Optional, Sequence
 
 import numpy as np
 import pandas as pd
@@ -36,6 +36,7 @@ MINIMUM_TRAINING_SESSIONS = 120
 MAX_SELECTED_FACTORS = 6
 MAX_FACTORS_PER_FAMILY = 2
 PRIOR_STRENGTH = 8.0
+DAILY_BACKTEST_VERSION = "ai_daily_walk_forward_v1"
 
 ANCHOR_SYMBOLS = ("NVDA", "SOXX", "QQQ", "^VIX", "^TNX", "DX-Y.NYB")
 ANCHOR_KEYS = {
@@ -690,7 +691,13 @@ def walk_forward_validate(
     minimum_training_sessions: int = MINIMUM_TRAINING_SESSIONS,
     max_validation_points: int = 60,
 ) -> Dict[str, Any]:
-    """Run purged, non-overlapping historical simulations."""
+    """Run the legacy single-offset diagnostic sample.
+
+    This preserves the original v1 forecast artifact contract.  It is not an
+    effectiveness backtest because it uses only one of the ``horizon`` possible
+    offsets and caps the result at ``max_validation_points``.  Use
+    :func:`run_daily_walk_forward_backtest` for model evaluation.
+    """
 
     target_field = (
         f"target_abs_return_{horizon}"
@@ -745,6 +752,11 @@ def walk_forward_validate(
     skill = 1.0 - brier / base_brier if base_brier > 0 else None
     return {
         "status": "evaluated",
+        "effectiveness_eligible": False,
+        "sampling_semantics": (
+            "legacy single-offset non-overlapping diagnostic capped at "
+            f"{int(max_validation_points)} points; not a full backtest"
+        ),
         "independent_predictions": len(predictions),
         "brier_score": brier,
         "expanding_base_brier_score": base_brier,
@@ -757,6 +769,434 @@ def walk_forward_validate(
         "first_prediction_date": predictions[0]["trade_date"],
         "last_prediction_date": predictions[-1]["trade_date"],
         "predictions": predictions,
+    }
+
+
+def _backtest_metrics(
+    rows: Sequence[Mapping[str, Any]],
+) -> Dict[str, Any]:
+    settled = [
+        row for row in rows
+        if row.get("evaluation_status") == "settled"
+        and row.get("probability_positive") is not None
+        and row.get("expanding_base_probability") is not None
+        and row.get("actual_positive") is not None
+    ]
+    if not settled:
+        return {
+            "status": "insufficient",
+            "settled_predictions": 0,
+        }
+    probability = np.array([
+        float(row["probability_positive"]) for row in settled
+    ])
+    base = np.array([
+        float(row["expanding_base_probability"]) for row in settled
+    ])
+    actual = np.array([
+        float(bool(row["actual_positive"])) for row in settled
+    ])
+    returns = np.array([
+        float(row["actual_return"]) for row in settled
+    ])
+    brier = float(np.mean(np.square(probability - actual)))
+    base_brier = float(np.mean(np.square(base - actual)))
+    skill = 1.0 - brier / base_brier if base_brier > 0 else None
+    predicted_positive = probability >= 0.5
+    actionable = (probability <= 0.45) | (probability >= 0.55)
+    metrics: Dict[str, Any] = {
+        "status": "evaluated",
+        "settled_predictions": len(settled),
+        "brier_score": brier,
+        "expanding_base_brier_score": base_brier,
+        "brier_skill_vs_expanding_base": skill,
+        "direction_hit_rate": float(
+            np.mean(predicted_positive == (actual > 0.5))
+        ),
+        "mean_forecast_probability": float(np.mean(probability)),
+        "realized_positive_rate": float(np.mean(actual)),
+        "mean_actual_return": float(np.mean(returns)),
+        "median_actual_return": float(np.median(returns)),
+        "first_prediction_date": settled[0]["forecast_trade_date"],
+        "last_prediction_date": settled[-1]["forecast_trade_date"],
+        "actionable_predictions": int(np.sum(actionable)),
+    }
+    if np.any(actionable):
+        metrics["actionable_direction_hit_rate"] = float(np.mean(
+            predicted_positive[actionable] == (actual[actionable] > 0.5)
+        ))
+    else:
+        metrics["actionable_direction_hit_rate"] = None
+    return metrics
+
+
+def _calibration_table(
+    rows: Sequence[Mapping[str, Any]],
+) -> list[Dict[str, Any]]:
+    settled = [
+        row for row in rows
+        if row.get("evaluation_status") == "settled"
+        and row.get("probability_positive") is not None
+        and row.get("actual_positive") is not None
+    ]
+    output = []
+    for lower_int in range(0, 100, 10):
+        lower = lower_int / 100.0
+        upper = (lower_int + 10) / 100.0
+        selected = [
+            row for row in settled
+            if float(row["probability_positive"]) >= lower
+            and (
+                float(row["probability_positive"]) < upper
+                or (
+                    upper == 1.0
+                    and float(row["probability_positive"]) <= upper
+                )
+            )
+        ]
+        if not selected:
+            continue
+        output.append({
+            "lower_inclusive": lower,
+            "upper_exclusive": None if upper == 1.0 else upper,
+            "upper_inclusive": upper if upper == 1.0 else None,
+            "sample_n": len(selected),
+            "mean_forecast_probability": float(np.mean([
+                float(row["probability_positive"]) for row in selected
+            ])),
+            "realized_positive_rate": float(np.mean([
+                float(bool(row["actual_positive"])) for row in selected
+            ])),
+            "mean_actual_return": float(np.mean([
+                float(row["actual_return"]) for row in selected
+            ])),
+            "median_actual_return": float(np.median([
+                float(row["actual_return"]) for row in selected
+            ])),
+        })
+    return output
+
+
+def _moving_block_bootstrap(
+    rows: Sequence[Mapping[str, Any]],
+    *,
+    horizon: int,
+    repetitions: int,
+    seed: int,
+) -> Dict[str, Any]:
+    settled = [
+        row for row in rows
+        if row.get("evaluation_status") == "settled"
+        and row.get("probability_positive") is not None
+        and row.get("expanding_base_probability") is not None
+        and row.get("actual_positive") is not None
+    ]
+    block_length = max(1, int(horizon))
+    if repetitions <= 0 or len(settled) < block_length * 2:
+        return {
+            "status": "insufficient",
+            "sample_n": len(settled),
+            "block_length_sessions": block_length,
+            "repetitions": int(repetitions),
+        }
+    probability = np.array([
+        float(row["probability_positive"]) for row in settled
+    ])
+    base = np.array([
+        float(row["expanding_base_probability"]) for row in settled
+    ])
+    actual = np.array([
+        float(bool(row["actual_positive"])) for row in settled
+    ])
+    rng = np.random.default_rng(seed)
+    block_starts = len(settled) - block_length + 1
+    block_count = int(math.ceil(len(settled) / block_length))
+    skills = []
+    hits = []
+    for _ in range(int(repetitions)):
+        starts = rng.integers(0, block_starts, size=block_count)
+        positions = np.concatenate([
+            np.arange(start, start + block_length) for start in starts
+        ])[:len(settled)]
+        sample_probability = probability[positions]
+        sample_base = base[positions]
+        sample_actual = actual[positions]
+        brier = float(np.mean(np.square(
+            sample_probability - sample_actual
+        )))
+        base_brier = float(np.mean(np.square(
+            sample_base - sample_actual
+        )))
+        if base_brier > 0:
+            skills.append(1.0 - brier / base_brier)
+        hits.append(float(np.mean(
+            (sample_probability >= 0.5) == (sample_actual > 0.5)
+        )))
+
+    def interval(values: Sequence[float]) -> Optional[list[float]]:
+        if not values:
+            return None
+        return [
+            float(np.quantile(values, 0.05)),
+            float(np.quantile(values, 0.50)),
+            float(np.quantile(values, 0.95)),
+        ]
+
+    return {
+        "status": "evaluated",
+        "sample_n": len(settled),
+        "block_length_sessions": block_length,
+        "repetitions": int(repetitions),
+        "seed": int(seed),
+        "interval_semantics": ["p05", "p50", "p95"],
+        "brier_skill_interval_90": interval(skills),
+        "direction_hit_rate_interval_90": interval(hits),
+    }
+
+
+def run_daily_walk_forward_backtest(
+    panel: pd.DataFrame,
+    *,
+    horizon: int = 20,
+    target_kind: str = "excess",
+    minimum_training_sessions: int = MINIMUM_TRAINING_SESSIONS,
+    start_trade_date: Optional[str] = None,
+    end_trade_date: Optional[str] = None,
+    bootstrap_repetitions: int = 1000,
+    bootstrap_seed: int = 20260730,
+    progress: Optional[Callable[[int, int, str], None]] = None,
+) -> Dict[str, Any]:
+    """Replay one forecast on every eligible session.
+
+    Daily T+N outcomes are deliberately retained.  They are dependent, so the
+    report evaluates them both as a continuous ledger and as N staggered
+    offset cohorts whose labels do not overlap within a cohort.  Cohort sample
+    counts must not be added together and called independent N.
+    """
+
+    horizon = int(horizon)
+    if horizon <= 0:
+        raise HistoricalProbabilityError("horizon must be positive")
+    if target_kind not in {"absolute", "excess"}:
+        raise HistoricalProbabilityError(
+            "target_kind must be absolute or excess"
+        )
+    if panel.empty:
+        raise HistoricalProbabilityError("AI track panel is empty")
+    target_field = (
+        f"target_abs_return_{horizon}"
+        if target_kind == "absolute"
+        else f"target_excess_return_{horizon}"
+    )
+    target_date_field = f"target_date_{horizon}"
+    if target_field not in panel or target_date_field not in panel:
+        raise HistoricalProbabilityError(
+            f"panel missing horizon fields for T+{horizon}"
+        )
+    start = (
+        pd.to_datetime(start_trade_date, format="%Y%m%d")
+        if start_trade_date else None
+    )
+    end = (
+        pd.to_datetime(end_trade_date, format="%Y%m%d")
+        if end_trade_date else None
+    )
+    if start is not None and end is not None and start > end:
+        raise HistoricalProbabilityError(
+            "start_trade_date cannot be after end_trade_date"
+        )
+    candidate_positions = [
+        position
+        for position, trade_date in enumerate(panel.index)
+        if position >= int(minimum_training_sessions)
+        and (start is None or trade_date >= start)
+        and (end is None or trade_date <= end)
+    ]
+    rows: list[Dict[str, Any]] = []
+    abstain_reasons: Dict[str, int] = {}
+    total = len(candidate_positions)
+    for sequence, position in enumerate(candidate_positions, start=1):
+        as_of = panel.index[position]
+        if progress is not None:
+            progress(sequence, total, as_of.strftime("%Y%m%d"))
+        estimate = _estimate_at(
+            panel,
+            as_of=as_of,
+            horizon=horizon,
+            target_kind=target_kind,
+            minimum_training_sessions=int(minimum_training_sessions),
+        )
+        target_date_value = panel.at[as_of, target_date_field]
+        target_date = (
+            None
+            if pd.isna(target_date_value)
+            else pd.Timestamp(target_date_value).strftime("%Y%m%d")
+        )
+        actual_value = panel.at[as_of, target_field]
+        settled = pd.notna(actual_value) and target_date is not None
+        row: Dict[str, Any] = {
+            "forecast_trade_date": as_of.strftime("%Y%m%d"),
+            "target_trade_date": target_date,
+            "horizon_sessions": horizon,
+            "target_kind": target_kind,
+            "session_position": int(position),
+            "cohort_offset": int(position % horizon),
+            "forecast_status": estimate.get("status"),
+            "evaluation_status": "settled" if settled else "pending",
+            "actual_return": float(actual_value) if settled else None,
+            "actual_positive": (
+                bool(float(actual_value) > 0) if settled else None
+            ),
+        }
+        if estimate.get("status") != "estimated":
+            reason = str(estimate.get("reason") or "unknown")
+            row["abstain_reason"] = reason
+            row["evaluation_status"] = "abstained"
+            abstain_reasons[reason] = abstain_reasons.get(reason, 0) + 1
+            rows.append(row)
+            continue
+        training = panel.loc[panel.index < as_of]
+        available = training[
+            training[target_date_field].notna()
+            & (training[target_date_field] <= as_of)
+            & training[target_field].notna()
+        ]
+        expanding_base = (
+            float((available[target_field] > 0).mean())
+            if not available.empty else None
+        )
+        row.update({
+            "direction": estimate["direction"],
+            "probability_positive": float(
+                estimate["probability_positive"]
+            ),
+            "probability_interval_90": list(
+                estimate["probability_interval_90"]
+            ),
+            "expected_return": float(estimate["expected_return"]),
+            "expanding_base_probability": expanding_base,
+            "model_prior_probability": float(
+                estimate["base_probability_positive"]
+            ),
+            "training_sessions": int(estimate["training_sessions"]),
+            "independent_training_sessions": int(
+                estimate["independent_sessions"]
+            ),
+            "neighbour_sessions": int(estimate["neighbour_sessions"]),
+            "effective_neighbour_sessions": float(
+                estimate["effective_neighbour_sessions"]
+            ),
+            "selected_factor_ids": [
+                str(factor["factor_id"])
+                for factor in estimate["selected_factors"]
+            ],
+            "nearest_trade_dates": list(
+                estimate["nearest_trade_dates"]
+            ),
+        })
+        rows.append(row)
+
+    estimated = [
+        row for row in rows
+        if row.get("forecast_status") == "estimated"
+    ]
+    settled = [
+        row for row in estimated
+        if row.get("evaluation_status") == "settled"
+    ]
+    cohorts = []
+    cohort_skills = []
+    for offset in range(horizon):
+        cohort_rows = [
+            row for row in settled
+            if int(row["cohort_offset"]) == offset
+        ]
+        metrics = _backtest_metrics(cohort_rows)
+        metrics["cohort_offset"] = offset
+        metrics["independence_semantics"] = (
+            f"forecast positions differ by {horizon} sessions; "
+            "forward-return labels do not overlap within this cohort"
+        )
+        cohorts.append(metrics)
+        skill = metrics.get("brier_skill_vs_expanding_base")
+        if skill is not None:
+            cohort_skills.append(float(skill))
+    by_year = []
+    years = sorted({
+        str(row["forecast_trade_date"])[:4] for row in settled
+    })
+    for year in years:
+        metrics = _backtest_metrics([
+            row for row in settled
+            if str(row["forecast_trade_date"]).startswith(year)
+        ])
+        metrics["year"] = year
+        metrics["dependency_warning"] = (
+            "daily T+N labels overlap inside this yearly view"
+        )
+        by_year.append(metrics)
+    cohort_stability = {
+        "evaluated_cohorts": len(cohort_skills),
+        "positive_skill_cohorts": sum(
+            value > 0 for value in cohort_skills
+        ),
+        "non_positive_skill_cohorts": sum(
+            value <= 0 for value in cohort_skills
+        ),
+        "median_brier_skill": (
+            float(np.median(cohort_skills)) if cohort_skills else None
+        ),
+        "minimum_brier_skill": (
+            float(np.min(cohort_skills)) if cohort_skills else None
+        ),
+        "maximum_brier_skill": (
+            float(np.max(cohort_skills)) if cohort_skills else None
+        ),
+        "warning": (
+            "cohorts are offset sensitivity views; their sample counts "
+            "must not be summed and called independent N"
+        ),
+    }
+    return {
+        "schema_version": 1,
+        "backtest_version": DAILY_BACKTEST_VERSION,
+        "model_version": MODEL_VERSION,
+        "group_version": GROUP_VERSION,
+        "select_version": SELECT_VERSION,
+        "universe_version": UNIVERSE_VERSION,
+        "horizon_sessions": horizon,
+        "target_kind": target_kind,
+        "minimum_training_sessions": int(minimum_training_sessions),
+        "attempted_daily_dates": len(rows),
+        "estimated_daily_predictions": len(estimated),
+        "settled_daily_predictions": len(settled),
+        "pending_daily_predictions": sum(
+            row.get("evaluation_status") == "pending" for row in estimated
+        ),
+        "abstained_daily_dates": sum(abstain_reasons.values()),
+        "abstain_reasons": dict(sorted(abstain_reasons.items())),
+        "first_attempted_date": (
+            rows[0]["forecast_trade_date"] if rows else None
+        ),
+        "last_attempted_date": (
+            rows[-1]["forecast_trade_date"] if rows else None
+        ),
+        "overall_daily_dependent_metrics": _backtest_metrics(settled),
+        "probability_calibration": _calibration_table(settled),
+        "offset_cohorts": cohorts,
+        "cohort_stability": cohort_stability,
+        "by_year": by_year,
+        "moving_block_bootstrap": _moving_block_bootstrap(
+            settled,
+            horizon=horizon,
+            repetitions=int(bootstrap_repetitions),
+            seed=int(bootstrap_seed),
+        ),
+        "dependency_semantics": (
+            "all daily predictions are retained; T+N outcomes overlap across "
+            "adjacent dates, so daily N is descriptive rather than independent"
+        ),
+        "rows": rows,
     }
 
 
