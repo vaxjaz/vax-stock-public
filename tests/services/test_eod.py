@@ -357,6 +357,7 @@ def _install_spies(secrets=None, payload=None, next_trade_date="20260626"):
 
     def restore():
         _PAYLOAD.pop("freshness", None)
+        _PAYLOAD.pop("analyst_context", None)
         for n, v in saved.items():
             setattr(eod_mod, n, v)
         config.SECRETS = saved_secrets

@@ -68,6 +68,7 @@ def compact_for_claude(payload: Dict[str, Any]) -> Dict[str, Any]:
         "us_market": payload.get("us_market"),              # v1.2: 美股参考
         "opportunity_scan": payload.get("opportunity_scan"), # v1.2: 机会仓
         "macro": payload.get("macro"),                       # v1.3: 宏观6维度
+        "analyst_context": payload.get("analyst_context"),   # EOD 重算后的大环境/锚数据
         "stocks": [],
     }
     for item in payload.get("stocks", []):

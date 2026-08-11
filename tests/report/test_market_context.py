@@ -80,7 +80,7 @@ def _background():
             "available": True,
             "position_ceiling": "进攻档 (赛道上限~高位, 可加)",
             "summary_lines": [
-                "【景气·NVDA capex】✅扩张加速  [已证实]",
+                "【景气·NVDA营收代理】✅扩张加速  [已证实]",
                 "【海外闸门·SOX】✅开放  收12967.2 / MA50 12578.6 / 近1月6.2%",
                 "【本土情绪·QVIX】⚠️情绪偏紧  300ETF 23.15 / 创业板 42.63",
                 "【篮子拥挤度】换手分位 70% / 篮子52周位置 62%  [已证实]",
@@ -104,7 +104,7 @@ def test_renders_frozen_market_macro_and_ai_evidence():
     assert "M1同比: +5.50%" in text
     assert "社融脉冲: 同比-4.56%" in text
     assert "AI算力" in text
-    assert "NVDA capex" in text
+    assert "NVDA营收代理" in text
     assert "SOX" in text
     assert "QVIX" in text
     assert "篮子拥挤度" in text

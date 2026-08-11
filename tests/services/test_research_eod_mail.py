@@ -60,7 +60,7 @@ def test_research_eod_mail_is_idempotent_per_trade_date(tmp_path):
     assert second["status"] == "already_sent"
     assert second["sent"] is False
     assert len(calls) == 1
-    assert calls[0]["subject"] == "[新研究EOD] 20260728"
+    assert calls[0]["subject"] == "[EOD市场与AI锚] 20260728"
     assert calls[0]["body"] == markdown
     assert [row[0] for row in calls[0]["attachments"]] == [
         "research_eod_20260728.md",

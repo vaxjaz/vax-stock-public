@@ -141,7 +141,7 @@ def send_research_eod_email(
             }
         attachments.append((filename, str(path), subtype))
 
-    subject = f"[新研究EOD] {target}"
+    subject = f"[EOD市场与AI锚] {target}"
     sender = send_func or send_email
     delivered = bool(sender(
         body=body,

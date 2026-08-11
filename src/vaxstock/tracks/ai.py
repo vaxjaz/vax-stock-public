@@ -143,14 +143,14 @@ def _summary_lines(prosp: Dict, gate: Dict, qvix: Dict, crowd: Dict) -> List[str
     """
     lines: List[str] = []
 
-    # 【景气·NVDA capex】
+    # 【景气·NVDA营收代理】——不是头部云厂 Capex 或债务数据。
     p = prosp or {}
     if p.get("signal"):
-        lines.append(f"【景气·NVDA capex】{p['signal']}  [{p.get('status')}]")
+        lines.append(f"【景气·NVDA营收代理】{p['signal']}  [{p.get('status')}]")
         lines.append(f"  营收YoY {p.get('yoy_pct')}% | QoQ {p.get('qoq_pct')}% | "
                      f"加速度 {p.get('accel_pp')}pp | 最新季营收 {p.get('latest_rev_busd')}亿美元")
     else:
-        lines.append(f"【景气·NVDA capex】🚫待验证 — {p.get('note', '')}")
+        lines.append(f"【景气·NVDA营收代理】🚫待验证 — {p.get('note', '')}")
 
     # 【海外闸门·SOX】
     g = gate or {}
@@ -274,9 +274,11 @@ class AITrack:
         海外/期权数据走 AkShare(已验证)。沿用包内显式传参, 无全局态。"""
         self.source = source
 
-    # ---- 景气层 (最高优先级: NVDA capex nowcast) ----
+    # ---- 景气层 (NVDA 季度营收增长代理；不是 Capex/债务锚) ----
     def fetch_nvda_prosperity(self) -> Dict:
-        """NVDA 季度营收 YoY + 加速度, 衡量海外AI capex景气。
+        """NVDA 季度营收 YoY + 加速度，作为海外AI需求景气代理。
+
+        该字段不是头部企业资本开支、自由现金流或债务杠杆数据。
         主源 AkShare stock_financial_us_report_em, yfinance交叉验证。
         P0: 双源不一致 -> 标待验证不采信。"""
         import pandas as pd

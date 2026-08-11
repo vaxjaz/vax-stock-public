@@ -14,11 +14,13 @@ api/intraday/cron unit 留 PR-C。
 铁律: 顶层取数失败不吞(应可见); A/B/C 落盘后由 D-line worker 统一生成并发送每日操作邮件。
 """
 
+import json
 import logging
 from datetime import datetime, timedelta
 from typing import Any, Dict, Optional
 
 from vaxstock import config
+from vaxstock.analysis.eod_market import build_eod_market_analysis
 from vaxstock.analysis.freshness import assess_eod_freshness
 from vaxstock.research.legacy_snapshot_replay import record_legacy_snapshot_trade_date
 from vaxstock.report.claude_md import compact_for_claude
@@ -54,6 +56,37 @@ from vaxstock.sources.tushare_src import TushareSource
 logger = logging.getLogger(__name__)
 
 
+def _load_historical_report_payloads(
+    as_of_trade_date: str,
+    *,
+    limit: int = 30,
+) -> list[Dict[str, Any]]:
+    """Read prior immutable EOD payloads for derivative/change calculations."""
+
+    target = str(as_of_trade_date or "").strip().replace("-", "")
+    if len(target) != 8 or not target.isdigit():
+        return []
+    rows = []
+    for path in sorted(config.REPORTS_DIR.glob("*/payload.json")):
+        try:
+            value = json.loads(path.read_text(encoding="utf-8"))
+        except Exception as exc:
+            logger.warning(
+                "EOD analyst context skips unreadable payload %s: %s",
+                path,
+                type(exc).__name__,
+            )
+            continue
+        if not isinstance(value, dict):
+            continue
+        trade_date = str(
+            ((value.get("market_overview") or {}).get("trade_date")) or ""
+        ).strip().replace("-", "")
+        if len(trade_date) == 8 and trade_date.isdigit() and trade_date < target:
+            rows.append(value)
+    return rows[-max(int(limit), 0):]
+
+
 def run_eod() -> Dict[str, str]:
     """EOD: collect facts, refresh research, render new report, persist data."""
     logger.info("[1/7] 初始化 Tushare 数据源...")
@@ -79,6 +112,33 @@ def run_eod() -> Dict[str, str]:
             freshness.get("critical_failures"),
             freshness.get("blocked_targets"),
         )
+
+    analyst_trade_date = str(
+        ((payload.get("market_overview") or {}).get("trade_date")) or ""
+    ).strip()
+    try:
+        historical_payloads = _load_historical_report_payloads(
+            analyst_trade_date,
+        )
+        payload["analyst_context"] = build_eod_market_analysis(
+            payload,
+            historical_payloads,
+            track_results=tracks,
+        )
+        logger.info(
+            "EOD analyst context: trade_date=%s history=%s calculation=%s",
+            analyst_trade_date,
+            len(historical_payloads),
+            payload["analyst_context"].get("calculation_version"),
+        )
+    except Exception as exc:
+        logger.exception("EOD analyst context recalculation failed")
+        payload["analyst_context"] = {
+            "schema_version": 1,
+            "as_of_trade_date": analyst_trade_date or None,
+            "status": "calculation_failed",
+            "reason": f"{type(exc).__name__}: {str(exc)[:160]}",
+        }
 
     try:
         from vaxstock.services.regime_auditor import record_regime_audit
