@@ -1,0 +1,167 @@
+{
+  "schema_version": 1,
+  "policy_version": "evidence_convergence_v1",
+  "as_of_trade_date": "20260806",
+  "status": "ready",
+  "market_context": {
+    "source_status": "aligned",
+    "trade_date": "20260806",
+    "market_regime": "momentum",
+    "up_count": 2789,
+    "down_count": 2590,
+    "total": 5533,
+    "limit_down_count": 4,
+    "down_ratio": 0.4681004879812037,
+    "macro_regime": "🟡 中性",
+    "above_ma60_pct": 27.448979591836736,
+    "margin_data_date": "20260805",
+    "margin_stale": true,
+    "ai_track": {
+      "track_name": "AI算力",
+      "position_ceiling": "减档 (单否决, 不加且高位减)",
+      "vetoes": [
+        [
+          "海外闸门",
+          "SOX 跌破MA50(12729),近1月动量转负(-4.5%) → AI上限砍半"
+        ]
+      ],
+      "pending": []
+    }
+  },
+  "facts": {
+    "live_evidence_objects": 968,
+    "current_target_evidence_objects": 40,
+    "new_matured_c_results": 968,
+    "dline_selected_stocks": 5,
+    "dline_triggered_stocks": 4,
+    "dline_trigger_records": 4,
+    "dline_complete_evolution_paths": 3,
+    "dline_late_limited_evolution_paths": 0,
+    "dline_missing_evolution_paths": 1,
+    "horizon_reversal_total": 269,
+    "horizon_reversal_new": 0
+  },
+  "convergence": {
+    "thresholds": {
+      "available": true,
+      "minimum_preliminary_sessions": 5,
+      "minimum_stable_sessions": 20,
+      "support_min_hit_rate": 0.6,
+      "conflict_max_hit_rate": 0.4,
+      "source": "strategy_policy.action_rules.history_evidence",
+      "independence_rule": "same group and target_trade_date counts as one market session"
+    },
+    "groups": [
+      {
+        "group_key": "zz800_seed_v1|avoid|neutral|momentum",
+        "rule_version": "zz800_seed_v1",
+        "action": "avoid",
+        "direction": "neutral",
+        "decision_market_regime": "momentum",
+        "observations": 94,
+        "independent_sessions": 4,
+        "session_weighted_hit_rate": 0.43942120257909734,
+        "verdict": "accumulating"
+      },
+      {
+        "group_key": "zz800_seed_v1|avoid|neutral|value",
+        "rule_version": "zz800_seed_v1",
+        "action": "avoid",
+        "direction": "neutral",
+        "decision_market_regime": "value",
+        "observations": 122,
+        "independent_sessions": 7,
+        "session_weighted_hit_rate": 0.7318668771856568,
+        "verdict": "preliminary_support"
+      },
+      {
+        "group_key": "zz800_seed_v1|candidate_buy|up|momentum",
+        "rule_version": "zz800_seed_v1",
+        "action": "candidate_buy",
+        "direction": "up",
+        "decision_market_regime": "momentum",
+        "observations": 5,
+        "independent_sessions": 3,
+        "session_weighted_hit_rate": 0.8333333333333334,
+        "verdict": "accumulating"
+      },
+      {
+        "group_key": "zz800_seed_v1|candidate_buy|up|value",
+        "rule_version": "zz800_seed_v1",
+        "action": "candidate_buy",
+        "direction": "up",
+        "decision_market_regime": "value",
+        "observations": 31,
+        "independent_sessions": 7,
+        "session_weighted_hit_rate": 0.16326530612244897,
+        "verdict": "preliminary_conflict"
+      },
+      {
+        "group_key": "zz800_seed_v1|panic_rebound_watch|up|panic",
+        "rule_version": "zz800_seed_v1",
+        "action": "panic_rebound_watch",
+        "direction": "up",
+        "decision_market_regime": "panic",
+        "observations": 221,
+        "independent_sessions": 13,
+        "session_weighted_hit_rate": 0.505898334830301,
+        "verdict": "mixed"
+      },
+      {
+        "group_key": "zz800_seed_v1|watch|up|momentum",
+        "rule_version": "zz800_seed_v1",
+        "action": "watch",
+        "direction": "up",
+        "decision_market_regime": "momentum",
+        "observations": 65,
+        "independent_sessions": 4,
+        "session_weighted_hit_rate": 0.6165293040293041,
+        "verdict": "accumulating"
+      },
+      {
+        "group_key": "zz800_seed_v1|watch|up|value",
+        "rule_version": "zz800_seed_v1",
+        "action": "watch",
+        "direction": "up",
+        "decision_market_regime": "value",
+        "observations": 137,
+        "independent_sessions": 7,
+        "session_weighted_hit_rate": 0.3473468438758903,
+        "verdict": "preliminary_conflict"
+      }
+    ],
+    "changes": [
+      {
+        "type": "new_special_finding",
+        "code": "dline_post_trigger_path_missing",
+        "summary": "D线触发4条，完整触发后演变3条，仍有1条不能评价最佳操作时机。"
+      }
+    ]
+  },
+  "special_findings": [
+    {
+      "code": "same_day_correlated_trigger_event",
+      "severity": "attention",
+      "summary": "4只股票在同一交易日触发D线，属于1个相关市场事件；保留逐股结果，但收敛判断不按4个独立市场样本计数。",
+      "triggered_stock_count": 4,
+      "effective_environment_event_count": 1
+    },
+    {
+      "code": "dline_post_trigger_path_missing",
+      "severity": "data_gap",
+      "summary": "D线触发4条，完整触发后演变3条，仍有1条不能评价最佳操作时机。"
+    }
+  ],
+  "strategy_effect": {
+    "automatic_rule_change": false,
+    "status": "review_required",
+    "summary": "发现2项需要继续验证的问题；不自动修改今日动作，下方操作仍按持仓、C线与D线纪律生成。"
+  },
+  "source_contract": {
+    "primary_return": "actual_stock_return",
+    "same_day_dependence": "one_environment_event",
+    "user_execution_used": false,
+    "llm_interpretation_used": false
+  },
+  "facts_digest": "f956ff22ae9405a89c581865da5a9d9ecea2b82c027d311d1c5ff6496aa5e052"
+}

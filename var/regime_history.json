@@ -1,18 +1,6 @@
 {
-  "current_regime": "panic",
+  "current_regime": "value",
   "raw_history": [
-    {
-      "trade_date": "20260625",
-      "raw": "momentum"
-    },
-    {
-      "trade_date": "20260626",
-      "raw": "momentum"
-    },
-    {
-      "trade_date": "20260629",
-      "raw": "panic"
-    },
     {
       "trade_date": "20260630",
       "raw": "value"
@@ -96,7 +84,43 @@
     {
       "trade_date": "20260728",
       "raw": "panic"
+    },
+    {
+      "trade_date": "20260729",
+      "raw": "value"
+    },
+    {
+      "trade_date": "20260730",
+      "raw": "panic"
+    },
+    {
+      "trade_date": "20260731",
+      "raw": "value"
+    },
+    {
+      "trade_date": "20260803",
+      "raw": "momentum"
+    },
+    {
+      "trade_date": "20260804",
+      "raw": "momentum"
+    },
+    {
+      "trade_date": "20260805",
+      "raw": "momentum"
+    },
+    {
+      "trade_date": "20260806",
+      "raw": "momentum"
+    },
+    {
+      "trade_date": "20260807",
+      "raw": "value"
+    },
+    {
+      "trade_date": "20260810",
+      "raw": "value"
     }
   ],
-  "last_updated": "2026-07-29T14:47:54.060564"
+  "last_updated": "2026-08-11T05:00:12.537773"
 }
