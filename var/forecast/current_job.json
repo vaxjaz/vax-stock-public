@@ -1,21 +1,21 @@
 {
   "schema_version": 1,
-  "job_id": "20260812_20260813_d_observe_llm_v2_job",
+  "job_id": "20260813_20260814_d_observe_llm_v2_job",
   "line": "D",
   "status": "done",
-  "created_at": "2026-08-13T08:42:26",
+  "created_at": "2026-08-14T05:06:53",
   "plan_version": "d_observe_llm_v2",
-  "baseline_trade_date": "20260812",
-  "target_trade_date": "20260813",
-  "payload_path": "/opt/stock-reportv2/vax-stock-public/var/reports/2026-08-12/payload.json",
+  "baseline_trade_date": "20260813",
+  "target_trade_date": "20260814",
+  "payload_path": "/opt/stock-reportv2/vax-stock-public/var/reports/2026-08-13/payload.json",
   "c_predictions": [
     {
       "schema_version": 1,
-      "prediction_id": "20260812_20260813_601138_zz800_seed_v1_live",
-      "generated_at": "2026-08-13T08:42:12",
+      "prediction_id": "20260813_20260814_601138_zz800_seed_v1_live",
+      "generated_at": "2026-08-14T05:06:36",
       "generation_mode": "live",
-      "baseline_trade_date": "20260812",
-      "target_trade_date": "20260813",
+      "baseline_trade_date": "20260813",
+      "target_trade_date": "20260814",
       "code": "601138",
       "name": "工业富联",
       "group": "holding",
@@ -24,23 +24,23 @@
         "服务器"
       ],
       "features_ref": {
-        "price_at_baseline": 65.6,
+        "price_at_baseline": 65.23,
         "right_side_score": 2.0,
         "right_side_grade": "可考虑介入",
-        "main_inflow_10d": 4156863800.0,
+        "main_inflow_10d": 4612388600.0,
         "np_yoy": 95.9858,
         "holder_change_pct": null,
-        "position_20d_pct": 69.74647887323941,
+        "position_20d_pct": 67.66197183098595,
         "market_regime": "momentum",
-        "macro_regime": "🟡 中性",
+        "macro_regime": "🔴 看空",
         "ai_position_ceiling": "减档 (单否决, 不加且高位减)"
       },
       "context_ref": {
         "schema_version": 1,
         "line": "E_context",
         "purpose": "non_scoring_context_for_c_and_d_llm",
-        "baseline_trade_date": "20260812",
-        "target_trade_date": "20260813",
+        "baseline_trade_date": "20260813",
+        "target_trade_date": "20260814",
         "stock": {
           "code": "601138",
           "name": "工业富联"
@@ -277,8 +277,8 @@
                 "  营收YoY 85.2% | QoQ 19.8% | 加速度 0.3pp | 最新季营收 816.2亿美元",
                 "【海外闸门·SOX】❌关闭  收12399.4 / MA50 12663.2 / 近1月0.0%",
                 "  触发: 跌破MA50(12663)",
-                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF None / 创业板 37.51",
-                "【篮子拥挤度】换手分位 35% / 篮子52周位置 54%  [已证实]"
+                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF 19.57 / 创业板 37.51",
+                "【篮子拥挤度】换手分位 64% / 篮子52周位置 53%  [已证实]"
               ]
             }
           ],
@@ -290,11 +290,12 @@
       "prediction": {
         "action": "watch",
         "direction": "up",
-        "confidence": 0.6,
+        "confidence": 0.55,
         "horizon": "T+1",
         "expected_excess_bucket": "positive",
         "reason_codes": [
-          "score_ge_2"
+          "score_ge_2",
+          "macro_bearish_reduce_confidence"
         ],
         "reason": "评分≥2,列为高优先观察,需盘中行为确认"
       },
@@ -303,11 +304,11 @@
     },
     {
       "schema_version": 1,
-      "prediction_id": "20260812_20260813_002475_zz800_seed_v1_live",
-      "generated_at": "2026-08-13T08:42:12",
+      "prediction_id": "20260813_20260814_002475_zz800_seed_v1_live",
+      "generated_at": "2026-08-14T05:06:36",
       "generation_mode": "live",
-      "baseline_trade_date": "20260812",
-      "target_trade_date": "20260813",
+      "baseline_trade_date": "20260813",
+      "target_trade_date": "20260814",
       "code": "002475",
       "name": "立讯精密",
       "group": "holding",
@@ -318,23 +319,23 @@
         "苹果链"
       ],
       "features_ref": {
-        "price_at_baseline": 57.35,
+        "price_at_baseline": 56.06,
         "right_side_score": 1.0,
         "right_side_grade": "观察等待",
-        "main_inflow_10d": -869626800.0,
+        "main_inflow_10d": -1111318000.0,
         "np_yoy": 20.2416,
         "holder_change_pct": null,
-        "position_20d_pct": 40.20530367835758,
+        "position_20d_pct": 32.88331726133079,
         "market_regime": "momentum",
-        "macro_regime": "🟡 中性",
+        "macro_regime": "🔴 看空",
         "ai_position_ceiling": "减档 (单否决, 不加且高位减)"
       },
       "context_ref": {
         "schema_version": 1,
         "line": "E_context",
         "purpose": "non_scoring_context_for_c_and_d_llm",
-        "baseline_trade_date": "20260812",
-        "target_trade_date": "20260813",
+        "baseline_trade_date": "20260813",
+        "target_trade_date": "20260814",
         "stock": {
           "code": "002475",
           "name": "立讯精密"
@@ -587,8 +588,8 @@
                 "  营收YoY 85.2% | QoQ 19.8% | 加速度 0.3pp | 最新季营收 816.2亿美元",
                 "【海外闸门·SOX】❌关闭  收12399.4 / MA50 12663.2 / 近1月0.0%",
                 "  触发: 跌破MA50(12663)",
-                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF None / 创业板 37.51",
-                "【篮子拥挤度】换手分位 35% / 篮子52周位置 54%  [已证实]"
+                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF 19.57 / 创业板 37.51",
+                "【篮子拥挤度】换手分位 64% / 篮子52周位置 53%  [已证实]"
               ]
             }
           ],
@@ -614,11 +615,11 @@
     },
     {
       "schema_version": 1,
-      "prediction_id": "20260812_20260813_601179_zz800_seed_v1_live",
-      "generated_at": "2026-08-13T08:42:12",
+      "prediction_id": "20260813_20260814_601179_zz800_seed_v1_live",
+      "generated_at": "2026-08-14T05:06:36",
       "generation_mode": "live",
-      "baseline_trade_date": "20260812",
-      "target_trade_date": "20260813",
+      "baseline_trade_date": "20260813",
+      "target_trade_date": "20260814",
       "code": "601179",
       "name": "中国西电",
       "group": "holding",
@@ -628,23 +629,23 @@
         "AIDC"
       ],
       "features_ref": {
-        "price_at_baseline": 13.79,
+        "price_at_baseline": 13.85,
         "right_side_score": 0.3,
         "right_side_grade": "回避",
-        "main_inflow_10d": -1057570700.0000001,
+        "main_inflow_10d": -422305100.00000006,
         "np_yoy": 17.5364,
         "holder_change_pct": null,
-        "position_20d_pct": 74.67532467532465,
+        "position_20d_pct": 76.6233766233766,
         "market_regime": "momentum",
-        "macro_regime": "🟡 中性",
+        "macro_regime": "🔴 看空",
         "ai_position_ceiling": "减档 (单否决, 不加且高位减)"
       },
       "context_ref": {
         "schema_version": 1,
         "line": "E_context",
         "purpose": "non_scoring_context_for_c_and_d_llm",
-        "baseline_trade_date": "20260812",
-        "target_trade_date": "20260813",
+        "baseline_trade_date": "20260813",
+        "target_trade_date": "20260814",
         "stock": {
           "code": "601179",
           "name": "中国西电"
@@ -844,8 +845,8 @@
                 "  营收YoY 85.2% | QoQ 19.8% | 加速度 0.3pp | 最新季营收 816.2亿美元",
                 "【海外闸门·SOX】❌关闭  收12399.4 / MA50 12663.2 / 近1月0.0%",
                 "  触发: 跌破MA50(12663)",
-                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF None / 创业板 37.51",
-                "【篮子拥挤度】换手分位 35% / 篮子52周位置 54%  [已证实]"
+                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF 19.57 / 创业板 37.51",
+                "【篮子拥挤度】换手分位 64% / 篮子52周位置 53%  [已证实]"
               ]
             }
           ],
@@ -871,11 +872,11 @@
     },
     {
       "schema_version": 1,
-      "prediction_id": "20260812_20260813_600875_zz800_seed_v1_live",
-      "generated_at": "2026-08-13T08:42:12",
+      "prediction_id": "20260813_20260814_600875_zz800_seed_v1_live",
+      "generated_at": "2026-08-14T05:06:36",
       "generation_mode": "live",
-      "baseline_trade_date": "20260812",
-      "target_trade_date": "20260813",
+      "baseline_trade_date": "20260813",
+      "target_trade_date": "20260814",
       "code": "600875",
       "name": "东方电气",
       "group": "holding",
@@ -885,23 +886,23 @@
         "电力设备"
       ],
       "features_ref": {
-        "price_at_baseline": 27.49,
+        "price_at_baseline": 27.04,
         "right_side_score": 0.5,
         "right_side_grade": "观察等待",
-        "main_inflow_10d": -276515600.0,
+        "main_inflow_10d": -242364400.0,
         "np_yoy": 37.4091,
         "holder_change_pct": null,
-        "position_20d_pct": 83.05084745762707,
+        "position_20d_pct": 70.33898305084743,
         "market_regime": "momentum",
-        "macro_regime": "🟡 中性",
+        "macro_regime": "🔴 看空",
         "ai_position_ceiling": "减档 (单否决, 不加且高位减)"
       },
       "context_ref": {
         "schema_version": 1,
         "line": "E_context",
         "purpose": "non_scoring_context_for_c_and_d_llm",
-        "baseline_trade_date": "20260812",
-        "target_trade_date": "20260813",
+        "baseline_trade_date": "20260813",
+        "target_trade_date": "20260814",
         "stock": {
           "code": "600875",
           "name": "东方电气"
@@ -1101,8 +1102,8 @@
                 "  营收YoY 85.2% | QoQ 19.8% | 加速度 0.3pp | 最新季营收 816.2亿美元",
                 "【海外闸门·SOX】❌关闭  收12399.4 / MA50 12663.2 / 近1月0.0%",
                 "  触发: 跌破MA50(12663)",
-                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF None / 创业板 37.51",
-                "【篮子拥挤度】换手分位 35% / 篮子52周位置 54%  [已证实]"
+                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF 19.57 / 创业板 37.51",
+                "【篮子拥挤度】换手分位 64% / 篮子52周位置 53%  [已证实]"
               ]
             }
           ],
@@ -1128,11 +1129,11 @@
     },
     {
       "schema_version": 1,
-      "prediction_id": "20260812_20260813_600276_zz800_seed_v1_live",
-      "generated_at": "2026-08-13T08:42:12",
+      "prediction_id": "20260813_20260814_600276_zz800_seed_v1_live",
+      "generated_at": "2026-08-14T05:06:36",
       "generation_mode": "live",
-      "baseline_trade_date": "20260812",
-      "target_trade_date": "20260813",
+      "baseline_trade_date": "20260813",
+      "target_trade_date": "20260814",
       "code": "600276",
       "name": "恒瑞医药",
       "group": "holding",
@@ -1141,23 +1142,23 @@
         "医药"
       ],
       "features_ref": {
-        "price_at_baseline": 54.36,
+        "price_at_baseline": 53.76,
         "right_side_score": 1.0,
         "right_side_grade": "观察等待",
-        "main_inflow_10d": -1458157800.0,
+        "main_inflow_10d": -1789440199.9999998,
         "np_yoy": 21.7823,
         "holder_change_pct": null,
-        "position_20d_pct": 45.51971326164874,
+        "position_20d_pct": 41.5417558886509,
         "market_regime": "momentum",
-        "macro_regime": "🟡 中性",
+        "macro_regime": "🔴 看空",
         "ai_position_ceiling": "减档 (单否决, 不加且高位减)"
       },
       "context_ref": {
         "schema_version": 1,
         "line": "E_context",
         "purpose": "non_scoring_context_for_c_and_d_llm",
-        "baseline_trade_date": "20260812",
-        "target_trade_date": "20260813",
+        "baseline_trade_date": "20260813",
+        "target_trade_date": "20260814",
         "stock": {
           "code": "600276",
           "name": "恒瑞医药"
@@ -1294,8 +1295,8 @@
                 "  营收YoY 85.2% | QoQ 19.8% | 加速度 0.3pp | 最新季营收 816.2亿美元",
                 "【海外闸门·SOX】❌关闭  收12399.4 / MA50 12663.2 / 近1月0.0%",
                 "  触发: 跌破MA50(12663)",
-                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF None / 创业板 37.51",
-                "【篮子拥挤度】换手分位 35% / 篮子52周位置 54%  [已证实]"
+                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF 19.57 / 创业板 37.51",
+                "【篮子拥挤度】换手分位 64% / 篮子52周位置 53%  [已证实]"
               ]
             }
           ],
@@ -1321,11 +1322,11 @@
     },
     {
       "schema_version": 1,
-      "prediction_id": "20260812_20260813_688256_zz800_seed_v1_live",
-      "generated_at": "2026-08-13T08:42:12",
+      "prediction_id": "20260813_20260814_688256_zz800_seed_v1_live",
+      "generated_at": "2026-08-14T05:06:36",
       "generation_mode": "live",
-      "baseline_trade_date": "20260812",
-      "target_trade_date": "20260813",
+      "baseline_trade_date": "20260813",
+      "target_trade_date": "20260814",
       "code": "688256",
       "name": "寒武纪",
       "group": "watchlist",
@@ -1335,23 +1336,23 @@
         "科创板"
       ],
       "features_ref": {
-        "price_at_baseline": 1105.38,
+        "price_at_baseline": 1105.5,
         "right_side_score": 2.5,
         "right_side_grade": "可考虑介入",
-        "main_inflow_10d": -1859005000.0,
+        "main_inflow_10d": -1878526200.0,
         "np_yoy": 122.6135,
         "holder_change_pct": null,
-        "position_20d_pct": 25.418716563163716,
+        "position_20d_pct": 25.45097722934645,
         "market_regime": "momentum",
-        "macro_regime": "🟡 中性",
+        "macro_regime": "🔴 看空",
         "ai_position_ceiling": "减档 (单否决, 不加且高位减)"
       },
       "context_ref": {
         "schema_version": 1,
         "line": "E_context",
         "purpose": "non_scoring_context_for_c_and_d_llm",
-        "baseline_trade_date": "20260812",
-        "target_trade_date": "20260813",
+        "baseline_trade_date": "20260813",
+        "target_trade_date": "20260814",
         "stock": {
           "code": "688256",
           "name": "寒武纪"
@@ -1589,8 +1590,8 @@
                 "  营收YoY 85.2% | QoQ 19.8% | 加速度 0.3pp | 最新季营收 816.2亿美元",
                 "【海外闸门·SOX】❌关闭  收12399.4 / MA50 12663.2 / 近1月0.0%",
                 "  触发: 跌破MA50(12663)",
-                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF None / 创业板 37.51",
-                "【篮子拥挤度】换手分位 35% / 篮子52周位置 54%  [已证实]"
+                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF 19.57 / 创业板 37.51",
+                "【篮子拥挤度】换手分位 64% / 篮子52周位置 53%  [已证实]"
               ]
             }
           ],
@@ -1602,11 +1603,12 @@
       "prediction": {
         "action": "watch",
         "direction": "up",
-        "confidence": 0.6,
+        "confidence": 0.55,
         "horizon": "T+1",
         "expected_excess_bucket": "positive",
         "reason_codes": [
-          "score_ge_2"
+          "score_ge_2",
+          "macro_bearish_reduce_confidence"
         ],
         "reason": "评分≥2,列为高优先观察,需盘中行为确认"
       },
@@ -1615,11 +1617,11 @@
     },
     {
       "schema_version": 1,
-      "prediction_id": "20260812_20260813_688041_zz800_seed_v1_live",
-      "generated_at": "2026-08-13T08:42:12",
+      "prediction_id": "20260813_20260814_688041_zz800_seed_v1_live",
+      "generated_at": "2026-08-14T05:06:36",
       "generation_mode": "live",
-      "baseline_trade_date": "20260812",
-      "target_trade_date": "20260813",
+      "baseline_trade_date": "20260813",
+      "target_trade_date": "20260814",
       "code": "688041",
       "name": "海光信息",
       "group": "watchlist",
@@ -1629,23 +1631,23 @@
         "科创板"
       ],
       "features_ref": {
-        "price_at_baseline": 287.66,
-        "right_side_score": 2.0,
-        "right_side_grade": "可考虑介入",
-        "main_inflow_10d": 956147300.0,
-        "np_yoy": 35.8178,
+        "price_at_baseline": 286.0,
+        "right_side_score": 1.0,
+        "right_side_grade": "观察等待",
+        "main_inflow_10d": 736350800.0,
+        "np_yoy": 49.6912,
         "holder_change_pct": null,
-        "position_20d_pct": 31.54017857142862,
+        "position_20d_pct": 29.687500000000018,
         "market_regime": "momentum",
-        "macro_regime": "🟡 中性",
+        "macro_regime": "🔴 看空",
         "ai_position_ceiling": "减档 (单否决, 不加且高位减)"
       },
       "context_ref": {
         "schema_version": 1,
         "line": "E_context",
         "purpose": "non_scoring_context_for_c_and_d_llm",
-        "baseline_trade_date": "20260812",
-        "target_trade_date": "20260813",
+        "baseline_trade_date": "20260813",
+        "target_trade_date": "20260814",
         "stock": {
           "code": "688041",
           "name": "海光信息"
@@ -1655,15 +1657,15 @@
           "source_status": "provided",
           "source": "tushare.fina_indicator",
           "latest_report": {
-            "period": "20260331",
-            "report_type": "Q1(单季)",
-            "ann_date": "20260408",
+            "period": "20260630",
+            "report_type": "H1(累计)",
+            "ann_date": "20260814",
             "source": "tushare.fina_indicator",
-            "net_profit_yoy": 35.8178,
-            "revenue_yoy": 68.0559,
+            "net_profit_yoy": 49.6912,
+            "revenue_yoy": 66.5196,
             "deducted_net_profit_yoy": null,
-            "roe": 2.988,
-            "gross_margin": 55.604,
+            "roe": 7.5145,
+            "gross_margin": 55.209,
             "raw_fields": [
               "ann_date",
               "bps",
@@ -1684,8 +1686,8 @@
               "ts_code"
             ],
             "raw": {
-              "end_date": "20260331",
-              "ann_date": "20260408",
+              "end_date": "20260630",
+              "ann_date": "20260814",
               "source": "tushare.fina_indicator",
               "raw_fields": [
                 "ann_date",
@@ -1706,46 +1708,32 @@
                 "roe_dt",
                 "ts_code"
               ],
-              "period_type": "Q1(单季)",
-              "roe": 2.988,
-              "gross_margin": 55.604,
-              "net_margin": 21.7514,
-              "np_yoy": 35.8178,
-              "or_yoy": 68.0559,
+              "period_type": "H1(累计)",
+              "roe": 7.5145,
+              "gross_margin": 55.209,
+              "net_margin": 22.6854,
+              "np_yoy": 49.6912,
+              "or_yoy": 66.5196,
               "q_np_yoy": null
             }
           },
           "next_report": {
-            "expected_ann_date": "20260814",
+            "expected_ann_date": null,
             "actual_ann_date": null,
-            "period": "20260630",
-            "source": "tushare.disclosure_date",
-            "status": "scheduled",
+            "period": null,
+            "source": null,
+            "status": "pending_source",
             "near_target_window": null,
             "distance_calendar_days": null,
-            "note": "交易所预约披露日期，后续可能修订",
-            "raw_fields": [
-              "actual_date",
-              "ann_date",
-              "end_date",
-              "modify_date",
-              "pre_date",
-              "ts_code"
-            ],
-            "raw": {
-              "ts_code": "688041.SH",
-              "ann_date": "20260805",
-              "end_date": "20260630",
-              "pre_date": "20260814",
-              "actual_date": NaN,
-              "modify_date": null
-            }
+            "note": "预约披露日期待数据源返回",
+            "raw_fields": [],
+            "raw": null
           },
           "metric_snapshot": {
             "source": "A_eod.metrics",
             "period": "unknown",
             "note": "These are existing EOD factors, not a verified earnings-calendar node.",
-            "np_yoy": 35.8178,
+            "np_yoy": 49.6912,
             "available": true
           },
           "usage": "context_only_not_scoring"
@@ -1897,8 +1885,8 @@
                 "  营收YoY 85.2% | QoQ 19.8% | 加速度 0.3pp | 最新季营收 816.2亿美元",
                 "【海外闸门·SOX】❌关闭  收12399.4 / MA50 12663.2 / 近1月0.0%",
                 "  触发: 跌破MA50(12663)",
-                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF None / 创业板 37.51",
-                "【篮子拥挤度】换手分位 35% / 篮子52周位置 54%  [已证实]"
+                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF 19.57 / 创业板 37.51",
+                "【篮子拥挤度】换手分位 64% / 篮子52周位置 53%  [已证实]"
               ]
             }
           ],
@@ -1908,26 +1896,27 @@
         }
       },
       "prediction": {
-        "action": "watch",
-        "direction": "up",
-        "confidence": 0.6,
+        "action": "avoid",
+        "direction": "neutral",
+        "confidence": 0.55,
         "horizon": "T+1",
-        "expected_excess_bucket": "positive",
+        "expected_excess_bucket": "non_positive",
         "reason_codes": [
-          "score_ge_2"
+          "score_lt_2",
+          "non_panic"
         ],
-        "reason": "评分≥2,列为高优先观察,需盘中行为确认"
+        "reason": "非 panic 且评分<2,默认回避/低优先级"
       },
       "rule_version": "zz800_seed_v1",
       "model_version": "manual_rules_v1"
     },
     {
       "schema_version": 1,
-      "prediction_id": "20260812_20260813_688008_zz800_seed_v1_live",
-      "generated_at": "2026-08-13T08:42:12",
+      "prediction_id": "20260813_20260814_688008_zz800_seed_v1_live",
+      "generated_at": "2026-08-14T05:06:36",
       "generation_mode": "live",
-      "baseline_trade_date": "20260812",
-      "target_trade_date": "20260813",
+      "baseline_trade_date": "20260813",
+      "target_trade_date": "20260814",
       "code": "688008",
       "name": "澜起科技",
       "group": "watchlist",
@@ -1937,23 +1926,23 @@
         "科创板"
       ],
       "features_ref": {
-        "price_at_baseline": 215.43,
+        "price_at_baseline": 210.22,
         "right_side_score": 2.5,
         "right_side_grade": "可考虑介入",
-        "main_inflow_10d": 765813399.9999999,
+        "main_inflow_10d": 568124699.9999999,
         "np_yoy": 61.3046,
         "holder_change_pct": null,
-        "position_20d_pct": 57.54948470472765,
+        "position_20d_pct": 51.0127659574468,
         "market_regime": "momentum",
-        "macro_regime": "🟡 中性",
+        "macro_regime": "🔴 看空",
         "ai_position_ceiling": "减档 (单否决, 不加且高位减)"
       },
       "context_ref": {
         "schema_version": 1,
         "line": "E_context",
         "purpose": "non_scoring_context_for_c_and_d_llm",
-        "baseline_trade_date": "20260812",
-        "target_trade_date": "20260813",
+        "baseline_trade_date": "20260813",
+        "target_trade_date": "20260814",
         "stock": {
           "code": "688008",
           "name": "澜起科技"
@@ -2205,8 +2194,8 @@
                 "  营收YoY 85.2% | QoQ 19.8% | 加速度 0.3pp | 最新季营收 816.2亿美元",
                 "【海外闸门·SOX】❌关闭  收12399.4 / MA50 12663.2 / 近1月0.0%",
                 "  触发: 跌破MA50(12663)",
-                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF None / 创业板 37.51",
-                "【篮子拥挤度】换手分位 35% / 篮子52周位置 54%  [已证实]"
+                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF 19.57 / 创业板 37.51",
+                "【篮子拥挤度】换手分位 64% / 篮子52周位置 53%  [已证实]"
               ]
             }
           ],
@@ -2218,11 +2207,12 @@
       "prediction": {
         "action": "watch",
         "direction": "up",
-        "confidence": 0.6,
+        "confidence": 0.55,
         "horizon": "T+1",
         "expected_excess_bucket": "positive",
         "reason_codes": [
-          "score_ge_2"
+          "score_ge_2",
+          "macro_bearish_reduce_confidence"
         ],
         "reason": "评分≥2,列为高优先观察,需盘中行为确认"
       },
@@ -2231,11 +2221,11 @@
     },
     {
       "schema_version": 1,
-      "prediction_id": "20260812_20260813_300308_zz800_seed_v1_live",
-      "generated_at": "2026-08-13T08:42:12",
+      "prediction_id": "20260813_20260814_300308_zz800_seed_v1_live",
+      "generated_at": "2026-08-14T05:06:36",
       "generation_mode": "live",
-      "baseline_trade_date": "20260812",
-      "target_trade_date": "20260813",
+      "baseline_trade_date": "20260813",
+      "target_trade_date": "20260814",
       "code": "300308",
       "name": "中际旭创",
       "group": "watchlist",
@@ -2246,23 +2236,23 @@
         "创业板"
       ],
       "features_ref": {
-        "price_at_baseline": 921.0,
+        "price_at_baseline": 921.04,
         "right_side_score": 3.5,
         "right_side_grade": "强买入信号",
-        "main_inflow_10d": 11057382200.0,
+        "main_inflow_10d": 9524484500.0,
         "np_yoy": 262.2837,
         "holder_change_pct": null,
-        "position_20d_pct": 34.589291023596516,
+        "position_20d_pct": 37.01315599248227,
         "market_regime": "momentum",
-        "macro_regime": "🟡 中性",
+        "macro_regime": "🔴 看空",
         "ai_position_ceiling": "减档 (单否决, 不加且高位减)"
       },
       "context_ref": {
         "schema_version": 1,
         "line": "E_context",
         "purpose": "non_scoring_context_for_c_and_d_llm",
-        "baseline_trade_date": "20260812",
-        "target_trade_date": "20260813",
+        "baseline_trade_date": "20260813",
+        "target_trade_date": "20260814",
         "stock": {
           "code": "300308",
           "name": "中际旭创"
@@ -2515,8 +2505,8 @@
                 "  营收YoY 85.2% | QoQ 19.8% | 加速度 0.3pp | 最新季营收 816.2亿美元",
                 "【海外闸门·SOX】❌关闭  收12399.4 / MA50 12663.2 / 近1月0.0%",
                 "  触发: 跌破MA50(12663)",
-                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF None / 创业板 37.51",
-                "【篮子拥挤度】换手分位 35% / 篮子52周位置 54%  [已证实]"
+                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF 19.57 / 创业板 37.51",
+                "【篮子拥挤度】换手分位 64% / 篮子52周位置 53%  [已证实]"
               ]
             }
           ],
@@ -2541,11 +2531,11 @@
     },
     {
       "schema_version": 1,
-      "prediction_id": "20260812_20260813_300502_zz800_seed_v1_live",
-      "generated_at": "2026-08-13T08:42:12",
+      "prediction_id": "20260813_20260814_300502_zz800_seed_v1_live",
+      "generated_at": "2026-08-14T05:06:36",
       "generation_mode": "live",
-      "baseline_trade_date": "20260812",
-      "target_trade_date": "20260813",
+      "baseline_trade_date": "20260813",
+      "target_trade_date": "20260814",
       "code": "300502",
       "name": "新易盛",
       "group": "watchlist",
@@ -2555,23 +2545,23 @@
         "创业板"
       ],
       "features_ref": {
-        "price_at_baseline": 428.2,
-        "right_side_score": 2.5,
+        "price_at_baseline": 429.9,
+        "right_side_score": 2.0,
         "right_side_grade": "可考虑介入",
-        "main_inflow_10d": 7758454600.0,
+        "main_inflow_10d": 5815167300.0,
         "np_yoy": 76.7998,
         "holder_change_pct": null,
-        "position_20d_pct": 38.48341232227487,
+        "position_20d_pct": 39.97107039537126,
         "market_regime": "momentum",
-        "macro_regime": "🟡 中性",
+        "macro_regime": "🔴 看空",
         "ai_position_ceiling": "减档 (单否决, 不加且高位减)"
       },
       "context_ref": {
         "schema_version": 1,
         "line": "E_context",
         "purpose": "non_scoring_context_for_c_and_d_llm",
-        "baseline_trade_date": "20260812",
-        "target_trade_date": "20260813",
+        "baseline_trade_date": "20260813",
+        "target_trade_date": "20260814",
         "stock": {
           "code": "300502",
           "name": "新易盛"
@@ -2823,8 +2813,8 @@
                 "  营收YoY 85.2% | QoQ 19.8% | 加速度 0.3pp | 最新季营收 816.2亿美元",
                 "【海外闸门·SOX】❌关闭  收12399.4 / MA50 12663.2 / 近1月0.0%",
                 "  触发: 跌破MA50(12663)",
-                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF None / 创业板 37.51",
-                "【篮子拥挤度】换手分位 35% / 篮子52周位置 54%  [已证实]"
+                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF 19.57 / 创业板 37.51",
+                "【篮子拥挤度】换手分位 64% / 篮子52周位置 53%  [已证实]"
               ]
             }
           ],
@@ -2836,11 +2826,12 @@
       "prediction": {
         "action": "watch",
         "direction": "up",
-        "confidence": 0.6,
+        "confidence": 0.55,
         "horizon": "T+1",
         "expected_excess_bucket": "positive",
         "reason_codes": [
-          "score_ge_2"
+          "score_ge_2",
+          "macro_bearish_reduce_confidence"
         ],
         "reason": "评分≥2,列为高优先观察,需盘中行为确认"
       },
@@ -2849,11 +2840,11 @@
     },
     {
       "schema_version": 1,
-      "prediction_id": "20260812_20260813_300394_zz800_seed_v1_live",
-      "generated_at": "2026-08-13T08:42:12",
+      "prediction_id": "20260813_20260814_300394_zz800_seed_v1_live",
+      "generated_at": "2026-08-14T05:06:36",
       "generation_mode": "live",
-      "baseline_trade_date": "20260812",
-      "target_trade_date": "20260813",
+      "baseline_trade_date": "20260813",
+      "target_trade_date": "20260814",
       "code": "300394",
       "name": "天孚通信",
       "group": "watchlist",
@@ -2863,23 +2854,23 @@
         "创业板"
       ],
       "features_ref": {
-        "price_at_baseline": 240.05,
+        "price_at_baseline": 257.16,
         "right_side_score": 2.5,
         "right_side_grade": "可考虑介入",
-        "main_inflow_10d": 5301874400.0,
+        "main_inflow_10d": 6011125400.0,
         "np_yoy": 45.7879,
         "holder_change_pct": null,
-        "position_20d_pct": 83.28405282870098,
+        "position_20d_pct": 87.70824341821324,
         "market_regime": "momentum",
-        "macro_regime": "🟡 中性",
+        "macro_regime": "🔴 看空",
         "ai_position_ceiling": "减档 (单否决, 不加且高位减)"
       },
       "context_ref": {
         "schema_version": 1,
         "line": "E_context",
         "purpose": "non_scoring_context_for_c_and_d_llm",
-        "baseline_trade_date": "20260812",
-        "target_trade_date": "20260813",
+        "baseline_trade_date": "20260813",
+        "target_trade_date": "20260814",
         "stock": {
           "code": "300394",
           "name": "天孚通信"
@@ -3131,8 +3122,8 @@
                 "  营收YoY 85.2% | QoQ 19.8% | 加速度 0.3pp | 最新季营收 816.2亿美元",
                 "【海外闸门·SOX】❌关闭  收12399.4 / MA50 12663.2 / 近1月0.0%",
                 "  触发: 跌破MA50(12663)",
-                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF None / 创业板 37.51",
-                "【篮子拥挤度】换手分位 35% / 篮子52周位置 54%  [已证实]"
+                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF 19.57 / 创业板 37.51",
+                "【篮子拥挤度】换手分位 64% / 篮子52周位置 53%  [已证实]"
               ]
             }
           ],
@@ -3144,11 +3135,12 @@
       "prediction": {
         "action": "watch",
         "direction": "up",
-        "confidence": 0.6,
+        "confidence": 0.55,
         "horizon": "T+1",
         "expected_excess_bucket": "positive",
         "reason_codes": [
-          "score_ge_2"
+          "score_ge_2",
+          "macro_bearish_reduce_confidence"
         ],
         "reason": "评分≥2,列为高优先观察,需盘中行为确认"
       },
@@ -3157,11 +3149,11 @@
     },
     {
       "schema_version": 1,
-      "prediction_id": "20260812_20260813_002463_zz800_seed_v1_live",
-      "generated_at": "2026-08-13T08:42:12",
+      "prediction_id": "20260813_20260814_002463_zz800_seed_v1_live",
+      "generated_at": "2026-08-14T05:06:36",
       "generation_mode": "live",
-      "baseline_trade_date": "20260812",
-      "target_trade_date": "20260813",
+      "baseline_trade_date": "20260813",
+      "target_trade_date": "20260814",
       "code": "002463",
       "name": "沪电股份",
       "group": "watchlist",
@@ -3171,23 +3163,23 @@
         "服务器"
       ],
       "features_ref": {
-        "price_at_baseline": 123.01,
+        "price_at_baseline": 120.66,
         "right_side_score": 2.0,
         "right_side_grade": "可考虑介入",
-        "main_inflow_10d": 1835120200.0,
+        "main_inflow_10d": 796575700.0,
         "np_yoy": 62.9033,
         "holder_change_pct": null,
-        "position_20d_pct": 58.59925404061334,
+        "position_20d_pct": 62.15244487056568,
         "market_regime": "momentum",
-        "macro_regime": "🟡 中性",
+        "macro_regime": "🔴 看空",
         "ai_position_ceiling": "减档 (单否决, 不加且高位减)"
       },
       "context_ref": {
         "schema_version": 1,
         "line": "E_context",
         "purpose": "non_scoring_context_for_c_and_d_llm",
-        "baseline_trade_date": "20260812",
-        "target_trade_date": "20260813",
+        "baseline_trade_date": "20260813",
+        "target_trade_date": "20260814",
         "stock": {
           "code": "002463",
           "name": "沪电股份"
@@ -3439,8 +3431,8 @@
                 "  营收YoY 85.2% | QoQ 19.8% | 加速度 0.3pp | 最新季营收 816.2亿美元",
                 "【海外闸门·SOX】❌关闭  收12399.4 / MA50 12663.2 / 近1月0.0%",
                 "  触发: 跌破MA50(12663)",
-                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF None / 创业板 37.51",
-                "【篮子拥挤度】换手分位 35% / 篮子52周位置 54%  [已证实]"
+                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF 19.57 / 创业板 37.51",
+                "【篮子拥挤度】换手分位 64% / 篮子52周位置 53%  [已证实]"
               ]
             }
           ],
@@ -3452,11 +3444,12 @@
       "prediction": {
         "action": "watch",
         "direction": "up",
-        "confidence": 0.6,
+        "confidence": 0.55,
         "horizon": "T+1",
         "expected_excess_bucket": "positive",
         "reason_codes": [
-          "score_ge_2"
+          "score_ge_2",
+          "macro_bearish_reduce_confidence"
         ],
         "reason": "评分≥2,列为高优先观察,需盘中行为确认"
       },
@@ -3465,11 +3458,11 @@
     },
     {
       "schema_version": 1,
-      "prediction_id": "20260812_20260813_300476_zz800_seed_v1_live",
-      "generated_at": "2026-08-13T08:42:12",
+      "prediction_id": "20260813_20260814_300476_zz800_seed_v1_live",
+      "generated_at": "2026-08-14T05:06:36",
       "generation_mode": "live",
-      "baseline_trade_date": "20260812",
-      "target_trade_date": "20260813",
+      "baseline_trade_date": "20260813",
+      "target_trade_date": "20260814",
       "code": "300476",
       "name": "胜宏科技",
       "group": "watchlist",
@@ -3479,23 +3472,23 @@
         "创业板"
       ],
       "features_ref": {
-        "price_at_baseline": 279.39,
-        "right_side_score": 2.5,
+        "price_at_baseline": 271.3,
+        "right_side_score": 2.0,
         "right_side_grade": "可考虑介入",
-        "main_inflow_10d": 3531277200.0,
+        "main_inflow_10d": 1954441500.0,
         "np_yoy": 39.948,
         "holder_change_pct": null,
-        "position_20d_pct": 93.75634986607557,
+        "position_20d_pct": 85.08196721311477,
         "market_regime": "momentum",
-        "macro_regime": "🟡 中性",
+        "macro_regime": "🔴 看空",
         "ai_position_ceiling": "减档 (单否决, 不加且高位减)"
       },
       "context_ref": {
         "schema_version": 1,
         "line": "E_context",
         "purpose": "non_scoring_context_for_c_and_d_llm",
-        "baseline_trade_date": "20260812",
-        "target_trade_date": "20260813",
+        "baseline_trade_date": "20260813",
+        "target_trade_date": "20260814",
         "stock": {
           "code": "300476",
           "name": "胜宏科技"
@@ -3747,8 +3740,8 @@
                 "  营收YoY 85.2% | QoQ 19.8% | 加速度 0.3pp | 最新季营收 816.2亿美元",
                 "【海外闸门·SOX】❌关闭  收12399.4 / MA50 12663.2 / 近1月0.0%",
                 "  触发: 跌破MA50(12663)",
-                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF None / 创业板 37.51",
-                "【篮子拥挤度】换手分位 35% / 篮子52周位置 54%  [已证实]"
+                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF 19.57 / 创业板 37.51",
+                "【篮子拥挤度】换手分位 64% / 篮子52周位置 53%  [已证实]"
               ]
             }
           ],
@@ -3760,11 +3753,12 @@
       "prediction": {
         "action": "watch",
         "direction": "up",
-        "confidence": 0.6,
+        "confidence": 0.55,
         "horizon": "T+1",
         "expected_excess_bucket": "positive",
         "reason_codes": [
-          "score_ge_2"
+          "score_ge_2",
+          "macro_bearish_reduce_confidence"
         ],
         "reason": "评分≥2,列为高优先观察,需盘中行为确认"
       },
@@ -3773,11 +3767,11 @@
     },
     {
       "schema_version": 1,
-      "prediction_id": "20260812_20260813_002384_zz800_seed_v1_live",
-      "generated_at": "2026-08-13T08:42:12",
+      "prediction_id": "20260813_20260814_002384_zz800_seed_v1_live",
+      "generated_at": "2026-08-14T05:06:36",
       "generation_mode": "live",
-      "baseline_trade_date": "20260812",
-      "target_trade_date": "20260813",
+      "baseline_trade_date": "20260813",
+      "target_trade_date": "20260814",
       "code": "002384",
       "name": "东山精密",
       "group": "watchlist",
@@ -3786,23 +3780,23 @@
         "PCB"
       ],
       "features_ref": {
-        "price_at_baseline": 200.19,
-        "right_side_score": 3.0,
+        "price_at_baseline": 202.11,
+        "right_side_score": 2.5,
         "right_side_grade": "可考虑介入",
-        "main_inflow_10d": 7604966300.000001,
+        "main_inflow_10d": 2941550100.0,
         "np_yoy": 143.471,
         "holder_change_pct": null,
-        "position_20d_pct": 33.61646234676006,
+        "position_20d_pct": 41.04887983706721,
         "market_regime": "momentum",
-        "macro_regime": "🟡 中性",
+        "macro_regime": "🔴 看空",
         "ai_position_ceiling": "减档 (单否决, 不加且高位减)"
       },
       "context_ref": {
         "schema_version": 1,
         "line": "E_context",
         "purpose": "non_scoring_context_for_c_and_d_llm",
-        "baseline_trade_date": "20260812",
-        "target_trade_date": "20260813",
+        "baseline_trade_date": "20260813",
+        "target_trade_date": "20260814",
         "stock": {
           "code": "002384",
           "name": "东山精密"
@@ -4053,8 +4047,8 @@
                 "  营收YoY 85.2% | QoQ 19.8% | 加速度 0.3pp | 最新季营收 816.2亿美元",
                 "【海外闸门·SOX】❌关闭  收12399.4 / MA50 12663.2 / 近1月0.0%",
                 "  触发: 跌破MA50(12663)",
-                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF None / 创业板 37.51",
-                "【篮子拥挤度】换手分位 35% / 篮子52周位置 54%  [已证实]"
+                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF 19.57 / 创业板 37.51",
+                "【篮子拥挤度】换手分位 64% / 篮子52周位置 53%  [已证实]"
               ]
             }
           ],
@@ -4066,11 +4060,12 @@
       "prediction": {
         "action": "watch",
         "direction": "up",
-        "confidence": 0.6,
+        "confidence": 0.55,
         "horizon": "T+1",
         "expected_excess_bucket": "positive",
         "reason_codes": [
-          "score_ge_2"
+          "score_ge_2",
+          "macro_bearish_reduce_confidence"
         ],
         "reason": "评分≥2,列为高优先观察,需盘中行为确认"
       },
@@ -4079,11 +4074,11 @@
     },
     {
       "schema_version": 1,
-      "prediction_id": "20260812_20260813_688183_zz800_seed_v1_live",
-      "generated_at": "2026-08-13T08:42:12",
+      "prediction_id": "20260813_20260814_688183_zz800_seed_v1_live",
+      "generated_at": "2026-08-14T05:06:36",
       "generation_mode": "live",
-      "baseline_trade_date": "20260812",
-      "target_trade_date": "20260813",
+      "baseline_trade_date": "20260813",
+      "target_trade_date": "20260814",
       "code": "688183",
       "name": "生益电子",
       "group": "watchlist",
@@ -4093,23 +4088,23 @@
         "科创板"
       ],
       "features_ref": {
-        "price_at_baseline": 111.9,
+        "price_at_baseline": 109.85,
         "right_side_score": 3.0,
         "right_side_grade": "可考虑介入",
-        "main_inflow_10d": 410094500.0,
+        "main_inflow_10d": 365291700.0,
         "np_yoy": 122.156,
         "holder_change_pct": null,
-        "position_20d_pct": 57.90476190476191,
+        "position_20d_pct": 62.86031042128602,
         "market_regime": "momentum",
-        "macro_regime": "🟡 中性",
+        "macro_regime": "🔴 看空",
         "ai_position_ceiling": "减档 (单否决, 不加且高位减)"
       },
       "context_ref": {
         "schema_version": 1,
         "line": "E_context",
         "purpose": "non_scoring_context_for_c_and_d_llm",
-        "baseline_trade_date": "20260812",
-        "target_trade_date": "20260813",
+        "baseline_trade_date": "20260813",
+        "target_trade_date": "20260814",
         "stock": {
           "code": "688183",
           "name": "生益电子"
@@ -4361,8 +4356,8 @@
                 "  营收YoY 85.2% | QoQ 19.8% | 加速度 0.3pp | 最新季营收 816.2亿美元",
                 "【海外闸门·SOX】❌关闭  收12399.4 / MA50 12663.2 / 近1月0.0%",
                 "  触发: 跌破MA50(12663)",
-                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF None / 创业板 37.51",
-                "【篮子拥挤度】换手分位 35% / 篮子52周位置 54%  [已证实]"
+                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF 19.57 / 创业板 37.51",
+                "【篮子拥挤度】换手分位 64% / 篮子52周位置 53%  [已证实]"
               ]
             }
           ],
@@ -4374,11 +4369,12 @@
       "prediction": {
         "action": "watch",
         "direction": "up",
-        "confidence": 0.6,
+        "confidence": 0.55,
         "horizon": "T+1",
         "expected_excess_bucket": "positive",
         "reason_codes": [
-          "score_ge_2"
+          "score_ge_2",
+          "macro_bearish_reduce_confidence"
         ],
         "reason": "评分≥2,列为高优先观察,需盘中行为确认"
       },
@@ -4387,11 +4383,11 @@
     },
     {
       "schema_version": 1,
-      "prediction_id": "20260812_20260813_600183_zz800_seed_v1_live",
-      "generated_at": "2026-08-13T08:42:12",
+      "prediction_id": "20260813_20260814_600183_zz800_seed_v1_live",
+      "generated_at": "2026-08-14T05:06:36",
       "generation_mode": "live",
-      "baseline_trade_date": "20260812",
-      "target_trade_date": "20260813",
+      "baseline_trade_date": "20260813",
+      "target_trade_date": "20260814",
       "code": "600183",
       "name": "生益科技",
       "group": "watchlist",
@@ -4401,23 +4397,23 @@
         "PCB"
       ],
       "features_ref": {
-        "price_at_baseline": 143.23,
+        "price_at_baseline": 141.74,
         "right_side_score": 1.5,
         "right_side_grade": "观察等待",
-        "main_inflow_10d": -2874084100.0,
+        "main_inflow_10d": -3296582900.0,
         "np_yoy": 105.4724,
         "holder_change_pct": null,
-        "position_20d_pct": 78.93646408839776,
+        "position_20d_pct": 81.3200956058099,
         "market_regime": "momentum",
-        "macro_regime": "🟡 中性",
+        "macro_regime": "🔴 看空",
         "ai_position_ceiling": "减档 (单否决, 不加且高位减)"
       },
       "context_ref": {
         "schema_version": 1,
         "line": "E_context",
         "purpose": "non_scoring_context_for_c_and_d_llm",
-        "baseline_trade_date": "20260812",
-        "target_trade_date": "20260813",
+        "baseline_trade_date": "20260813",
+        "target_trade_date": "20260814",
         "stock": {
           "code": "600183",
           "name": "生益科技"
@@ -4669,8 +4665,8 @@
                 "  营收YoY 85.2% | QoQ 19.8% | 加速度 0.3pp | 最新季营收 816.2亿美元",
                 "【海外闸门·SOX】❌关闭  收12399.4 / MA50 12663.2 / 近1月0.0%",
                 "  触发: 跌破MA50(12663)",
-                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF None / 创业板 37.51",
-                "【篮子拥挤度】换手分位 35% / 篮子52周位置 54%  [已证实]"
+                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF 19.57 / 创业板 37.51",
+                "【篮子拥挤度】换手分位 64% / 篮子52周位置 53%  [已证实]"
               ]
             }
           ],
@@ -4696,11 +4692,11 @@
     },
     {
       "schema_version": 1,
-      "prediction_id": "20260812_20260813_300054_zz800_seed_v1_live",
-      "generated_at": "2026-08-13T08:42:12",
+      "prediction_id": "20260813_20260814_300054_zz800_seed_v1_live",
+      "generated_at": "2026-08-14T05:06:36",
       "generation_mode": "live",
-      "baseline_trade_date": "20260812",
-      "target_trade_date": "20260813",
+      "baseline_trade_date": "20260813",
+      "target_trade_date": "20260814",
       "code": "300054",
       "name": "鼎龙股份",
       "group": "watchlist",
@@ -4710,23 +4706,23 @@
         "创业板"
       ],
       "features_ref": {
-        "price_at_baseline": 77.58,
+        "price_at_baseline": 74.92,
         "right_side_score": 2.5,
         "right_side_grade": "可考虑介入",
-        "main_inflow_10d": 723308400.0,
+        "main_inflow_10d": 618032000.0,
         "np_yoy": 77.9914,
         "holder_change_pct": null,
-        "position_20d_pct": 87.84497944803284,
+        "position_20d_pct": 72.22548443922489,
         "market_regime": "momentum",
-        "macro_regime": "🟡 中性",
+        "macro_regime": "🔴 看空",
         "ai_position_ceiling": "减档 (单否决, 不加且高位减)"
       },
       "context_ref": {
         "schema_version": 1,
         "line": "E_context",
         "purpose": "non_scoring_context_for_c_and_d_llm",
-        "baseline_trade_date": "20260812",
-        "target_trade_date": "20260813",
+        "baseline_trade_date": "20260813",
+        "target_trade_date": "20260814",
         "stock": {
           "code": "300054",
           "name": "鼎龙股份"
@@ -4978,8 +4974,8 @@
                 "  营收YoY 85.2% | QoQ 19.8% | 加速度 0.3pp | 最新季营收 816.2亿美元",
                 "【海外闸门·SOX】❌关闭  收12399.4 / MA50 12663.2 / 近1月0.0%",
                 "  触发: 跌破MA50(12663)",
-                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF None / 创业板 37.51",
-                "【篮子拥挤度】换手分位 35% / 篮子52周位置 54%  [已证实]"
+                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF 19.57 / 创业板 37.51",
+                "【篮子拥挤度】换手分位 64% / 篮子52周位置 53%  [已证实]"
               ]
             }
           ],
@@ -4991,11 +4987,12 @@
       "prediction": {
         "action": "watch",
         "direction": "up",
-        "confidence": 0.6,
+        "confidence": 0.55,
         "horizon": "T+1",
         "expected_excess_bucket": "positive",
         "reason_codes": [
-          "score_ge_2"
+          "score_ge_2",
+          "macro_bearish_reduce_confidence"
         ],
         "reason": "评分≥2,列为高优先观察,需盘中行为确认"
       },
@@ -5004,11 +5001,11 @@
     },
     {
       "schema_version": 1,
-      "prediction_id": "20260812_20260813_002371_zz800_seed_v1_live",
-      "generated_at": "2026-08-13T08:42:12",
+      "prediction_id": "20260813_20260814_002371_zz800_seed_v1_live",
+      "generated_at": "2026-08-14T05:06:36",
       "generation_mode": "live",
-      "baseline_trade_date": "20260812",
-      "target_trade_date": "20260813",
+      "baseline_trade_date": "20260813",
+      "target_trade_date": "20260814",
       "code": "002371",
       "name": "北方华创",
       "group": "watchlist",
@@ -5017,23 +5014,23 @@
         "AI算力"
       ],
       "features_ref": {
-        "price_at_baseline": 760.0,
+        "price_at_baseline": 738.6,
         "right_side_score": 2.3,
         "right_side_grade": "可考虑介入",
-        "main_inflow_10d": 4097226800.0,
+        "main_inflow_10d": 2521790800.0,
         "np_yoy": 3.4182,
         "holder_change_pct": null,
-        "position_20d_pct": 72.3148200463303,
+        "position_20d_pct": 60.223741454319466,
         "market_regime": "momentum",
-        "macro_regime": "🟡 中性",
+        "macro_regime": "🔴 看空",
         "ai_position_ceiling": "减档 (单否决, 不加且高位减)"
       },
       "context_ref": {
         "schema_version": 1,
         "line": "E_context",
         "purpose": "non_scoring_context_for_c_and_d_llm",
-        "baseline_trade_date": "20260812",
-        "target_trade_date": "20260813",
+        "baseline_trade_date": "20260813",
+        "target_trade_date": "20260814",
         "stock": {
           "code": "002371",
           "name": "北方华创"
@@ -5232,8 +5229,8 @@
                 "  营收YoY 85.2% | QoQ 19.8% | 加速度 0.3pp | 最新季营收 816.2亿美元",
                 "【海外闸门·SOX】❌关闭  收12399.4 / MA50 12663.2 / 近1月0.0%",
                 "  触发: 跌破MA50(12663)",
-                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF None / 创业板 37.51",
-                "【篮子拥挤度】换手分位 35% / 篮子52周位置 54%  [已证实]"
+                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF 19.57 / 创业板 37.51",
+                "【篮子拥挤度】换手分位 64% / 篮子52周位置 53%  [已证实]"
               ]
             }
           ],
@@ -5245,11 +5242,12 @@
       "prediction": {
         "action": "watch",
         "direction": "up",
-        "confidence": 0.6,
+        "confidence": 0.55,
         "horizon": "T+1",
         "expected_excess_bucket": "positive",
         "reason_codes": [
-          "score_ge_2"
+          "score_ge_2",
+          "macro_bearish_reduce_confidence"
         ],
         "reason": "评分≥2,列为高优先观察,需盘中行为确认"
       },
@@ -5258,11 +5256,11 @@
     },
     {
       "schema_version": 1,
-      "prediction_id": "20260812_20260813_002837_zz800_seed_v1_live",
-      "generated_at": "2026-08-13T08:42:12",
+      "prediction_id": "20260813_20260814_002837_zz800_seed_v1_live",
+      "generated_at": "2026-08-14T05:06:36",
       "generation_mode": "live",
-      "baseline_trade_date": "20260812",
-      "target_trade_date": "20260813",
+      "baseline_trade_date": "20260813",
+      "target_trade_date": "20260814",
       "code": "002837",
       "name": "英维克",
       "group": "watchlist",
@@ -5271,23 +5269,23 @@
         "液冷温控"
       ],
       "features_ref": {
-        "price_at_baseline": 56.01,
-        "right_side_score": 1.0,
+        "price_at_baseline": 55.45,
+        "right_side_score": 0.5,
         "right_side_grade": "观察等待",
-        "main_inflow_10d": 909784400.0,
+        "main_inflow_10d": 606402400.0,
         "np_yoy": -81.9673,
         "holder_change_pct": null,
-        "position_20d_pct": 40.84168336673347,
+        "position_20d_pct": 41.815023881893204,
         "market_regime": "momentum",
-        "macro_regime": "🟡 中性",
+        "macro_regime": "🔴 看空",
         "ai_position_ceiling": "减档 (单否决, 不加且高位减)"
       },
       "context_ref": {
         "schema_version": 1,
         "line": "E_context",
         "purpose": "non_scoring_context_for_c_and_d_llm",
-        "baseline_trade_date": "20260812",
-        "target_trade_date": "20260813",
+        "baseline_trade_date": "20260813",
+        "target_trade_date": "20260814",
         "stock": {
           "code": "002837",
           "name": "英维克"
@@ -5486,8 +5484,8 @@
                 "  营收YoY 85.2% | QoQ 19.8% | 加速度 0.3pp | 最新季营收 816.2亿美元",
                 "【海外闸门·SOX】❌关闭  收12399.4 / MA50 12663.2 / 近1月0.0%",
                 "  触发: 跌破MA50(12663)",
-                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF None / 创业板 37.51",
-                "【篮子拥挤度】换手分位 35% / 篮子52周位置 54%  [已证实]"
+                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF 19.57 / 创业板 37.51",
+                "【篮子拥挤度】换手分位 64% / 篮子52周位置 53%  [已证实]"
               ]
             }
           ],
@@ -5513,11 +5511,11 @@
     },
     {
       "schema_version": 1,
-      "prediction_id": "20260812_20260813_002364_zz800_seed_v1_live",
-      "generated_at": "2026-08-13T08:42:12",
+      "prediction_id": "20260813_20260814_002364_zz800_seed_v1_live",
+      "generated_at": "2026-08-14T05:06:36",
       "generation_mode": "live",
-      "baseline_trade_date": "20260812",
-      "target_trade_date": "20260813",
+      "baseline_trade_date": "20260813",
+      "target_trade_date": "20260814",
       "code": "002364",
       "name": "中恒电气",
       "group": "watchlist",
@@ -5526,23 +5524,23 @@
         "算力电源"
       ],
       "features_ref": {
-        "price_at_baseline": 41.59,
+        "price_at_baseline": 43.0,
         "right_side_score": 1.0,
         "right_side_grade": "观察等待",
-        "main_inflow_10d": -115824700.00000001,
+        "main_inflow_10d": -408558300.0,
         "np_yoy": 22.889,
         "holder_change_pct": null,
-        "position_20d_pct": 52.05026455026457,
+        "position_20d_pct": 72.04968944099377,
         "market_regime": "momentum",
-        "macro_regime": "🟡 中性",
+        "macro_regime": "🔴 看空",
         "ai_position_ceiling": "减档 (单否决, 不加且高位减)"
       },
       "context_ref": {
         "schema_version": 1,
         "line": "E_context",
         "purpose": "non_scoring_context_for_c_and_d_llm",
-        "baseline_trade_date": "20260812",
-        "target_trade_date": "20260813",
+        "baseline_trade_date": "20260813",
+        "target_trade_date": "20260814",
         "stock": {
           "code": "002364",
           "name": "中恒电气"
@@ -5741,8 +5739,8 @@
                 "  营收YoY 85.2% | QoQ 19.8% | 加速度 0.3pp | 最新季营收 816.2亿美元",
                 "【海外闸门·SOX】❌关闭  收12399.4 / MA50 12663.2 / 近1月0.0%",
                 "  触发: 跌破MA50(12663)",
-                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF None / 创业板 37.51",
-                "【篮子拥挤度】换手分位 35% / 篮子52周位置 54%  [已证实]"
+                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF 19.57 / 创业板 37.51",
+                "【篮子拥挤度】换手分位 64% / 篮子52周位置 53%  [已证实]"
               ]
             }
           ],
@@ -5768,11 +5766,11 @@
     },
     {
       "schema_version": 1,
-      "prediction_id": "20260812_20260813_300540_zz800_seed_v1_live",
-      "generated_at": "2026-08-13T08:42:12",
+      "prediction_id": "20260813_20260814_300540_zz800_seed_v1_live",
+      "generated_at": "2026-08-14T05:06:36",
       "generation_mode": "live",
-      "baseline_trade_date": "20260812",
-      "target_trade_date": "20260813",
+      "baseline_trade_date": "20260813",
+      "target_trade_date": "20260814",
       "code": "300540",
       "name": "蜀道装备",
       "group": "watchlist",
@@ -5782,23 +5780,23 @@
         "创业板"
       ],
       "features_ref": {
-        "price_at_baseline": 33.19,
-        "right_side_score": 1.5,
-        "right_side_grade": "观察等待",
-        "main_inflow_10d": -177379200.0,
+        "price_at_baseline": 32.4,
+        "right_side_score": 2.0,
+        "right_side_grade": "可考虑介入",
+        "main_inflow_10d": -187935200.0,
         "np_yoy": 1973.2448,
         "holder_change_pct": null,
-        "position_20d_pct": 65.34576534576533,
+        "position_20d_pct": 59.2074592074592,
         "market_regime": "momentum",
-        "macro_regime": "🟡 中性",
+        "macro_regime": "🔴 看空",
         "ai_position_ceiling": "减档 (单否决, 不加且高位减)"
       },
       "context_ref": {
         "schema_version": 1,
         "line": "E_context",
         "purpose": "non_scoring_context_for_c_and_d_llm",
-        "baseline_trade_date": "20260812",
-        "target_trade_date": "20260813",
+        "baseline_trade_date": "20260813",
+        "target_trade_date": "20260814",
         "stock": {
           "code": "300540",
           "name": "蜀道装备"
@@ -5998,8 +5996,8 @@
                 "  营收YoY 85.2% | QoQ 19.8% | 加速度 0.3pp | 最新季营收 816.2亿美元",
                 "【海外闸门·SOX】❌关闭  收12399.4 / MA50 12663.2 / 近1月0.0%",
                 "  触发: 跌破MA50(12663)",
-                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF None / 创业板 37.51",
-                "【篮子拥挤度】换手分位 35% / 篮子52周位置 54%  [已证实]"
+                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF 19.57 / 创业板 37.51",
+                "【篮子拥挤度】换手分位 64% / 篮子52周位置 53%  [已证实]"
               ]
             }
           ],
@@ -6009,27 +6007,27 @@
         }
       },
       "prediction": {
-        "action": "avoid",
-        "direction": "neutral",
+        "action": "watch",
+        "direction": "up",
         "confidence": 0.55,
         "horizon": "T+1",
-        "expected_excess_bucket": "non_positive",
+        "expected_excess_bucket": "positive",
         "reason_codes": [
-          "score_lt_2",
-          "non_panic"
+          "score_ge_2",
+          "macro_bearish_reduce_confidence"
         ],
-        "reason": "非 panic 且评分<2,默认回避/低优先级"
+        "reason": "评分≥2,列为高优先观察,需盘中行为确认"
       },
       "rule_version": "zz800_seed_v1",
       "model_version": "manual_rules_v1"
     },
     {
       "schema_version": 1,
-      "prediction_id": "20260812_20260813_300442_zz800_seed_v1_live",
-      "generated_at": "2026-08-13T08:42:12",
+      "prediction_id": "20260813_20260814_300442_zz800_seed_v1_live",
+      "generated_at": "2026-08-14T05:06:36",
       "generation_mode": "live",
-      "baseline_trade_date": "20260812",
-      "target_trade_date": "20260813",
+      "baseline_trade_date": "20260813",
+      "target_trade_date": "20260814",
       "code": "300442",
       "name": "润泽科技",
       "group": "watchlist",
@@ -6039,23 +6037,23 @@
         "创业板"
       ],
       "features_ref": {
-        "price_at_baseline": 67.7,
-        "right_side_score": 2.0,
-        "right_side_grade": "可考虑介入",
-        "main_inflow_10d": 174597699.99999997,
+        "price_at_baseline": 68.55,
+        "right_side_score": 1.0,
+        "right_side_grade": "观察等待",
+        "main_inflow_10d": -69357900.00000001,
         "np_yoy": 35.3483,
         "holder_change_pct": null,
-        "position_20d_pct": 71.25171939477308,
+        "position_20d_pct": 76.99175824175819,
         "market_regime": "momentum",
-        "macro_regime": "🟡 中性",
+        "macro_regime": "🔴 看空",
         "ai_position_ceiling": "减档 (单否决, 不加且高位减)"
       },
       "context_ref": {
         "schema_version": 1,
         "line": "E_context",
         "purpose": "non_scoring_context_for_c_and_d_llm",
-        "baseline_trade_date": "20260812",
-        "target_trade_date": "20260813",
+        "baseline_trade_date": "20260813",
+        "target_trade_date": "20260814",
         "stock": {
           "code": "300442",
           "name": "润泽科技"
@@ -6307,8 +6305,8 @@
                 "  营收YoY 85.2% | QoQ 19.8% | 加速度 0.3pp | 最新季营收 816.2亿美元",
                 "【海外闸门·SOX】❌关闭  收12399.4 / MA50 12663.2 / 近1月0.0%",
                 "  触发: 跌破MA50(12663)",
-                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF None / 创业板 37.51",
-                "【篮子拥挤度】换手分位 35% / 篮子52周位置 54%  [已证实]"
+                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF 19.57 / 创业板 37.51",
+                "【篮子拥挤度】换手分位 64% / 篮子52周位置 53%  [已证实]"
               ]
             }
           ],
@@ -6318,26 +6316,27 @@
         }
       },
       "prediction": {
-        "action": "watch",
-        "direction": "up",
-        "confidence": 0.6,
+        "action": "avoid",
+        "direction": "neutral",
+        "confidence": 0.55,
         "horizon": "T+1",
-        "expected_excess_bucket": "positive",
+        "expected_excess_bucket": "non_positive",
         "reason_codes": [
-          "score_ge_2"
+          "score_lt_2",
+          "non_panic"
         ],
-        "reason": "评分≥2,列为高优先观察,需盘中行为确认"
+        "reason": "非 panic 且评分<2,默认回避/低优先级"
       },
       "rule_version": "zz800_seed_v1",
       "model_version": "manual_rules_v1"
     },
     {
       "schema_version": 1,
-      "prediction_id": "20260812_20260813_603881_zz800_seed_v1_live",
-      "generated_at": "2026-08-13T08:42:12",
+      "prediction_id": "20260813_20260814_603881_zz800_seed_v1_live",
+      "generated_at": "2026-08-14T05:06:36",
       "generation_mode": "live",
-      "baseline_trade_date": "20260812",
-      "target_trade_date": "20260813",
+      "baseline_trade_date": "20260813",
+      "target_trade_date": "20260814",
       "code": "603881",
       "name": "数据港",
       "group": "watchlist",
@@ -6346,23 +6345,23 @@
         "IDC"
       ],
       "features_ref": {
-        "price_at_baseline": 26.88,
+        "price_at_baseline": 26.4,
         "right_side_score": -0.2,
         "right_side_grade": "回避",
-        "main_inflow_10d": 245298300.0,
+        "main_inflow_10d": 260116800.0,
         "np_yoy": 1.6401,
         "holder_change_pct": null,
-        "position_20d_pct": 79.59927140255006,
+        "position_20d_pct": 66.60958904109584,
         "market_regime": "momentum",
-        "macro_regime": "🟡 中性",
+        "macro_regime": "🔴 看空",
         "ai_position_ceiling": "减档 (单否决, 不加且高位减)"
       },
       "context_ref": {
         "schema_version": 1,
         "line": "E_context",
         "purpose": "non_scoring_context_for_c_and_d_llm",
-        "baseline_trade_date": "20260812",
-        "target_trade_date": "20260813",
+        "baseline_trade_date": "20260813",
+        "target_trade_date": "20260814",
         "stock": {
           "code": "603881",
           "name": "数据港"
@@ -6561,8 +6560,8 @@
                 "  营收YoY 85.2% | QoQ 19.8% | 加速度 0.3pp | 最新季营收 816.2亿美元",
                 "【海外闸门·SOX】❌关闭  收12399.4 / MA50 12663.2 / 近1月0.0%",
                 "  触发: 跌破MA50(12663)",
-                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF None / 创业板 37.51",
-                "【篮子拥挤度】换手分位 35% / 篮子52周位置 54%  [已证实]"
+                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF 19.57 / 创业板 37.51",
+                "【篮子拥挤度】换手分位 64% / 篮子52周位置 53%  [已证实]"
               ]
             }
           ],
@@ -6588,11 +6587,11 @@
     },
     {
       "schema_version": 1,
-      "prediction_id": "20260812_20260813_002929_zz800_seed_v1_live",
-      "generated_at": "2026-08-13T08:42:12",
+      "prediction_id": "20260813_20260814_002929_zz800_seed_v1_live",
+      "generated_at": "2026-08-14T05:06:36",
       "generation_mode": "live",
-      "baseline_trade_date": "20260812",
-      "target_trade_date": "20260813",
+      "baseline_trade_date": "20260813",
+      "target_trade_date": "20260814",
       "code": "002929",
       "name": "润建股份",
       "group": "watchlist",
@@ -6601,23 +6600,23 @@
         "IDC"
       ],
       "features_ref": {
-        "price_at_baseline": 54.84,
+        "price_at_baseline": 55.3,
         "right_side_score": -0.5,
         "right_side_grade": "回避",
-        "main_inflow_10d": -170285400.0,
+        "main_inflow_10d": -136431400.0,
         "np_yoy": -81.8228,
         "holder_change_pct": null,
-        "position_20d_pct": 74.9519538757207,
+        "position_20d_pct": 71.69811320754714,
         "market_regime": "momentum",
-        "macro_regime": "🟡 中性",
+        "macro_regime": "🔴 看空",
         "ai_position_ceiling": "减档 (单否决, 不加且高位减)"
       },
       "context_ref": {
         "schema_version": 1,
         "line": "E_context",
         "purpose": "non_scoring_context_for_c_and_d_llm",
-        "baseline_trade_date": "20260812",
-        "target_trade_date": "20260813",
+        "baseline_trade_date": "20260813",
+        "target_trade_date": "20260814",
         "stock": {
           "code": "002929",
           "name": "润建股份"
@@ -6868,8 +6867,8 @@
                 "  营收YoY 85.2% | QoQ 19.8% | 加速度 0.3pp | 最新季营收 816.2亿美元",
                 "【海外闸门·SOX】❌关闭  收12399.4 / MA50 12663.2 / 近1月0.0%",
                 "  触发: 跌破MA50(12663)",
-                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF None / 创业板 37.51",
-                "【篮子拥挤度】换手分位 35% / 篮子52周位置 54%  [已证实]"
+                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF 19.57 / 创业板 37.51",
+                "【篮子拥挤度】换手分位 64% / 篮子52周位置 53%  [已证实]"
               ]
             }
           ],
@@ -6895,11 +6894,11 @@
     },
     {
       "schema_version": 1,
-      "prediction_id": "20260812_20260813_688676_zz800_seed_v1_live",
-      "generated_at": "2026-08-13T08:42:12",
+      "prediction_id": "20260813_20260814_688676_zz800_seed_v1_live",
+      "generated_at": "2026-08-14T05:06:36",
       "generation_mode": "live",
-      "baseline_trade_date": "20260812",
-      "target_trade_date": "20260813",
+      "baseline_trade_date": "20260813",
+      "target_trade_date": "20260814",
       "code": "688676",
       "name": "金盘科技",
       "group": "watchlist",
@@ -6909,23 +6908,23 @@
         "科创板"
       ],
       "features_ref": {
-        "price_at_baseline": 69.25,
-        "right_side_score": 0.3,
-        "right_side_grade": "回避",
-        "main_inflow_10d": -105179200.00000001,
+        "price_at_baseline": 71.85,
+        "right_side_score": 1.3,
+        "right_side_grade": "观察等待",
+        "main_inflow_10d": 220828699.99999997,
         "np_yoy": 4.8335,
         "holder_change_pct": null,
-        "position_20d_pct": 70.57001239157373,
+        "position_20d_pct": 82.14914856136227,
         "market_regime": "momentum",
-        "macro_regime": "🟡 中性",
+        "macro_regime": "🔴 看空",
         "ai_position_ceiling": "减档 (单否决, 不加且高位减)"
       },
       "context_ref": {
         "schema_version": 1,
         "line": "E_context",
         "purpose": "non_scoring_context_for_c_and_d_llm",
-        "baseline_trade_date": "20260812",
-        "target_trade_date": "20260813",
+        "baseline_trade_date": "20260813",
+        "target_trade_date": "20260814",
         "stock": {
           "code": "688676",
           "name": "金盘科技"
@@ -7125,8 +7124,8 @@
                 "  营收YoY 85.2% | QoQ 19.8% | 加速度 0.3pp | 最新季营收 816.2亿美元",
                 "【海外闸门·SOX】❌关闭  收12399.4 / MA50 12663.2 / 近1月0.0%",
                 "  触发: 跌破MA50(12663)",
-                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF None / 创业板 37.51",
-                "【篮子拥挤度】换手分位 35% / 篮子52周位置 54%  [已证实]"
+                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF 19.57 / 创业板 37.51",
+                "【篮子拥挤度】换手分位 64% / 篮子52周位置 53%  [已证实]"
               ]
             }
           ],
@@ -7152,11 +7151,11 @@
     },
     {
       "schema_version": 1,
-      "prediction_id": "20260812_20260813_301217_zz800_seed_v1_live",
-      "generated_at": "2026-08-13T08:42:12",
+      "prediction_id": "20260813_20260814_301217_zz800_seed_v1_live",
+      "generated_at": "2026-08-14T05:06:36",
       "generation_mode": "live",
-      "baseline_trade_date": "20260812",
-      "target_trade_date": "20260813",
+      "baseline_trade_date": "20260813",
+      "target_trade_date": "20260814",
       "code": "301217",
       "name": "铜冠铜箔",
       "group": "watchlist",
@@ -7166,23 +7165,23 @@
         "创业板"
       ],
       "features_ref": {
-        "price_at_baseline": 120.51,
-        "right_side_score": 1.5,
+        "price_at_baseline": 119.23,
+        "right_side_score": 1.0,
         "right_side_grade": "观察等待",
-        "main_inflow_10d": 124725800.0,
+        "main_inflow_10d": -269420800.0,
         "np_yoy": 2138.1734,
         "holder_change_pct": null,
-        "position_20d_pct": 76.75781250000001,
+        "position_20d_pct": 76.16194625998547,
         "market_regime": "momentum",
-        "macro_regime": "🟡 中性",
+        "macro_regime": "🔴 看空",
         "ai_position_ceiling": "减档 (单否决, 不加且高位减)"
       },
       "context_ref": {
         "schema_version": 1,
         "line": "E_context",
         "purpose": "non_scoring_context_for_c_and_d_llm",
-        "baseline_trade_date": "20260812",
-        "target_trade_date": "20260813",
+        "baseline_trade_date": "20260813",
+        "target_trade_date": "20260814",
         "stock": {
           "code": "301217",
           "name": "铜冠铜箔"
@@ -7434,8 +7433,8 @@
                 "  营收YoY 85.2% | QoQ 19.8% | 加速度 0.3pp | 最新季营收 816.2亿美元",
                 "【海外闸门·SOX】❌关闭  收12399.4 / MA50 12663.2 / 近1月0.0%",
                 "  触发: 跌破MA50(12663)",
-                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF None / 创业板 37.51",
-                "【篮子拥挤度】换手分位 35% / 篮子52周位置 54%  [已证实]"
+                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF 19.57 / 创业板 37.51",
+                "【篮子拥挤度】换手分位 64% / 篮子52周位置 53%  [已证实]"
               ]
             }
           ],
@@ -7461,11 +7460,11 @@
     },
     {
       "schema_version": 1,
-      "prediction_id": "20260812_20260813_301511_zz800_seed_v1_live",
-      "generated_at": "2026-08-13T08:42:12",
+      "prediction_id": "20260813_20260814_301511_zz800_seed_v1_live",
+      "generated_at": "2026-08-14T05:06:36",
       "generation_mode": "live",
-      "baseline_trade_date": "20260812",
-      "target_trade_date": "20260813",
+      "baseline_trade_date": "20260813",
+      "target_trade_date": "20260814",
       "code": "301511",
       "name": "德福科技",
       "group": "watchlist",
@@ -7475,23 +7474,23 @@
         "创业板"
       ],
       "features_ref": {
-        "price_at_baseline": 89.86,
+        "price_at_baseline": 89.9,
         "right_side_score": 2.5,
         "right_side_grade": "可考虑介入",
-        "main_inflow_10d": -211438300.00000006,
+        "main_inflow_10d": -167193900.00000006,
         "np_yoy": 708.9005,
         "holder_change_pct": null,
-        "position_20d_pct": 53.144958389781316,
+        "position_20d_pct": 62.31588488556539,
         "market_regime": "momentum",
-        "macro_regime": "🟡 中性",
+        "macro_regime": "🔴 看空",
         "ai_position_ceiling": "减档 (单否决, 不加且高位减)"
       },
       "context_ref": {
         "schema_version": 1,
         "line": "E_context",
         "purpose": "non_scoring_context_for_c_and_d_llm",
-        "baseline_trade_date": "20260812",
-        "target_trade_date": "20260813",
+        "baseline_trade_date": "20260813",
+        "target_trade_date": "20260814",
         "stock": {
           "code": "301511",
           "name": "德福科技"
@@ -7682,8 +7681,8 @@
                 "  营收YoY 85.2% | QoQ 19.8% | 加速度 0.3pp | 最新季营收 816.2亿美元",
                 "【海外闸门·SOX】❌关闭  收12399.4 / MA50 12663.2 / 近1月0.0%",
                 "  触发: 跌破MA50(12663)",
-                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF None / 创业板 37.51",
-                "【篮子拥挤度】换手分位 35% / 篮子52周位置 54%  [已证实]"
+                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF 19.57 / 创业板 37.51",
+                "【篮子拥挤度】换手分位 64% / 篮子52周位置 53%  [已证实]"
               ]
             }
           ],
@@ -7695,11 +7694,12 @@
       "prediction": {
         "action": "watch",
         "direction": "up",
-        "confidence": 0.6,
+        "confidence": 0.55,
         "horizon": "T+1",
         "expected_excess_bucket": "positive",
         "reason_codes": [
-          "score_ge_2"
+          "score_ge_2",
+          "macro_bearish_reduce_confidence"
         ],
         "reason": "评分≥2,列为高优先观察,需盘中行为确认"
       },
@@ -7708,11 +7708,11 @@
     },
     {
       "schema_version": 1,
-      "prediction_id": "20260812_20260813_600522_zz800_seed_v1_live",
-      "generated_at": "2026-08-13T08:42:12",
+      "prediction_id": "20260813_20260814_600522_zz800_seed_v1_live",
+      "generated_at": "2026-08-14T05:06:36",
       "generation_mode": "live",
-      "baseline_trade_date": "20260812",
-      "target_trade_date": "20260813",
+      "baseline_trade_date": "20260813",
+      "target_trade_date": "20260814",
       "code": "600522",
       "name": "中天科技",
       "group": "watchlist",
@@ -7722,23 +7722,23 @@
         "光模块"
       ],
       "features_ref": {
-        "price_at_baseline": 33.55,
+        "price_at_baseline": 32.9,
         "right_side_score": 1.0,
         "right_side_grade": "观察等待",
-        "main_inflow_10d": -1377861500.0,
+        "main_inflow_10d": -1495493800.0,
         "np_yoy": 46.4204,
         "holder_change_pct": null,
-        "position_20d_pct": 49.060856498873015,
+        "position_20d_pct": 54.545454545454554,
         "market_regime": "momentum",
-        "macro_regime": "🟡 中性",
+        "macro_regime": "🔴 看空",
         "ai_position_ceiling": "减档 (单否决, 不加且高位减)"
       },
       "context_ref": {
         "schema_version": 1,
         "line": "E_context",
         "purpose": "non_scoring_context_for_c_and_d_llm",
-        "baseline_trade_date": "20260812",
-        "target_trade_date": "20260813",
+        "baseline_trade_date": "20260813",
+        "target_trade_date": "20260814",
         "stock": {
           "code": "600522",
           "name": "中天科技"
@@ -7990,8 +7990,8 @@
                 "  营收YoY 85.2% | QoQ 19.8% | 加速度 0.3pp | 最新季营收 816.2亿美元",
                 "【海外闸门·SOX】❌关闭  收12399.4 / MA50 12663.2 / 近1月0.0%",
                 "  触发: 跌破MA50(12663)",
-                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF None / 创业板 37.51",
-                "【篮子拥挤度】换手分位 35% / 篮子52周位置 54%  [已证实]"
+                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF 19.57 / 创业板 37.51",
+                "【篮子拥挤度】换手分位 64% / 篮子52周位置 53%  [已证实]"
               ]
             }
           ],
@@ -8017,11 +8017,11 @@
     },
     {
       "schema_version": 1,
-      "prediction_id": "20260812_20260813_601689_zz800_seed_v1_live",
-      "generated_at": "2026-08-13T08:42:12",
+      "prediction_id": "20260813_20260814_601689_zz800_seed_v1_live",
+      "generated_at": "2026-08-14T05:06:36",
       "generation_mode": "live",
-      "baseline_trade_date": "20260812",
-      "target_trade_date": "20260813",
+      "baseline_trade_date": "20260813",
+      "target_trade_date": "20260814",
       "code": "601689",
       "name": "拓普集团",
       "group": "watchlist",
@@ -8031,23 +8031,23 @@
         "特斯拉链"
       ],
       "features_ref": {
-        "price_at_baseline": 50.3,
-        "right_side_score": 0.5,
+        "price_at_baseline": 49.69,
+        "right_side_score": 1.0,
         "right_side_grade": "观察等待",
-        "main_inflow_10d": 31131900.000000015,
+        "main_inflow_10d": 170516600.0,
         "np_yoy": -2.4171,
         "holder_change_pct": null,
-        "position_20d_pct": 53.754266211604076,
+        "position_20d_pct": 52.05855443732843,
         "market_regime": "momentum",
-        "macro_regime": "🟡 中性",
+        "macro_regime": "🔴 看空",
         "ai_position_ceiling": "减档 (单否决, 不加且高位减)"
       },
       "context_ref": {
         "schema_version": 1,
         "line": "E_context",
         "purpose": "non_scoring_context_for_c_and_d_llm",
-        "baseline_trade_date": "20260812",
-        "target_trade_date": "20260813",
+        "baseline_trade_date": "20260813",
+        "target_trade_date": "20260814",
         "stock": {
           "code": "601689",
           "name": "拓普集团"
@@ -8299,8 +8299,8 @@
                 "  营收YoY 85.2% | QoQ 19.8% | 加速度 0.3pp | 最新季营收 816.2亿美元",
                 "【海外闸门·SOX】❌关闭  收12399.4 / MA50 12663.2 / 近1月0.0%",
                 "  触发: 跌破MA50(12663)",
-                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF None / 创业板 37.51",
-                "【篮子拥挤度】换手分位 35% / 篮子52周位置 54%  [已证实]"
+                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF 19.57 / 创业板 37.51",
+                "【篮子拥挤度】换手分位 64% / 篮子52周位置 53%  [已证实]"
               ]
             }
           ],
@@ -8326,11 +8326,11 @@
     },
     {
       "schema_version": 1,
-      "prediction_id": "20260812_20260813_002050_zz800_seed_v1_live",
-      "generated_at": "2026-08-13T08:42:12",
+      "prediction_id": "20260813_20260814_002050_zz800_seed_v1_live",
+      "generated_at": "2026-08-14T05:06:36",
       "generation_mode": "live",
-      "baseline_trade_date": "20260812",
-      "target_trade_date": "20260813",
+      "baseline_trade_date": "20260813",
+      "target_trade_date": "20260814",
       "code": "002050",
       "name": "三花智控",
       "group": "watchlist",
@@ -8341,23 +8341,23 @@
         "特斯拉链"
       ],
       "features_ref": {
-        "price_at_baseline": 39.17,
-        "right_side_score": 0.8,
-        "right_side_grade": "观察等待",
-        "main_inflow_10d": 274877599.9999999,
+        "price_at_baseline": 38.53,
+        "right_side_score": 0.3,
+        "right_side_grade": "回避",
+        "main_inflow_10d": 110844499.99999988,
         "np_yoy": 2.6793,
         "holder_change_pct": null,
-        "position_20d_pct": 53.92405063291142,
+        "position_20d_pct": 51.12994350282488,
         "market_regime": "momentum",
-        "macro_regime": "🟡 中性",
+        "macro_regime": "🔴 看空",
         "ai_position_ceiling": "减档 (单否决, 不加且高位减)"
       },
       "context_ref": {
         "schema_version": 1,
         "line": "E_context",
         "purpose": "non_scoring_context_for_c_and_d_llm",
-        "baseline_trade_date": "20260812",
-        "target_trade_date": "20260813",
+        "baseline_trade_date": "20260813",
+        "target_trade_date": "20260814",
         "stock": {
           "code": "002050",
           "name": "三花智控"
@@ -8610,8 +8610,8 @@
                 "  营收YoY 85.2% | QoQ 19.8% | 加速度 0.3pp | 最新季营收 816.2亿美元",
                 "【海外闸门·SOX】❌关闭  收12399.4 / MA50 12663.2 / 近1月0.0%",
                 "  触发: 跌破MA50(12663)",
-                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF None / 创业板 37.51",
-                "【篮子拥挤度】换手分位 35% / 篮子52周位置 54%  [已证实]"
+                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF 19.57 / 创业板 37.51",
+                "【篮子拥挤度】换手分位 64% / 篮子52周位置 53%  [已证实]"
               ]
             }
           ],
@@ -8637,11 +8637,11 @@
     },
     {
       "schema_version": 1,
-      "prediction_id": "20260812_20260813_002472_zz800_seed_v1_live",
-      "generated_at": "2026-08-13T08:42:12",
+      "prediction_id": "20260813_20260814_002472_zz800_seed_v1_live",
+      "generated_at": "2026-08-14T05:06:36",
       "generation_mode": "live",
-      "baseline_trade_date": "20260812",
-      "target_trade_date": "20260813",
+      "baseline_trade_date": "20260813",
+      "target_trade_date": "20260814",
       "code": "002472",
       "name": "双环传动",
       "group": "watchlist",
@@ -8650,23 +8650,23 @@
         "RV减速器"
       ],
       "features_ref": {
-        "price_at_baseline": 38.74,
+        "price_at_baseline": 38.26,
         "right_side_score": -0.2,
         "right_side_grade": "回避",
-        "main_inflow_10d": -296424300.0,
+        "main_inflow_10d": -201326299.99999997,
         "np_yoy": 2.9288,
         "holder_change_pct": null,
-        "position_20d_pct": 45.65217391304349,
+        "position_20d_pct": 50.79594790159189,
         "market_regime": "momentum",
-        "macro_regime": "🟡 中性",
+        "macro_regime": "🔴 看空",
         "ai_position_ceiling": "减档 (单否决, 不加且高位减)"
       },
       "context_ref": {
         "schema_version": 1,
         "line": "E_context",
         "purpose": "non_scoring_context_for_c_and_d_llm",
-        "baseline_trade_date": "20260812",
-        "target_trade_date": "20260813",
+        "baseline_trade_date": "20260813",
+        "target_trade_date": "20260814",
         "stock": {
           "code": "002472",
           "name": "双环传动"
@@ -8865,8 +8865,8 @@
                 "  营收YoY 85.2% | QoQ 19.8% | 加速度 0.3pp | 最新季营收 816.2亿美元",
                 "【海外闸门·SOX】❌关闭  收12399.4 / MA50 12663.2 / 近1月0.0%",
                 "  触发: 跌破MA50(12663)",
-                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF None / 创业板 37.51",
-                "【篮子拥挤度】换手分位 35% / 篮子52周位置 54%  [已证实]"
+                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF 19.57 / 创业板 37.51",
+                "【篮子拥挤度】换手分位 64% / 篮子52周位置 53%  [已证实]"
               ]
             }
           ],
@@ -8892,11 +8892,11 @@
     },
     {
       "schema_version": 1,
-      "prediction_id": "20260812_20260813_600580_zz800_seed_v1_live",
-      "generated_at": "2026-08-13T08:42:12",
+      "prediction_id": "20260813_20260814_600580_zz800_seed_v1_live",
+      "generated_at": "2026-08-14T05:06:36",
       "generation_mode": "live",
-      "baseline_trade_date": "20260812",
-      "target_trade_date": "20260813",
+      "baseline_trade_date": "20260813",
+      "target_trade_date": "20260814",
       "code": "600580",
       "name": "卧龙电驱",
       "group": "watchlist",
@@ -8905,23 +8905,23 @@
         "力矩电机"
       ],
       "features_ref": {
-        "price_at_baseline": 35.86,
-        "right_side_score": 1.8,
-        "right_side_grade": "观察等待",
-        "main_inflow_10d": 65696800.0,
+        "price_at_baseline": 35.06,
+        "right_side_score": 2.3,
+        "right_side_grade": "可考虑介入",
+        "main_inflow_10d": 71805800.00000003,
         "np_yoy": 2.9405,
         "holder_change_pct": null,
-        "position_20d_pct": 72.66553480475383,
+        "position_20d_pct": 65.87436332767405,
         "market_regime": "momentum",
-        "macro_regime": "🟡 中性",
+        "macro_regime": "🔴 看空",
         "ai_position_ceiling": "减档 (单否决, 不加且高位减)"
       },
       "context_ref": {
         "schema_version": 1,
         "line": "E_context",
         "purpose": "non_scoring_context_for_c_and_d_llm",
-        "baseline_trade_date": "20260812",
-        "target_trade_date": "20260813",
+        "baseline_trade_date": "20260813",
+        "target_trade_date": "20260814",
         "stock": {
           "code": "600580",
           "name": "卧龙电驱"
@@ -9120,8 +9120,8 @@
                 "  营收YoY 85.2% | QoQ 19.8% | 加速度 0.3pp | 最新季营收 816.2亿美元",
                 "【海外闸门·SOX】❌关闭  收12399.4 / MA50 12663.2 / 近1月0.0%",
                 "  触发: 跌破MA50(12663)",
-                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF None / 创业板 37.51",
-                "【篮子拥挤度】换手分位 35% / 篮子52周位置 54%  [已证实]"
+                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF 19.57 / 创业板 37.51",
+                "【篮子拥挤度】换手分位 64% / 篮子52周位置 53%  [已证实]"
               ]
             }
           ],
@@ -9131,27 +9131,27 @@
         }
       },
       "prediction": {
-        "action": "avoid",
-        "direction": "neutral",
+        "action": "watch",
+        "direction": "up",
         "confidence": 0.55,
         "horizon": "T+1",
-        "expected_excess_bucket": "non_positive",
+        "expected_excess_bucket": "positive",
         "reason_codes": [
-          "score_lt_2",
-          "non_panic"
+          "score_ge_2",
+          "macro_bearish_reduce_confidence"
         ],
-        "reason": "非 panic 且评分<2,默认回避/低优先级"
+        "reason": "评分≥2,列为高优先观察,需盘中行为确认"
       },
       "rule_version": "zz800_seed_v1",
       "model_version": "manual_rules_v1"
     },
     {
       "schema_version": 1,
-      "prediction_id": "20260812_20260813_603662_zz800_seed_v1_live",
-      "generated_at": "2026-08-13T08:42:12",
+      "prediction_id": "20260813_20260814_603662_zz800_seed_v1_live",
+      "generated_at": "2026-08-14T05:06:36",
       "generation_mode": "live",
-      "baseline_trade_date": "20260812",
-      "target_trade_date": "20260813",
+      "baseline_trade_date": "20260813",
+      "target_trade_date": "20260814",
       "code": "603662",
       "name": "柯力传感",
       "group": "watchlist",
@@ -9161,23 +9161,23 @@
         "特斯拉链"
       ],
       "features_ref": {
-        "price_at_baseline": 53.9,
-        "right_side_score": 0.5,
+        "price_at_baseline": 53.38,
+        "right_side_score": 1.0,
         "right_side_grade": "观察等待",
-        "main_inflow_10d": -49508400.0,
+        "main_inflow_10d": 13931300.0,
         "np_yoy": -45.6484,
         "holder_change_pct": null,
-        "position_20d_pct": 59.194528875379916,
+        "position_20d_pct": 65.55455365193869,
         "market_regime": "momentum",
-        "macro_regime": "🟡 中性",
+        "macro_regime": "🔴 看空",
         "ai_position_ceiling": "减档 (单否决, 不加且高位减)"
       },
       "context_ref": {
         "schema_version": 1,
         "line": "E_context",
         "purpose": "non_scoring_context_for_c_and_d_llm",
-        "baseline_trade_date": "20260812",
-        "target_trade_date": "20260813",
+        "baseline_trade_date": "20260813",
+        "target_trade_date": "20260814",
         "stock": {
           "code": "603662",
           "name": "柯力传感"
@@ -9377,8 +9377,8 @@
                 "  营收YoY 85.2% | QoQ 19.8% | 加速度 0.3pp | 最新季营收 816.2亿美元",
                 "【海外闸门·SOX】❌关闭  收12399.4 / MA50 12663.2 / 近1月0.0%",
                 "  触发: 跌破MA50(12663)",
-                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF None / 创业板 37.51",
-                "【篮子拥挤度】换手分位 35% / 篮子52周位置 54%  [已证实]"
+                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF 19.57 / 创业板 37.51",
+                "【篮子拥挤度】换手分位 64% / 篮子52周位置 53%  [已证实]"
               ]
             }
           ],
@@ -9404,11 +9404,11 @@
     },
     {
       "schema_version": 1,
-      "prediction_id": "20260812_20260813_603009_zz800_seed_v1_live",
-      "generated_at": "2026-08-13T08:42:12",
+      "prediction_id": "20260813_20260814_603009_zz800_seed_v1_live",
+      "generated_at": "2026-08-14T05:06:36",
       "generation_mode": "live",
-      "baseline_trade_date": "20260812",
-      "target_trade_date": "20260813",
+      "baseline_trade_date": "20260813",
+      "target_trade_date": "20260814",
       "code": "603009",
       "name": "北特科技",
       "group": "watchlist",
@@ -9417,23 +9417,23 @@
         "丝杠"
       ],
       "features_ref": {
-        "price_at_baseline": 46.31,
-        "right_side_score": 1.3,
-        "right_side_grade": "观察等待",
-        "main_inflow_10d": -19750000.0,
+        "price_at_baseline": 48.5,
+        "right_side_score": 2.3,
+        "right_side_grade": "可考虑介入",
+        "main_inflow_10d": 83305500.0,
         "np_yoy": 17.8577,
         "holder_change_pct": null,
-        "position_20d_pct": 88.0841121495327,
+        "position_20d_pct": 90.0,
         "market_regime": "momentum",
-        "macro_regime": "🟡 中性",
+        "macro_regime": "🔴 看空",
         "ai_position_ceiling": "减档 (单否决, 不加且高位减)"
       },
       "context_ref": {
         "schema_version": 1,
         "line": "E_context",
         "purpose": "non_scoring_context_for_c_and_d_llm",
-        "baseline_trade_date": "20260812",
-        "target_trade_date": "20260813",
+        "baseline_trade_date": "20260813",
+        "target_trade_date": "20260814",
         "stock": {
           "code": "603009",
           "name": "北特科技"
@@ -9684,8 +9684,8 @@
                 "  营收YoY 85.2% | QoQ 19.8% | 加速度 0.3pp | 最新季营收 816.2亿美元",
                 "【海外闸门·SOX】❌关闭  收12399.4 / MA50 12663.2 / 近1月0.0%",
                 "  触发: 跌破MA50(12663)",
-                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF None / 创业板 37.51",
-                "【篮子拥挤度】换手分位 35% / 篮子52周位置 54%  [已证实]"
+                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF 19.57 / 创业板 37.51",
+                "【篮子拥挤度】换手分位 64% / 篮子52周位置 53%  [已证实]"
               ]
             }
           ],
@@ -9695,27 +9695,27 @@
         }
       },
       "prediction": {
-        "action": "avoid",
-        "direction": "neutral",
+        "action": "watch",
+        "direction": "up",
         "confidence": 0.55,
         "horizon": "T+1",
-        "expected_excess_bucket": "non_positive",
+        "expected_excess_bucket": "positive",
         "reason_codes": [
-          "score_lt_2",
-          "non_panic"
+          "score_ge_2",
+          "macro_bearish_reduce_confidence"
         ],
-        "reason": "非 panic 且评分<2,默认回避/低优先级"
+        "reason": "评分≥2,列为高优先观察,需盘中行为确认"
       },
       "rule_version": "zz800_seed_v1",
       "model_version": "manual_rules_v1"
     },
     {
       "schema_version": 1,
-      "prediction_id": "20260812_20260813_603667_zz800_seed_v1_live",
-      "generated_at": "2026-08-13T08:42:12",
+      "prediction_id": "20260813_20260814_603667_zz800_seed_v1_live",
+      "generated_at": "2026-08-14T05:06:36",
       "generation_mode": "live",
-      "baseline_trade_date": "20260812",
-      "target_trade_date": "20260813",
+      "baseline_trade_date": "20260813",
+      "target_trade_date": "20260814",
       "code": "603667",
       "name": "五洲新春",
       "group": "watchlist",
@@ -9725,23 +9725,23 @@
         "灵巧手"
       ],
       "features_ref": {
-        "price_at_baseline": 56.52,
-        "right_side_score": 0.5,
+        "price_at_baseline": 55.76,
+        "right_side_score": 1.0,
         "right_side_grade": "观察等待",
-        "main_inflow_10d": 264228300.0,
+        "main_inflow_10d": 337228300.0,
         "np_yoy": -18.6204,
         "holder_change_pct": null,
-        "position_20d_pct": 70.23809523809524,
+        "position_20d_pct": 69.68130921619291,
         "market_regime": "momentum",
-        "macro_regime": "🟡 中性",
+        "macro_regime": "🔴 看空",
         "ai_position_ceiling": "减档 (单否决, 不加且高位减)"
       },
       "context_ref": {
         "schema_version": 1,
         "line": "E_context",
         "purpose": "non_scoring_context_for_c_and_d_llm",
-        "baseline_trade_date": "20260812",
-        "target_trade_date": "20260813",
+        "baseline_trade_date": "20260813",
+        "target_trade_date": "20260814",
         "stock": {
           "code": "603667",
           "name": "五洲新春"
@@ -9879,8 +9879,8 @@
                 "  营收YoY 85.2% | QoQ 19.8% | 加速度 0.3pp | 最新季营收 816.2亿美元",
                 "【海外闸门·SOX】❌关闭  收12399.4 / MA50 12663.2 / 近1月0.0%",
                 "  触发: 跌破MA50(12663)",
-                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF None / 创业板 37.51",
-                "【篮子拥挤度】换手分位 35% / 篮子52周位置 54%  [已证实]"
+                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF 19.57 / 创业板 37.51",
+                "【篮子拥挤度】换手分位 64% / 篮子52周位置 53%  [已证实]"
               ]
             }
           ],
@@ -9906,11 +9906,11 @@
     },
     {
       "schema_version": 1,
-      "prediction_id": "20260812_20260813_603728_zz800_seed_v1_live",
-      "generated_at": "2026-08-13T08:42:12",
+      "prediction_id": "20260813_20260814_603728_zz800_seed_v1_live",
+      "generated_at": "2026-08-14T05:06:36",
       "generation_mode": "live",
-      "baseline_trade_date": "20260812",
-      "target_trade_date": "20260813",
+      "baseline_trade_date": "20260813",
+      "target_trade_date": "20260814",
       "code": "603728",
       "name": "鸣志电器",
       "group": "watchlist",
@@ -9920,23 +9920,23 @@
         "灵巧手"
       ],
       "features_ref": {
-        "price_at_baseline": 52.51,
+        "price_at_baseline": 52.08,
         "right_side_score": 3.0,
         "right_side_grade": "可考虑介入",
-        "main_inflow_10d": 35964200.0,
+        "main_inflow_10d": 81893700.0,
         "np_yoy": 92.1905,
         "holder_change_pct": null,
-        "position_20d_pct": 60.202492211838,
+        "position_20d_pct": 65.76576576576572,
         "market_regime": "momentum",
-        "macro_regime": "🟡 中性",
+        "macro_regime": "🔴 看空",
         "ai_position_ceiling": "减档 (单否决, 不加且高位减)"
       },
       "context_ref": {
         "schema_version": 1,
         "line": "E_context",
         "purpose": "non_scoring_context_for_c_and_d_llm",
-        "baseline_trade_date": "20260812",
-        "target_trade_date": "20260813",
+        "baseline_trade_date": "20260813",
+        "target_trade_date": "20260814",
         "stock": {
           "code": "603728",
           "name": "鸣志电器"
@@ -10074,8 +10074,8 @@
                 "  营收YoY 85.2% | QoQ 19.8% | 加速度 0.3pp | 最新季营收 816.2亿美元",
                 "【海外闸门·SOX】❌关闭  收12399.4 / MA50 12663.2 / 近1月0.0%",
                 "  触发: 跌破MA50(12663)",
-                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF None / 创业板 37.51",
-                "【篮子拥挤度】换手分位 35% / 篮子52周位置 54%  [已证实]"
+                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF 19.57 / 创业板 37.51",
+                "【篮子拥挤度】换手分位 64% / 篮子52周位置 53%  [已证实]"
               ]
             }
           ],
@@ -10087,11 +10087,12 @@
       "prediction": {
         "action": "watch",
         "direction": "up",
-        "confidence": 0.6,
+        "confidence": 0.55,
         "horizon": "T+1",
         "expected_excess_bucket": "positive",
         "reason_codes": [
-          "score_ge_2"
+          "score_ge_2",
+          "macro_bearish_reduce_confidence"
         ],
         "reason": "评分≥2,列为高优先观察,需盘中行为确认"
       },
@@ -10100,11 +10101,11 @@
     },
     {
       "schema_version": 1,
-      "prediction_id": "20260812_20260813_002896_zz800_seed_v1_live",
-      "generated_at": "2026-08-13T08:42:12",
+      "prediction_id": "20260813_20260814_002896_zz800_seed_v1_live",
+      "generated_at": "2026-08-14T05:06:36",
       "generation_mode": "live",
-      "baseline_trade_date": "20260812",
-      "target_trade_date": "20260813",
+      "baseline_trade_date": "20260813",
+      "target_trade_date": "20260814",
       "code": "002896",
       "name": "中大力德",
       "group": "watchlist",
@@ -10113,23 +10114,23 @@
         "减速器"
       ],
       "features_ref": {
-        "price_at_baseline": 80.17,
+        "price_at_baseline": 78.09,
         "right_side_score": 0.5,
         "right_side_grade": "观察等待",
-        "main_inflow_10d": -346185700.0,
+        "main_inflow_10d": -398755600.0,
         "np_yoy": -36.4187,
         "holder_change_pct": null,
-        "position_20d_pct": 84.0512223515716,
+        "position_20d_pct": 75.97982149786576,
         "market_regime": "momentum",
-        "macro_regime": "🟡 中性",
+        "macro_regime": "🔴 看空",
         "ai_position_ceiling": "减档 (单否决, 不加且高位减)"
       },
       "context_ref": {
         "schema_version": 1,
         "line": "E_context",
         "purpose": "non_scoring_context_for_c_and_d_llm",
-        "baseline_trade_date": "20260812",
-        "target_trade_date": "20260813",
+        "baseline_trade_date": "20260813",
+        "target_trade_date": "20260814",
         "stock": {
           "code": "002896",
           "name": "中大力德"
@@ -10328,8 +10329,8 @@
                 "  营收YoY 85.2% | QoQ 19.8% | 加速度 0.3pp | 最新季营收 816.2亿美元",
                 "【海外闸门·SOX】❌关闭  收12399.4 / MA50 12663.2 / 近1月0.0%",
                 "  触发: 跌破MA50(12663)",
-                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF None / 创业板 37.51",
-                "【篮子拥挤度】换手分位 35% / 篮子52周位置 54%  [已证实]"
+                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF 19.57 / 创业板 37.51",
+                "【篮子拥挤度】换手分位 64% / 篮子52周位置 53%  [已证实]"
               ]
             }
           ],
@@ -10355,11 +10356,11 @@
     },
     {
       "schema_version": 1,
-      "prediction_id": "20260812_20260813_003021_zz800_seed_v1_live",
-      "generated_at": "2026-08-13T08:42:12",
+      "prediction_id": "20260813_20260814_003021_zz800_seed_v1_live",
+      "generated_at": "2026-08-14T05:06:36",
       "generation_mode": "live",
-      "baseline_trade_date": "20260812",
-      "target_trade_date": "20260813",
+      "baseline_trade_date": "20260813",
+      "target_trade_date": "20260814",
       "code": "003021",
       "name": "兆威机电",
       "group": "watchlist",
@@ -10370,23 +10371,23 @@
         "特斯拉链"
       ],
       "features_ref": {
-        "price_at_baseline": 81.52,
+        "price_at_baseline": 81.33,
         "right_side_score": 0.5,
         "right_side_grade": "观察等待",
-        "main_inflow_10d": 50588100.00000001,
+        "main_inflow_10d": 105256900.0,
         "np_yoy": -25.1475,
         "holder_change_pct": null,
-        "position_20d_pct": 72.15999999999997,
+        "position_20d_pct": 70.63999999999999,
         "market_regime": "momentum",
-        "macro_regime": "🟡 中性",
+        "macro_regime": "🔴 看空",
         "ai_position_ceiling": "减档 (单否决, 不加且高位减)"
       },
       "context_ref": {
         "schema_version": 1,
         "line": "E_context",
         "purpose": "non_scoring_context_for_c_and_d_llm",
-        "baseline_trade_date": "20260812",
-        "target_trade_date": "20260813",
+        "baseline_trade_date": "20260813",
+        "target_trade_date": "20260814",
         "stock": {
           "code": "003021",
           "name": "兆威机电"
@@ -10587,8 +10588,8 @@
                 "  营收YoY 85.2% | QoQ 19.8% | 加速度 0.3pp | 最新季营收 816.2亿美元",
                 "【海外闸门·SOX】❌关闭  收12399.4 / MA50 12663.2 / 近1月0.0%",
                 "  触发: 跌破MA50(12663)",
-                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF None / 创业板 37.51",
-                "【篮子拥挤度】换手分位 35% / 篮子52周位置 54%  [已证实]"
+                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF 19.57 / 创业板 37.51",
+                "【篮子拥挤度】换手分位 64% / 篮子52周位置 53%  [已证实]"
               ]
             }
           ],
@@ -10614,11 +10615,11 @@
     },
     {
       "schema_version": 1,
-      "prediction_id": "20260812_20260813_002747_zz800_seed_v1_live",
-      "generated_at": "2026-08-13T08:42:12",
+      "prediction_id": "20260813_20260814_002747_zz800_seed_v1_live",
+      "generated_at": "2026-08-14T05:06:36",
       "generation_mode": "live",
-      "baseline_trade_date": "20260812",
-      "target_trade_date": "20260813",
+      "baseline_trade_date": "20260813",
+      "target_trade_date": "20260814",
       "code": "002747",
       "name": "埃斯顿",
       "group": "watchlist",
@@ -10628,23 +10629,23 @@
         "整机"
       ],
       "features_ref": {
-        "price_at_baseline": 34.71,
+        "price_at_baseline": 34.67,
         "right_side_score": 1.5,
         "right_side_grade": "观察等待",
-        "main_inflow_10d": -527028900.0,
+        "main_inflow_10d": -429547100.0,
         "np_yoy": 674.6406,
         "holder_change_pct": null,
-        "position_20d_pct": 43.19488817891374,
+        "position_20d_pct": 46.3448275862069,
         "market_regime": "momentum",
-        "macro_regime": "🟡 中性",
+        "macro_regime": "🔴 看空",
         "ai_position_ceiling": "减档 (单否决, 不加且高位减)"
       },
       "context_ref": {
         "schema_version": 1,
         "line": "E_context",
         "purpose": "non_scoring_context_for_c_and_d_llm",
-        "baseline_trade_date": "20260812",
-        "target_trade_date": "20260813",
+        "baseline_trade_date": "20260813",
+        "target_trade_date": "20260814",
         "stock": {
           "code": "002747",
           "name": "埃斯顿"
@@ -10896,8 +10897,8 @@
                 "  营收YoY 85.2% | QoQ 19.8% | 加速度 0.3pp | 最新季营收 816.2亿美元",
                 "【海外闸门·SOX】❌关闭  收12399.4 / MA50 12663.2 / 近1月0.0%",
                 "  触发: 跌破MA50(12663)",
-                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF None / 创业板 37.51",
-                "【篮子拥挤度】换手分位 35% / 篮子52周位置 54%  [已证实]"
+                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF 19.57 / 创业板 37.51",
+                "【篮子拥挤度】换手分位 64% / 篮子52周位置 53%  [已证实]"
               ]
             }
           ],
@@ -10923,11 +10924,11 @@
     },
     {
       "schema_version": 1,
-      "prediction_id": "20260812_20260813_600584_zz800_seed_v1_live",
-      "generated_at": "2026-08-13T08:42:12",
+      "prediction_id": "20260813_20260814_600584_zz800_seed_v1_live",
+      "generated_at": "2026-08-14T05:06:36",
       "generation_mode": "live",
-      "baseline_trade_date": "20260812",
-      "target_trade_date": "20260813",
+      "baseline_trade_date": "20260813",
+      "target_trade_date": "20260814",
       "code": "600584",
       "name": "长电科技",
       "group": "watchlist",
@@ -10937,23 +10938,23 @@
         "AI算力"
       ],
       "features_ref": {
-        "price_at_baseline": 78.18,
-        "right_side_score": 1.0,
-        "right_side_grade": "观察等待",
-        "main_inflow_10d": -394295299.9999999,
+        "price_at_baseline": 77.82,
+        "right_side_score": 2.0,
+        "right_side_grade": "可考虑介入",
+        "main_inflow_10d": 288099900.0000001,
         "np_yoy": 42.7359,
         "holder_change_pct": null,
-        "position_20d_pct": 58.64051403449444,
+        "position_20d_pct": 57.932446264073654,
         "market_regime": "momentum",
-        "macro_regime": "🟡 中性",
+        "macro_regime": "🔴 看空",
         "ai_position_ceiling": "减档 (单否决, 不加且高位减)"
       },
       "context_ref": {
         "schema_version": 1,
         "line": "E_context",
         "purpose": "non_scoring_context_for_c_and_d_llm",
-        "baseline_trade_date": "20260812",
-        "target_trade_date": "20260813",
+        "baseline_trade_date": "20260813",
+        "target_trade_date": "20260814",
         "stock": {
           "code": "600584",
           "name": "长电科技"
@@ -11205,8 +11206,8 @@
                 "  营收YoY 85.2% | QoQ 19.8% | 加速度 0.3pp | 最新季营收 816.2亿美元",
                 "【海外闸门·SOX】❌关闭  收12399.4 / MA50 12663.2 / 近1月0.0%",
                 "  触发: 跌破MA50(12663)",
-                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF None / 创业板 37.51",
-                "【篮子拥挤度】换手分位 35% / 篮子52周位置 54%  [已证实]"
+                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF 19.57 / 创业板 37.51",
+                "【篮子拥挤度】换手分位 64% / 篮子52周位置 53%  [已证实]"
               ]
             }
           ],
@@ -11216,27 +11217,27 @@
         }
       },
       "prediction": {
-        "action": "avoid",
-        "direction": "neutral",
+        "action": "watch",
+        "direction": "up",
         "confidence": 0.55,
         "horizon": "T+1",
-        "expected_excess_bucket": "non_positive",
+        "expected_excess_bucket": "positive",
         "reason_codes": [
-          "score_lt_2",
-          "non_panic"
+          "score_ge_2",
+          "macro_bearish_reduce_confidence"
         ],
-        "reason": "非 panic 且评分<2,默认回避/低优先级"
+        "reason": "评分≥2,列为高优先观察,需盘中行为确认"
       },
       "rule_version": "zz800_seed_v1",
       "model_version": "manual_rules_v1"
     },
     {
       "schema_version": 1,
-      "prediction_id": "20260812_20260813_603806_zz800_seed_v1_live",
-      "generated_at": "2026-08-13T08:42:12",
+      "prediction_id": "20260813_20260814_603806_zz800_seed_v1_live",
+      "generated_at": "2026-08-14T05:06:36",
       "generation_mode": "live",
-      "baseline_trade_date": "20260812",
-      "target_trade_date": "20260813",
+      "baseline_trade_date": "20260813",
+      "target_trade_date": "20260814",
       "code": "603806",
       "name": "福斯特",
       "group": "watchlist",
@@ -11246,23 +11247,23 @@
         "新能源"
       ],
       "features_ref": {
-        "price_at_baseline": 15.45,
+        "price_at_baseline": 15.21,
         "right_side_score": 0.0,
         "right_side_grade": "回避",
-        "main_inflow_10d": 153919300.0,
+        "main_inflow_10d": 81517800.0,
         "np_yoy": -22.2712,
         "holder_change_pct": null,
-        "position_20d_pct": 87.64940239043823,
+        "position_20d_pct": 78.08764940239048,
         "market_regime": "momentum",
-        "macro_regime": "🟡 中性",
+        "macro_regime": "🔴 看空",
         "ai_position_ceiling": "减档 (单否决, 不加且高位减)"
       },
       "context_ref": {
         "schema_version": 1,
         "line": "E_context",
         "purpose": "non_scoring_context_for_c_and_d_llm",
-        "baseline_trade_date": "20260812",
-        "target_trade_date": "20260813",
+        "baseline_trade_date": "20260813",
+        "target_trade_date": "20260814",
         "stock": {
           "code": "603806",
           "name": "福斯特"
@@ -11514,8 +11515,8 @@
                 "  营收YoY 85.2% | QoQ 19.8% | 加速度 0.3pp | 最新季营收 816.2亿美元",
                 "【海外闸门·SOX】❌关闭  收12399.4 / MA50 12663.2 / 近1月0.0%",
                 "  触发: 跌破MA50(12663)",
-                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF None / 创业板 37.51",
-                "【篮子拥挤度】换手分位 35% / 篮子52周位置 54%  [已证实]"
+                "【本土情绪·QVIX】⚠️情绪偏紧(创业板QVIX≥35)  300ETF 19.57 / 创业板 37.51",
+                "【篮子拥挤度】换手分位 64% / 篮子52周位置 53%  [已证实]"
               ]
             }
           ],
@@ -11547,7 +11548,7 @@
     "600875",
     "600276"
   ],
-  "updated_at": "2026-08-13T08:46:32",
+  "updated_at": "2026-08-14T05:10:53",
   "done_codes": [
     "601138",
     "002475",
@@ -11563,5 +11564,5 @@
     "current": 5,
     "existing": 5
   },
-  "finished_at": "2026-08-13T08:46:32"
+  "finished_at": "2026-08-14T05:10:53"
 }
