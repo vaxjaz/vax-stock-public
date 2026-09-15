@@ -1,0 +1,188 @@
+{
+  "schema_version": 1,
+  "policy_version": "evidence_convergence_v1",
+  "as_of_trade_date": "20260907",
+  "status": "ready",
+  "market_context": {
+    "source_status": "aligned",
+    "trade_date": "20260907",
+    "market_regime": "momentum",
+    "up_count": 3167,
+    "down_count": 2196,
+    "total": 5549,
+    "limit_down_count": 4,
+    "down_ratio": 0.39574698143809695,
+    "macro_regime": "🔴 看空",
+    "above_ma60_pct": 60.44000814829904,
+    "margin_data_date": "20260904",
+    "margin_stale": true,
+    "ai_track": {
+      "track_name": "AI算力",
+      "position_ceiling": "减档 (单否决, 不加且高位减)",
+      "vetoes": [
+        [
+          "海外闸门",
+          "SOX 跌破MA50(12092),近1月动量转负(-5.0%) → AI上限砍半"
+        ]
+      ],
+      "pending": []
+    }
+  },
+  "facts": {
+    "live_evidence_objects": 1817,
+    "current_target_evidence_objects": 40,
+    "new_matured_c_results": 1817,
+    "dline_selected_stocks": 5,
+    "dline_triggered_stocks": 4,
+    "dline_trigger_records": 6,
+    "dline_complete_evolution_paths": 6,
+    "dline_late_limited_evolution_paths": 0,
+    "dline_missing_evolution_paths": 0,
+    "horizon_reversal_total": 585,
+    "horizon_reversal_new": 11
+  },
+  "convergence": {
+    "thresholds": {
+      "available": true,
+      "minimum_preliminary_sessions": 5,
+      "minimum_stable_sessions": 20,
+      "support_min_hit_rate": 0.6,
+      "conflict_max_hit_rate": 0.4,
+      "source": "strategy_policy.action_rules.history_evidence",
+      "independence_rule": "same group and target_trade_date counts as one market session"
+    },
+    "groups": [
+      {
+        "group_key": "zz800_seed_v1|avoid|neutral|momentum",
+        "rule_version": "zz800_seed_v1",
+        "action": "avoid",
+        "direction": "neutral",
+        "decision_market_regime": "momentum",
+        "observations": 459,
+        "independent_sessions": 18,
+        "session_weighted_hit_rate": 0.5124465182483571,
+        "verdict": "mixed"
+      },
+      {
+        "group_key": "zz800_seed_v1|avoid|neutral|value",
+        "rule_version": "zz800_seed_v1",
+        "action": "avoid",
+        "direction": "neutral",
+        "decision_market_regime": "value",
+        "observations": 219,
+        "independent_sessions": 12,
+        "session_weighted_hit_rate": 0.5967442049283481,
+        "verdict": "mixed"
+      },
+      {
+        "group_key": "zz800_seed_v1|candidate_buy|up|momentum",
+        "rule_version": "zz800_seed_v1",
+        "action": "candidate_buy",
+        "direction": "up",
+        "decision_market_regime": "momentum",
+        "observations": 15,
+        "independent_sessions": 12,
+        "session_weighted_hit_rate": 0.5416666666666666,
+        "verdict": "mixed"
+      },
+      {
+        "group_key": "zz800_seed_v1|candidate_buy|up|value",
+        "rule_version": "zz800_seed_v1",
+        "action": "candidate_buy",
+        "direction": "up",
+        "decision_market_regime": "value",
+        "observations": 44,
+        "independent_sessions": 12,
+        "session_weighted_hit_rate": 0.4077380952380953,
+        "verdict": "mixed"
+      },
+      {
+        "group_key": "zz800_seed_v1|panic_rebound_watch|up|panic",
+        "rule_version": "zz800_seed_v1",
+        "action": "panic_rebound_watch",
+        "direction": "up",
+        "decision_market_regime": "panic",
+        "observations": 269,
+        "independent_sessions": 15,
+        "session_weighted_hit_rate": 0.516223001297372,
+        "verdict": "mixed"
+      },
+      {
+        "group_key": "zz800_seed_v1|watch|up|momentum",
+        "rule_version": "zz800_seed_v1",
+        "action": "watch",
+        "direction": "up",
+        "decision_market_regime": "momentum",
+        "observations": 256,
+        "independent_sessions": 18,
+        "session_weighted_hit_rate": 0.4724937371996195,
+        "verdict": "mixed"
+      },
+      {
+        "group_key": "zz800_seed_v1|watch|up|value",
+        "rule_version": "zz800_seed_v1",
+        "action": "watch",
+        "direction": "up",
+        "decision_market_regime": "value",
+        "observations": 228,
+        "independent_sessions": 12,
+        "session_weighted_hit_rate": 0.40358517583581527,
+        "verdict": "mixed"
+      }
+    ],
+    "changes": [
+      {
+        "type": "group_verdict_changed",
+        "group_key": "zz800_seed_v1|avoid|neutral|value",
+        "before": "preliminary_support",
+        "after": "mixed",
+        "summary": "avoid/neutral由preliminary_support变为mixed。"
+      },
+      {
+        "type": "group_verdict_changed",
+        "group_key": "zz800_seed_v1|candidate_buy|up|value",
+        "before": "preliminary_conflict",
+        "after": "mixed",
+        "summary": "candidate_buy/up由preliminary_conflict变为mixed。"
+      },
+      {
+        "type": "group_verdict_changed",
+        "group_key": "zz800_seed_v1|watch|up|value",
+        "before": "preliminary_conflict",
+        "after": "mixed",
+        "summary": "watch/up由preliminary_conflict变为mixed。"
+      }
+    ]
+  },
+  "special_findings": [
+    {
+      "code": "decision_outcome_environment_shift",
+      "severity": "attention",
+      "summary": "决策时市场状态为value，结果日实际状态为momentum；本日结果需按环境切换样本解释，不能直接归因于个股规则。"
+    },
+    {
+      "code": "same_day_correlated_trigger_event",
+      "severity": "attention",
+      "summary": "4只股票在同一交易日触发D线，属于1个相关市场事件；保留逐股结果，但收敛判断不按4个独立市场样本计数。",
+      "triggered_stock_count": 4,
+      "effective_environment_event_count": 1
+    },
+    {
+      "code": "t1_t5_sign_reversal",
+      "severity": "attention",
+      "summary": "新增11条T+1与T+5收益方向反转证据（三花智控、双环传动、天孚通信等）；短期结论不能外推到持有5天。"
+    }
+  ],
+  "strategy_effect": {
+    "automatic_rule_change": false,
+    "status": "review_required",
+    "summary": "发现3项需要继续验证的问题；不自动修改今日动作，下方操作仍按持仓、C线与D线纪律生成。"
+  },
+  "source_contract": {
+    "primary_return": "actual_stock_return",
+    "same_day_dependence": "one_environment_event",
+    "user_execution_used": false,
+    "llm_interpretation_used": false
+  },
+  "facts_digest": "d227f235c90298f0bbe03b86bb29eb9991f2e12cda65f022bc669c5e6789fd0b"
+}

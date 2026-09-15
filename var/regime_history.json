@@ -2,106 +2,6 @@
   "current_regime": "momentum",
   "raw_history": [
     {
-      "trade_date": "20260630",
-      "raw": "value"
-    },
-    {
-      "trade_date": "20260701",
-      "raw": "value"
-    },
-    {
-      "trade_date": "20260702",
-      "raw": "value"
-    },
-    {
-      "trade_date": "20260703",
-      "raw": "momentum"
-    },
-    {
-      "trade_date": "20260706",
-      "raw": "panic"
-    },
-    {
-      "trade_date": "20260707",
-      "raw": "panic"
-    },
-    {
-      "trade_date": "20260708",
-      "raw": "panic"
-    },
-    {
-      "trade_date": "20260709",
-      "raw": "momentum"
-    },
-    {
-      "trade_date": "20260710",
-      "raw": "value"
-    },
-    {
-      "trade_date": "20260713",
-      "raw": "panic"
-    },
-    {
-      "trade_date": "20260714",
-      "raw": "momentum"
-    },
-    {
-      "trade_date": "20260715",
-      "raw": "value"
-    },
-    {
-      "trade_date": "20260716",
-      "raw": "value"
-    },
-    {
-      "trade_date": "20260717",
-      "raw": "panic"
-    },
-    {
-      "trade_date": "20260720",
-      "raw": "panic"
-    },
-    {
-      "trade_date": "20260721",
-      "raw": "value"
-    },
-    {
-      "trade_date": "20260722",
-      "raw": "value"
-    },
-    {
-      "trade_date": "20260723",
-      "raw": "momentum"
-    },
-    {
-      "trade_date": "20260724",
-      "raw": "momentum"
-    },
-    {
-      "trade_date": "20260727",
-      "raw": "value"
-    },
-    {
-      "trade_date": "20260728",
-      "raw": "panic"
-    },
-    {
-      "trade_date": "20260729",
-      "raw": "value"
-    },
-    {
-      "trade_date": "20260730",
-      "raw": "panic"
-    },
-    {
-      "trade_date": "20260731",
-      "raw": "value"
-    },
-    {
-      "trade_date": "20260803",
-      "raw": "momentum"
-    },
-    {
       "trade_date": "20260804",
       "raw": "momentum"
     },
@@ -120,7 +20,107 @@
     {
       "trade_date": "20260810",
       "raw": "momentum"
+    },
+    {
+      "trade_date": "20260811",
+      "raw": "momentum"
+    },
+    {
+      "trade_date": "20260812",
+      "raw": "momentum"
+    },
+    {
+      "trade_date": "20260813",
+      "raw": "momentum"
+    },
+    {
+      "trade_date": "20260814",
+      "raw": "momentum"
+    },
+    {
+      "trade_date": "20260817",
+      "raw": "momentum"
+    },
+    {
+      "trade_date": "20260818",
+      "raw": "value"
+    },
+    {
+      "trade_date": "20260819",
+      "raw": "panic"
+    },
+    {
+      "trade_date": "20260820",
+      "raw": "momentum"
+    },
+    {
+      "trade_date": "20260821",
+      "raw": "value"
+    },
+    {
+      "trade_date": "20260824",
+      "raw": "momentum"
+    },
+    {
+      "trade_date": "20260825",
+      "raw": "momentum"
+    },
+    {
+      "trade_date": "20260826",
+      "raw": "momentum"
+    },
+    {
+      "trade_date": "20260827",
+      "raw": "value"
+    },
+    {
+      "trade_date": "20260828",
+      "raw": "momentum"
+    },
+    {
+      "trade_date": "20260831",
+      "raw": "value"
+    },
+    {
+      "trade_date": "20260901",
+      "raw": "momentum"
+    },
+    {
+      "trade_date": "20260902",
+      "raw": "momentum"
+    },
+    {
+      "trade_date": "20260903",
+      "raw": "value"
+    },
+    {
+      "trade_date": "20260904",
+      "raw": "momentum"
+    },
+    {
+      "trade_date": "20260907",
+      "raw": "value"
+    },
+    {
+      "trade_date": "20260908",
+      "raw": "momentum"
+    },
+    {
+      "trade_date": "20260909",
+      "raw": "momentum"
+    },
+    {
+      "trade_date": "20260910",
+      "raw": "momentum"
+    },
+    {
+      "trade_date": "20260911",
+      "raw": "value"
+    },
+    {
+      "trade_date": "20260914",
+      "raw": "momentum"
     }
   ],
-  "last_updated": "2026-08-11T09:29:30.201808"
+  "last_updated": "2026-09-15T09:26:03.598784"
 }
