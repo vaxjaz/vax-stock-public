@@ -44,6 +44,15 @@ def test_eod_and_preopen_allow_normalized_research_outputs():
     assert ga.blocking_status_entries(entries, ga.STAGE_PATHS["preopen"]) == []
 
 
+def test_eod_allows_generated_regime_history_but_preopen_does_not():
+    entries = ga.parse_status_porcelain(" M var/regime_history.json\n")
+
+    assert ga.blocking_status_entries(entries, ga.STAGE_PATHS["eod"]) == []
+    assert [entry.path for entry in ga.blocking_status_entries(
+        entries, ga.STAGE_PATHS["preopen"]
+    )] == ["var/regime_history.json"]
+
+
 def test_preopen_trade_date_comes_from_expectation_manifest(tmp_path):
     target = tmp_path / "var" / "research"
     target.mkdir(parents=True)

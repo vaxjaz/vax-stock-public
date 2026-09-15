@@ -39,6 +39,7 @@ STAGE_PATHS: Dict[str, Tuple[str, ...]] = {
         "var/eval",
         "var/research",
         "var/prediction",
+        "var/regime_history.json",
         "var/forecast/current_job.json",
         "var/forecast/observation_jobs.jsonl",
         "var/forecast/observation_coverage.jsonl",
@@ -73,6 +74,7 @@ STAGE_PATHS: Dict[str, Tuple[str, ...]] = {
         "var/eval",
         "var/research",
         "var/prediction",
+        "var/regime_history.json",
         "var/forecast",
     ),
 }

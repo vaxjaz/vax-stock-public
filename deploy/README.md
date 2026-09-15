@@ -93,7 +93,7 @@ returns and neither stage creates intraday alerts or trading tasks.
 
 Safety rules:
 
-- EOD stage only stages generated A/B/C/research data, the D-line job envelope, and market-only D-line feedback artifacts: `var/reports`, `var/eval`, `var/research`, `var/prediction`, `var/forecast/current_job.json`, `var/forecast/observation_jobs.jsonl`, `var/forecast/observation_coverage.jsonl`, `var/forecast/forecast_evolution.jsonl`, `var/forecast/market_health_events.jsonl`, `var/forecast/forecast_results.jsonl`, and `var/forecast/dline_reviews`.
+- EOD stage only stages generated A/B/C/research data, regime history, the D-line job envelope, and market-only D-line feedback artifacts: `var/reports`, `var/eval`, `var/research`, `var/prediction`, `var/regime_history.json`, `var/forecast/current_job.json`, `var/forecast/observation_jobs.jsonl`, `var/forecast/observation_coverage.jsonl`, `var/forecast/forecast_evolution.jsonl`, `var/forecast/market_health_events.jsonl`, `var/forecast/forecast_results.jsonl`, and `var/forecast/dline_reviews`.
 - Pre-open stage only stages `var/research`.
 - D-line stage only stages generated D-line task files: `var/forecast/current_job.json`, `var/forecast/current_tasks.json`, `var/forecast/current_tasks.md`, `var/forecast/observation_tasks.jsonl`.
 - Intraday stage only stages live D-line/forecast trigger artifacts: `var/forecast/forecasts.jsonl`, `var/forecast/market_health_events.jsonl` plus the current D-line task context files needed to read the alert.
