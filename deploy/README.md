@@ -54,7 +54,9 @@ the pre-open stage whitelists no other generated tree. `intraday-watch.service`
 is long-running, so `services.intraday` calls `git_autocommit --stage intraday`
 immediately after a trigger forecast row is written.
 
-Enable it explicitly in `/etc/vaxstock/vaxstock.env`:
+The checked-in EOD unit explicitly enables commit + push to `origin/main`.
+This overrides conflicting EOD values in `/etc/vaxstock/vaxstock.env`. Other
+stages remain controlled by the shared environment file:
 
 ```bash
 GIT_AUTOCOMMIT_ENABLED=1
@@ -98,6 +100,7 @@ Safety rules:
 - If any non-whitelisted file is dirty, the autocommit step skips and prints the blocking paths.
 - Push requires non-interactive GitHub credentials for root/systemd, such as SSH deploy key or a stored credential helper. The code never stores tokens.
 - Git prompts are disabled (`GIT_TERMINAL_PROMPT=0`, `GCM_INTERACTIVE=never`); missing credentials fail fast in journal logs.
+- A commit/push failure returns a non-zero helper exit code. The EOD unit keeps the `-` prefix so report generation and D-line startup are not rolled back, while `journalctl -u vaxstock-eod` still records the failure.
 ## Active market health check
 
 `intraday-watch.service` also runs `services.market_health` inside its existing quote polling loop. During trading hours it evaluates at most once every 15 minutes by default; set `MARKET_HEALTH_INTERVAL_SECONDS` in `/etc/vaxstock/vaxstock.env` only when a reviewed cadence change is required. No separate timer or manual command is needed. A newly opened high-risk state sends one consolidated `[盘面体检] 高风险异常` notification; an unchanged state is suppressed, recovery is recorded, and recurrence starts a new episode. Runtime state is `var/forecast/current_market_health.json` (gitignored); append-only evidence is `var/forecast/market_health_events.jsonl`. User executions are not inputs.

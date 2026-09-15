@@ -369,6 +369,16 @@ def run_autocommit(stage: str, root: Optional[Path] = None, dry_run: bool = Fals
     return {"status": "pushed", "stage": stage, "trade_date": trade_date, "branch": branch}
 
 
+def _result_exit_code(result: Dict[str, object]) -> int:
+    """Return non-zero when the requested commit/push did not complete safely."""
+    return 1 if result.get("status") in {
+        "error",
+        "skipped_dirty",
+        "committed_no_push",
+        "commit_push_failed",
+    } else 0
+
+
 def main(argv: Optional[Sequence[str]] = None) -> int:
     parser = argparse.ArgumentParser(description="Auto-commit generated vaxstock data artifacts.")
     parser.add_argument("--stage", choices=sorted(STAGE_PATHS), required=True)
@@ -378,7 +388,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     try:
         result = run_autocommit(args.stage, dry_run=args.dry_run)
         print(f"GIT autocommit done: {result}", flush=True)
-        return 0
+        return _result_exit_code(result)
     except subprocess.TimeoutExpired as exc:
         _log(f"timeout: {exc}")
         return 1

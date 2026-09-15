@@ -95,6 +95,15 @@ def test_autocommit_hooks_are_wired_after_jobs():
     dline = (_DEPLOY / "vaxstock-dline-plan.service").read_text(encoding="utf-8")
     assert "vaxstock.services.git_autocommit --stage dline" in dline, "D-line autocommit hook missing"
 
+
+def test_eod_autocommit_pushes_to_origin_main():
+    eod = (_DEPLOY / "vaxstock-eod.service").read_text(encoding="utf-8")
+    assert 'Environment="GIT_AUTOCOMMIT_ENABLED=1"' in eod
+    assert 'Environment="GIT_AUTOCOMMIT_PUSH=1"' in eod
+    assert 'Environment="GIT_AUTOCOMMIT_REMOTE=origin"' in eod
+    assert 'Environment="GIT_AUTOCOMMIT_BRANCH=main"' in eod
+
+
 def test_longrunning_services_restart_always():
     # api / intraday 长驻 -> Restart=always
     for name in ("stock-api.service", "intraday-watch.service"):

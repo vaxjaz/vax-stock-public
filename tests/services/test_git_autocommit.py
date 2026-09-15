@@ -87,6 +87,16 @@ def test_stage_specific_intraday_filter_allows_forecasts_row():
     assert ga.blocking_status_entries_for_stage("intraday", entries) == []
 
 
+def test_result_exit_code_reports_commit_or_push_failure():
+    assert ga._result_exit_code({"status": "pushed"}) == 0
+    assert ga._result_exit_code({"status": "clean"}) == 0
+    assert ga._result_exit_code({"status": "disabled"}) == 0
+    assert ga._result_exit_code({"status": "commit_push_failed"}) == 1
+    assert ga._result_exit_code({"status": "committed_no_push"}) == 1
+    assert ga._result_exit_code({"status": "skipped_dirty"}) == 1
+    assert ga._result_exit_code({"status": "error"}) == 1
+
+
 
 def test_run_autocommit_intraday_dry_run_does_not_block_forecasts(monkeypatch=None):
     class FakeStatus:
