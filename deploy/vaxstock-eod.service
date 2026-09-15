@@ -10,10 +10,5 @@ Group=root
 WorkingDirectory=/opt/stock-reportv2/vax-stock-public
 EnvironmentFile=/etc/vaxstock/vaxstock.env
 Environment="PATH=/opt/stock-reportv2/venv/bin:/usr/local/bin:/usr/bin:/bin"
-Environment="GIT_AUTOCOMMIT_ENABLED=1"
-Environment="GIT_AUTOCOMMIT_PUSH=1"
-Environment="GIT_AUTOCOMMIT_REMOTE=origin"
-Environment="GIT_AUTOCOMMIT_BRANCH=main"
 ExecStart=/opt/stock-reportv2/venv/bin/python -m vaxstock.services.eod
-ExecStartPost=-/opt/stock-reportv2/venv/bin/python -m vaxstock.services.git_autocommit --stage eod
 ExecStartPost=-/bin/systemctl --no-block start vaxstock-dline-plan.service

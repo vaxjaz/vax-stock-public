@@ -125,6 +125,17 @@ def test_is_trading_time_boundaries():
     assert intra.is_trading_time(force=True, now=at(sat, 3, 0)) is True  # force 无视时段
 
 
+def test_intraday_autocommit_defaults_to_daily_finalizer():
+    previous = intra.os.environ.pop("GIT_AUTOCOMMIT_INTRADAY", None)
+    try:
+        assert intra._maybe_autocommit_intraday_forecast() == {
+            "status": "deferred_to_daily"
+        }
+    finally:
+        if previous is not None:
+            intra.os.environ["GIT_AUTOCOMMIT_INTRADAY"] = previous
+
+
 # ── notify 链路(C线): codex JSON -> reasoning 过铁律校验 -> 渲染推送 + 冻结 forecast ──
 _NOTIFY_SEAMS = ("fetch_lite", "fetch_market_ctx", "_get_concepts", "_codex_verdict",
                  "load_t1_baseline", "record_forecast", "push_wechat", "push_email",

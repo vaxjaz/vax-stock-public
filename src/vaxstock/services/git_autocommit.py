@@ -1,17 +1,17 @@
 # -*- coding: utf-8 -*-
-"""Commit generated EOD/pre-open/D-line artifacts after systemd jobs finish.
+"""Commit publishable artifacts after the complete daily pipeline finishes.
 
 This module is intentionally narrow:
   - it only stages whitelisted generated data paths;
   - it refuses to run when non-whitelisted files are dirty;
   - it never stores credentials or changes remotes.
 
-Production usage is via systemd ExecStartPost:
-    python -m vaxstock.services.git_autocommit --stage eod
-    python -m vaxstock.services.git_autocommit --stage preopen
-    python -m vaxstock.services.git_autocommit --stage dline
-Intraday triggers call the same module from the long-running watcher:
-    python -m vaxstock.services.git_autocommit --stage intraday
+Production usage is via the D-line systemd unit's ExecStopPost:
+    python -m vaxstock.services.git_autocommit --stage daily
+
+Pre-open, intraday, EOD, and D-line jobs only write artifacts.  The daily
+finalizer commits their fixed public roots together once and pushes once.
+Stage-specific modes remain available for manual recovery.
 """
 
 from __future__ import annotations
@@ -33,6 +33,20 @@ DEFAULT_AUTHOR_NAME = "vaxstock-bot"
 DEFAULT_AUTHOR_EMAIL = "vaxstock-bot@users.noreply.github.com"
 
 STAGE_PATHS: Dict[str, Tuple[str, ...]] = {
+    # All explicitly authorized, publishable VPS artifact roots.  Keep this
+    # list fixed: var/strategy and unknown future var/ paths must not be swept
+    # into the public repository by accident.
+    "daily": (
+        "var/cache",
+        "var/eval",
+        "var/evidence",
+        "var/forecast",
+        "var/prediction",
+        "var/reports",
+        "var/research",
+        "var/pool_audit.jsonl",
+        "var/regime_history.json",
+    ),
     # EOD owns A/B/C outputs plus the D-line async job envelope.
     "eod": (
         "var/reports",

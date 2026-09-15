@@ -53,6 +53,24 @@ def test_eod_allows_generated_regime_history_but_preopen_does_not():
     )] == ["var/regime_history.json"]
 
 
+def test_daily_stage_covers_all_authorized_public_artifact_roots_only():
+    entries = ga.parse_status_porcelain(
+        " M var/cache/stocks_daily_pivot.parquet\n"
+        " M var/evidence/evidence_objects.jsonl\n"
+        " M var/pool_audit.jsonl\n"
+        " M var/regime_history.json\n"
+        "?? var/strategy/daily_action_latest.json\n"
+        " M src/vaxstock/services/eod.py\n"
+    )
+
+    blockers = ga.blocking_status_entries(entries, ga.STAGE_PATHS["daily"])
+
+    assert [entry.path for entry in blockers] == [
+        "var/strategy/daily_action_latest.json",
+        "src/vaxstock/services/eod.py",
+    ]
+
+
 def test_preopen_trade_date_comes_from_expectation_manifest(tmp_path):
     target = tmp_path / "var" / "research"
     target.mkdir(parents=True)

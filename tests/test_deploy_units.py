@@ -73,9 +73,7 @@ def test_preopen_is_oneshot_and_timer_has_a_hard_preopen_schedule():
     service = _parse("vaxstock-preopen.service")
     assert service["Service"].get("Type") == "oneshot"
     assert not service.has_section("Install")
-    assert "git_autocommit --stage preopen" in service["Service"].get(
-        "ExecStartPost"
-    )
+    assert "git_autocommit" not in (_DEPLOY / "vaxstock-preopen.service").read_text(encoding="utf-8")
 
     timer = _parse("vaxstock-preopen.timer")
     assert timer["Timer"].get("Persistent") == "true"
@@ -84,24 +82,26 @@ def test_preopen_is_oneshot_and_timer_has_a_hard_preopen_schedule():
     assert "08:35" in oncal
 
 
-def test_autocommit_hooks_are_wired_after_jobs():
+def test_daily_autocommit_runs_once_after_dline_even_on_failure():
     eod = (_DEPLOY / "vaxstock-eod.service").read_text(encoding="utf-8")
-    eod_autocommit = "vaxstock.services.git_autocommit --stage eod"
     dline_start = "systemctl --no-block start vaxstock-dline-plan.service"
-    assert eod_autocommit in eod, "EOD autocommit hook missing"
     assert dline_start in eod, "D-line async start hook missing"
-    assert eod.index(eod_autocommit) < eod.index(dline_start), "EOD autocommit must run before D-line start"
+    assert "git_autocommit" not in eod, "EOD must defer commit until D-line finishes"
 
     dline = (_DEPLOY / "vaxstock-dline-plan.service").read_text(encoding="utf-8")
-    assert "vaxstock.services.git_autocommit --stage dline" in dline, "D-line autocommit hook missing"
+    assert "ExecStopPost=" in dline, "daily finalizer must also run after D-line failure"
+    assert "vaxstock.services.git_autocommit --stage daily" in dline
 
 
-def test_eod_autocommit_pushes_to_origin_main():
-    eod = (_DEPLOY / "vaxstock-eod.service").read_text(encoding="utf-8")
-    assert 'Environment="GIT_AUTOCOMMIT_ENABLED=1"' in eod
-    assert 'Environment="GIT_AUTOCOMMIT_PUSH=1"' in eod
-    assert 'Environment="GIT_AUTOCOMMIT_REMOTE=origin"' in eod
-    assert 'Environment="GIT_AUTOCOMMIT_BRANCH=main"' in eod
+def test_daily_finalizer_pushes_to_origin_main_and_intraday_defers():
+    dline = (_DEPLOY / "vaxstock-dline-plan.service").read_text(encoding="utf-8")
+    assert 'Environment="GIT_AUTOCOMMIT_ENABLED=1"' in dline
+    assert 'Environment="GIT_AUTOCOMMIT_PUSH=1"' in dline
+    assert 'Environment="GIT_AUTOCOMMIT_REMOTE=origin"' in dline
+    assert 'Environment="GIT_AUTOCOMMIT_BRANCH=main"' in dline
+
+    intraday = (_DEPLOY / "intraday-watch.service").read_text(encoding="utf-8")
+    assert 'Environment="GIT_AUTOCOMMIT_INTRADAY=0"' in intraday
 
 
 def test_longrunning_services_restart_always():

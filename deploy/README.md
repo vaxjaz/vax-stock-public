@@ -45,18 +45,16 @@ worker falls back to explicit `CODEX_DLINE_MODEL` and then `CODEX_MODEL`.
 
 ---
 
-## Auto GitHub commit after EOD / pre-open / D-line / intraday triggers
+## One daily GitHub commit after the complete pipeline
 
-`vaxstock-eod.service`, `vaxstock-preopen.service`, and
-`vaxstock-dline-plan.service` call `python -m vaxstock.services.git_autocommit`
-in `ExecStartPost`. The EOD and pre-open stages both whitelist `var/research`;
-the pre-open stage whitelists no other generated tree. `intraday-watch.service`
-is long-running, so `services.intraday` calls `git_autocommit --stage intraday`
-immediately after a trigger forecast row is written.
+Pre-open, intraday, and EOD only write artifacts. EOD then starts the async
+D-line worker. `vaxstock-dline-plan.service` runs `git_autocommit --stage daily`
+from `ExecStopPost`, so the finalizer also runs when D-line exits with a failure.
+All reviewed public artifacts are combined into one commit and one push after
+D-line; no production hook commits in the middle of the daily pipeline.
 
-The checked-in EOD unit explicitly enables commit + push to `origin/main`.
-This overrides conflicting EOD values in `/etc/vaxstock/vaxstock.env`. Other
-stages remain controlled by the shared environment file:
+The checked-in D-line unit explicitly enables the final push to `origin/main`.
+It overrides conflicting values in `/etc/vaxstock/vaxstock.env`:
 
 ```bash
 GIT_AUTOCOMMIT_ENABLED=1
@@ -93,14 +91,13 @@ returns and neither stage creates intraday alerts or trading tasks.
 
 Safety rules:
 
-- EOD stage only stages generated A/B/C/research data, regime history, the D-line job envelope, and market-only D-line feedback artifacts: `var/reports`, `var/eval`, `var/research`, `var/prediction`, `var/regime_history.json`, `var/forecast/current_job.json`, `var/forecast/observation_jobs.jsonl`, `var/forecast/observation_coverage.jsonl`, `var/forecast/forecast_evolution.jsonl`, `var/forecast/market_health_events.jsonl`, `var/forecast/forecast_results.jsonl`, and `var/forecast/dline_reviews`.
-- Pre-open stage only stages `var/research`.
-- D-line stage only stages generated D-line task files: `var/forecast/current_job.json`, `var/forecast/current_tasks.json`, `var/forecast/current_tasks.md`, `var/forecast/observation_tasks.jsonl`.
-- Intraday stage only stages live D-line/forecast trigger artifacts: `var/forecast/forecasts.jsonl`, `var/forecast/market_health_events.jsonl` plus the current D-line task context files needed to read the alert.
+- The daily stage has a fixed public allow-list: `var/cache`, `var/eval`, `var/evidence`, `var/forecast`, `var/prediction`, `var/reports`, `var/research`, `var/pool_audit.jsonl`, and `var/regime_history.json`.
+- `var/strategy`, secrets/account files, ignored runtime status/lock files, source code, configuration, and unknown future `var/` roots are never included.
+- Intraday auto-commit defaults off and the production unit pins `GIT_AUTOCOMMIT_INTRADAY=0`; rows wait for the daily finalizer.
 - If any non-whitelisted file is dirty, the autocommit step skips and prints the blocking paths.
 - Push requires non-interactive GitHub credentials for root/systemd, such as SSH deploy key or a stored credential helper. The code never stores tokens.
 - Git prompts are disabled (`GIT_TERMINAL_PROMPT=0`, `GCM_INTERACTIVE=never`); missing credentials fail fast in journal logs.
-- A commit/push failure returns a non-zero helper exit code. The EOD unit keeps the `-` prefix so report generation and D-line startup are not rolled back, while `journalctl -u vaxstock-eod` still records the failure.
+- A commit/push failure returns a non-zero helper exit code. The D-line unit keeps the `-` prefix so report generation is not rolled back, while `journalctl -u vaxstock-dline-plan` still records the failure.
 ## Active market health check
 
 `intraday-watch.service` also runs `services.market_health` inside its existing quote polling loop. During trading hours it evaluates at most once every 15 minutes by default; set `MARKET_HEALTH_INTERVAL_SECONDS` in `/etc/vaxstock/vaxstock.env` only when a reviewed cadence change is required. No separate timer or manual command is needed. A newly opened high-risk state sends one consolidated `[盘面体检] 高风险异常` notification; an unchanged state is suppressed, recovery is recorded, and recurrence starts a new episode. Runtime state is `var/forecast/current_market_health.json` (gitignored); append-only evidence is `var/forecast/market_health_events.jsonl`. User executions are not inputs.

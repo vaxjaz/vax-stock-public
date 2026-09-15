@@ -73,16 +73,14 @@ def _env_truthy(value: Optional[str], default: bool = False) -> bool:
 
 
 def _maybe_autocommit_intraday_forecast():
-    """Commit/push intraday forecast rows after a live trigger.
+    """Optionally commit an intraday row in manual recovery mode.
 
-    EOD and D-line planning are oneshot services and can use systemd
-    ExecStartPost. Intraday is long-running, so forecast rows written during
-    the session need an explicit hook here. Failures are logged and never block
-    alert delivery.
+    Production defers rows to the single daily finalizer after D-line.  The
+    opt-in flag remains only for a reviewed recovery procedure.
     """
-    if not _env_truthy(os.getenv("GIT_AUTOCOMMIT_INTRADAY"), default=True):
-        logger.info("intraday git autocommit disabled by GIT_AUTOCOMMIT_INTRADAY")
-        return None
+    if not _env_truthy(os.getenv("GIT_AUTOCOMMIT_INTRADAY"), default=False):
+        logger.info("intraday git autocommit deferred to daily finalizer")
+        return {"status": "deferred_to_daily"}
     try:
         from vaxstock.services.git_autocommit import run_autocommit
 
