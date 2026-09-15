@@ -1,20 +1,20 @@
 {
   "schema_version": 1,
   "policy_version": "evidence_convergence_v1",
-  "as_of_trade_date": "20260914",
+  "as_of_trade_date": "20260915",
   "status": "ready",
   "market_context": {
     "source_status": "aligned",
-    "trade_date": "20260914",
-    "market_regime": "value",
-    "up_count": 3126,
-    "down_count": 2224,
-    "total": 5550,
-    "limit_down_count": 20,
-    "down_ratio": 0.40072072072072074,
-    "macro_regime": "🔴 看空",
-    "above_ma60_pct": 50.02037489812551,
-    "margin_data_date": "20260911",
+    "trade_date": "20260915",
+    "market_regime": "momentum",
+    "up_count": 1120,
+    "down_count": 4376,
+    "total": 5548,
+    "limit_down_count": 37,
+    "down_ratio": 0.7887527036770007,
+    "macro_regime": "🟢 强看多",
+    "above_ma60_pct": 39.482266612311456,
+    "margin_data_date": "20260914",
     "margin_stale": true,
     "ai_track": {
       "track_name": "AI算力",
@@ -22,24 +22,24 @@
       "vetoes": [
         [
           "海外闸门",
-          "SOX 跌破MA50(11947),近1月动量转负(-5.1%) → AI上限砍半"
+          "SOX 跌破MA50(11917),近1月动量转负(-10.4%) → AI上限砍半"
         ]
       ],
       "pending": []
     }
   },
   "facts": {
-    "live_evidence_objects": 2020,
+    "live_evidence_objects": 2061,
     "current_target_evidence_objects": 41,
-    "new_matured_c_results": 2020,
+    "new_matured_c_results": 2061,
     "dline_selected_stocks": 0,
     "dline_triggered_stocks": 0,
     "dline_trigger_records": 0,
     "dline_complete_evolution_paths": 0,
     "dline_late_limited_evolution_paths": 0,
     "dline_missing_evolution_paths": 0,
-    "horizon_reversal_total": 658,
-    "horizon_reversal_new": 2
+    "horizon_reversal_total": 671,
+    "horizon_reversal_new": 13
   },
   "convergence": {
     "thresholds": {
@@ -69,9 +69,9 @@
         "action": "avoid",
         "direction": "neutral",
         "decision_market_regime": "value",
-        "observations": 236,
-        "independent_sessions": 13,
-        "session_weighted_hit_rate": 0.6141892208388372,
+        "observations": 254,
+        "independent_sessions": 14,
+        "session_weighted_hit_rate": 0.6100011018900313,
         "verdict": "preliminary_support"
       },
       {
@@ -91,9 +91,9 @@
         "action": "candidate_buy",
         "direction": "up",
         "decision_market_regime": "value",
-        "observations": 48,
-        "independent_sessions": 13,
-        "session_weighted_hit_rate": 0.4340659340659341,
+        "observations": 50,
+        "independent_sessions": 14,
+        "session_weighted_hit_rate": 0.4030612244897959,
         "verdict": "mixed"
       },
       {
@@ -124,17 +124,16 @@
         "action": "watch",
         "direction": "up",
         "decision_market_regime": "value",
-        "observations": 247,
-        "independent_sessions": 13,
-        "session_weighted_hit_rate": 0.42112315826140023,
+        "observations": 268,
+        "independent_sessions": 14,
+        "session_weighted_hit_rate": 0.4284578986576948,
         "verdict": "mixed"
       }
     ],
     "changes": [
       {
-        "type": "new_special_finding",
-        "code": "decision_outcome_environment_shift",
-        "summary": "决策时市场状态为momentum，结果日实际状态为value；本日结果需按环境切换样本解释，不能直接归因于个股规则。"
+        "type": "no_material_change",
+        "summary": "新增结果尚未使任何策略分组跨越证据门槛；当前7个策略分组中，7个已跨越积累阶段。"
       }
     ]
   },
@@ -142,12 +141,12 @@
     {
       "code": "decision_outcome_environment_shift",
       "severity": "attention",
-      "summary": "决策时市场状态为momentum，结果日实际状态为value；本日结果需按环境切换样本解释，不能直接归因于个股规则。"
+      "summary": "决策时市场状态为value，结果日实际状态为momentum；本日结果需按环境切换样本解释，不能直接归因于个股规则。"
     },
     {
       "code": "t1_t5_sign_reversal",
       "severity": "attention",
-      "summary": "新增2条T+1与T+5收益方向反转证据（中际旭创、中天科技）；短期结论不能外推到持有5天。"
+      "summary": "新增13条T+1与T+5收益方向反转证据（东山精密、立讯精密、中际旭创等）；短期结论不能外推到持有5天。"
     }
   ],
   "strategy_effect": {
@@ -161,5 +160,5 @@
     "user_execution_used": false,
     "llm_interpretation_used": false
   },
-  "facts_digest": "90aa7d39b55a6068413ac34739dd4d5e6cb6aed62c2d00db7a5e8b1b592f5f1e"
+  "facts_digest": "96ce88b97472c452d28ce3df11371fcd647b5a4073d35be7f3804638cbf744a5"
 }

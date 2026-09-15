@@ -1,6 +1,6 @@
 # D线盘中观察任务摘要
 
-- updated_at: 2026-09-15T05:14:56
+- updated_at: 2026-09-16T05:15:14
 - target_trade_dates: N/A
 - tasks: 0
 - 口径: 本文件只翻译 D线观察任务, 不给买卖建议; 价格来自 T-1 EOD 基准与任务触发条件。
