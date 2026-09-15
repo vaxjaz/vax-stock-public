@@ -18,6 +18,25 @@ def test_parse_status_porcelain_plain_and_rename():
     ]
 
 
+def test_run_git_preserves_leading_porcelain_status_column():
+    class FakeProcess:
+        returncode = 0
+        stdout = " M var/regime_history.json\n"
+        stderr = ""
+
+    original = ga.subprocess.run
+    try:
+        ga.subprocess.run = lambda *args, **kwargs: FakeProcess()
+        result = ga._run_git(["status", "--porcelain=v1"], ga.Path("."))
+    finally:
+        ga.subprocess.run = original
+
+    assert result.stdout == " M var/regime_history.json"
+    entries = ga.parse_status_porcelain(result.stdout)
+    assert entries[0].status == " M"
+    assert entries[0].path == "var/regime_history.json"
+
+
 def test_blocking_status_entries_refuses_code_changes():
     entries = ga.parse_status_porcelain(
         " M var/reports/2026-07-03/payload.json\n"

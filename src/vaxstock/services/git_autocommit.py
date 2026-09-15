@@ -201,7 +201,10 @@ def _run_git(args: Sequence[str], cwd: Path, timeout: int = 120) -> GitCommandRe
         timeout=timeout,
         env=env,
     )
-    return GitCommandResult(proc.returncode, proc.stdout.strip(), proc.stderr.strip())
+    # Porcelain status uses the first two columns as significant XY state.
+    # Keep leading whitespace on the first line; stripping it turns
+    # `` M var/file`` into ``M var/file`` and corrupts the parsed path.
+    return GitCommandResult(proc.returncode, proc.stdout.rstrip(), proc.stderr.rstrip())
 
 
 def _stage_paths_existing(root: Path, allowed_paths: Iterable[str]) -> List[str]:
