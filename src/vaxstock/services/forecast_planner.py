@@ -24,7 +24,11 @@ from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 from vaxstock import config
 from vaxstock.services.company_context import build_context_from_payload_item, summarize_context
 from vaxstock.services.history_summary import load_live_history
-from vaxstock.sources.codex import CodexCallError
+from vaxstock.sources.codex import (
+    CodexCallError,
+    list_codex_models,
+    select_chat_model_candidates,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -308,12 +312,51 @@ def _codex_plan_runtime_config(secrets: Dict[str, Any]) -> Dict[str, Any]:
         timeout = int(timeout)
     except (TypeError, ValueError):
         timeout = 30
+    preferred = secrets.get("codex_dline_model")
+    fallback = secrets.get("codex_model")
+    effective = fallback if str(preferred or "").strip().lower() == "auto" else (
+        preferred or fallback
+    )
     return {
         "url": secrets.get("codex_url"),
-        "model": secrets.get("codex_dline_model") or secrets.get("codex_model"),
+        "model": effective,
+        "preferred_model": preferred,
+        "fallback_model": fallback,
         "token": secrets.get("codex_token"),
         "timeout": timeout,
     }
+
+
+def _discover_codex_plan_models(runtime: Dict[str, Any]) -> List[str]:
+    """Discover a fresh model catalog and return deterministic candidates."""
+    discovered: List[str] = []
+    if runtime.get("url") and runtime.get("token"):
+        try:
+            discovered = list_codex_models(
+                runtime["url"],
+                runtime["token"],
+                timeout=min(int(runtime.get("timeout") or 30), 15),
+            )
+        except CodexCallError as exc:
+            logger.warning(
+                "D-line model discovery failed; use configured fallbacks: "
+                "error_type=%s status=%s message=%s",
+                exc.error_type,
+                exc.status_code,
+                str(exc)[:160],
+            )
+    candidates = select_chat_model_candidates(
+        discovered,
+        preferred=runtime.get("preferred_model") or runtime.get("model"),
+        fallback=runtime.get("fallback_model"),
+    )
+    logger.info(
+        "D-line model candidates: discovered=%s eligible=%s candidates=%s",
+        len(discovered),
+        len(candidates),
+        candidates,
+    )
+    return candidates
 
 
 def _stock_code(item: Dict[str, Any]) -> str:
@@ -560,9 +603,11 @@ def task_from_llm_plan(evidence: Dict[str, Any], llm_plan: Dict[str, Any], *,
     }
 
 
-def _call_codex_for_plan(evidence: Dict[str, Any]) -> Optional[str]:
+def _call_codex_for_plan(
+    evidence: Dict[str, Any], *, runtime: Optional[Dict[str, Any]] = None,
+) -> Optional[str]:
     s = config.SECRETS
-    runtime = _codex_plan_runtime_config(s)
+    runtime = runtime or _codex_plan_runtime_config(s)
     if not (s.get("codex_enabled", True) and runtime.get("url") and runtime.get("model") and runtime.get("token")):
         logger.warning("D线观察计划: Codex 配置缺失,跳过 LLM 任务生成")
         return None
@@ -581,6 +626,46 @@ def _call_codex_for_plan(evidence: Dict[str, Any]) -> Optional[str]:
         timeout=runtime["timeout"],
         raise_on_error=True,
     )
+
+
+def _call_codex_with_model_fallback(
+    evidence: Dict[str, Any], runtime: Dict[str, Any],
+) -> Optional[str]:
+    candidates = list(runtime.get("model_candidates") or [])
+    if not candidates and runtime.get("model"):
+        candidates = [str(runtime["model"])]
+    if not candidates:
+        return _call_codex_for_plan(evidence, runtime=runtime)
+
+    last_error: Optional[CodexCallError] = None
+    for index, model in enumerate(candidates):
+        attempt = dict(runtime)
+        attempt["model"] = model
+        try:
+            result = _call_codex_for_plan(evidence, runtime=attempt)
+            if index:
+                runtime["model_candidates"] = [
+                    model, *[item for item in candidates if item != model]
+                ]
+            runtime["model"] = model
+            return result
+        except CodexCallError as exc:
+            last_error = exc
+            has_next = index + 1 < len(candidates)
+            if exc.error_type == "model_unavailable" and has_next:
+                logger.warning(
+                    "D-line model unavailable; retry with next candidate: "
+                    "model=%s next=%s status=%s message=%s",
+                    model,
+                    candidates[index + 1],
+                    exc.status_code,
+                    str(exc)[:160],
+                )
+                continue
+            raise
+    if last_error:
+        raise last_error
+    return None
 
 
 def generate_observation_tasks(payload: Dict[str, Any], target_trade_date: str, *,
@@ -612,6 +697,10 @@ def generate_observation_tasks(payload: Dict[str, Any], target_trade_date: str, 
     tasks = []
     total = len(evidences)
     runtime = None if planner_func else _codex_plan_runtime_config(config.SECRETS)
+    if runtime is not None:
+        runtime["model_candidates"] = _discover_codex_plan_models(runtime)
+        if runtime["model_candidates"]:
+            runtime["model"] = runtime["model_candidates"][0]
     for idx, evidence in enumerate(evidences, start=1):
         stock = evidence.get("stock") or {}
         code = str(stock.get("code") or "").strip()
@@ -639,7 +728,11 @@ def generate_observation_tasks(payload: Dict[str, Any], target_trade_date: str, 
                 evidence_chars,
             )
         try:
-            raw = planner_func(evidence) if planner_func else _call_codex_for_plan(evidence)
+            raw = (
+                planner_func(evidence)
+                if planner_func
+                else _call_codex_with_model_fallback(evidence, runtime)
+            )
         except CodexCallError as e:
             elapsed = (dt.datetime.now() - started).total_seconds()
             setattr(e, "stock_code", code)

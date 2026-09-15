@@ -19,7 +19,11 @@ import sys
 from typing import Any, Dict, Iterable, List, Optional
 
 from vaxstock import config
-from vaxstock.sources.codex import models_url_from_chat_url, normalize_chat_completions_url
+from vaxstock.sources.codex import (
+    extract_model_ids,
+    models_url_from_chat_url,
+    normalize_chat_completions_url,
+)
 
 
 _ENV_NAMES = {
@@ -54,15 +58,7 @@ def _json_or_text(resp) -> Any:
 
 
 def _extract_model_ids(payload: Any) -> List[str]:
-    if not isinstance(payload, dict):
-        return []
-    data = payload.get("data")
-    if isinstance(data, list):
-        return [str(x.get("id")) for x in data if isinstance(x, dict) and x.get("id")]
-    models = payload.get("models")
-    if isinstance(models, list):
-        return [str(x.get("id") if isinstance(x, dict) else x) for x in models]
-    return []
+    return extract_model_ids(payload)
 
 
 def _error_summary(payload: Any) -> str:

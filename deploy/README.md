@@ -13,6 +13,16 @@ v2 一刀切顶替 v1(不并存)。本目录是运行服务的 systemd 模板,en
 
 > v2 入口已验:api(内部 uvicorn,`API_PORT` 缺省80)/ intraday(`[--once][--force]`)/ eod(oneshot,退出码 0/1)。
 
+### D-line dynamic model selection
+
+Set `CODEX_DLINE_MODEL=auto` in `/etc/vaxstock/vaxstock.env`. Each D-line job
+reads the live `/v1/models` catalog and orders eligible chat models by explicit
+name markers: `nano`, `mini`, `spark`, then ordinary GPT/Codex ids. This is a
+deterministic lightweight-name policy, not a claim about price or parameter
+count. If a listed model is rejected as unavailable when called, the same stock
+is retried with the next candidate. If catalog discovery itself fails, the
+worker falls back to explicit `CODEX_DLINE_MODEL` and then `CODEX_MODEL`.
+
 ---
 
 ## v2 顶替上线步骤(一刀切,有数秒 api 停服窗口)

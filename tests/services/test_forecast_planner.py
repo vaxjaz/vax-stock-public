@@ -374,6 +374,55 @@ def test_codex_plan_runtime_config_falls_back_to_shared_config():
     assert runtime["timeout"] == 30
 
 
+def test_discover_codex_plan_models_uses_live_lightweight_catalog():
+    saved = fp.list_codex_models
+    try:
+        fp.list_codex_models = lambda *a, **k: [
+            "gpt-5.5", "gpt-5.4-mini", "gpt-5.3-codex-spark"
+        ]
+        runtime = fp._codex_plan_runtime_config({
+            "codex_url": "http://x/v1/chat/completions",
+            "codex_model": "gpt-5.5",
+            "codex_dline_model": "auto",
+            "codex_token": "token",
+        })
+        assert fp._discover_codex_plan_models(runtime) == [
+            "gpt-5.4-mini", "gpt-5.3-codex-spark", "gpt-5.5"
+        ]
+    finally:
+        fp.list_codex_models = saved
+
+
+def test_codex_model_unavailable_retries_next_candidate():
+    calls = []
+    saved = fp._call_codex_for_plan
+
+    def _call(evidence, *, runtime=None):
+        calls.append(runtime["model"])
+        if runtime["model"] == "gpt-5.4-mini":
+            raise CodexCallError(
+                "unknown provider for model gpt-5.4-mini",
+                status_code=502,
+                code="internal_server_error",
+                error_type="model_unavailable",
+                retryable=True,
+            )
+        return '{"ok":true}'
+
+    runtime = {
+        "model": "gpt-5.4-mini",
+        "model_candidates": ["gpt-5.4-mini", "gpt-5.5"],
+    }
+    try:
+        fp._call_codex_for_plan = _call
+        assert fp._call_codex_with_model_fallback({}, runtime) == '{"ok":true}'
+        assert calls == ["gpt-5.4-mini", "gpt-5.5"]
+        assert runtime["model"] == "gpt-5.5"
+        assert runtime["model_candidates"][0] == "gpt-5.5"
+    finally:
+        fp._call_codex_for_plan = saved
+
+
 def test_factor_history_merges_append_only_horizons_by_trade_date():
     rows = [
         {"trade_date": "20260701", "code": "002475", "ret": {"1": 0.01}, "mkt_ret": {"1": 0.001}, "excess": {"1": 0.009}, "complete": False},

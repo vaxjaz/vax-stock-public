@@ -269,7 +269,7 @@ print('✅ import无副作用 + 纯函数验证通过')
 - **codex 盘中链路依赖三项齐全**:`CODEX_URL`(CLIProxyAPI 端点,如 `http://127.0.0.1:8317/v1/chat/completions`)+ `CODEX_TOKEN`(CLIProxyAPI 的 api-key,**不是** Codex OAuth token)+ `codex_model`(须在 CLIProxyAPI `/v1/models` 列表内,如 `gpt-5.5`)。
   - 故障对照:缺 URL → `Invalid URL None`;key 错 → 返回 `{"error":"Invalid API key"}`;model 不认 → 返回 JSON 但无 choices(报 `KeyError 'choices'`)。
   - 配置位置:可放 `secrets.json` 或 `/etc/vaxstock/vaxstock.env`,环境变量优先(`_ENV_OVERRIDES` 映射 `codex_url/codex_token/codex_model → CODEX_URL/CODEX_TOKEN/CODEX_MODEL`)。生产由 systemd `EnvironmentFile` 注入;手动跑须先 `set -a; . /etc/vaxstock/vaxstock.env; set +a` 导入,否则读不到。
-  - D线观察任务可单独覆盖模型/超时:`CODEX_DLINE_MODEL` / `CODEX_DLINE_TIMEOUT`。默认沿用 `CODEX_MODEL` / `CODEX_TIMEOUT`;用于 EOD observation planner 过慢时切轻模型或拉长超时,不影响基础 URL/token。
+  - D线观察任务可单独覆盖模型/超时:`CODEX_DLINE_MODEL` / `CODEX_DLINE_TIMEOUT`。`CODEX_DLINE_MODEL=auto` 时每次 job 读取 `/v1/models`,按模型 id 的 `nano -> mini -> spark -> 普通模型` 轻量命名顺序选候选；实际调用若返回 model unavailable,同票自动切下一候选。模型命名只用于确定性路由,不等价于已验证价格/参数量。目录拉取失败时回退显式 `CODEX_DLINE_MODEL` / `CODEX_MODEL`。
   - 验证:`curl` 直打端点带 `Bearer` key,返回含 `choices` 即通。
   - 历史教训:C2a/C2b 期间该链路因 url/key 未配通,盘中一直静默走"无研判"分支;2026-06-26 PR-A 验证时首次点亮。
 

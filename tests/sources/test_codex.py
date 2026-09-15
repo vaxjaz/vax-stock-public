@@ -14,8 +14,9 @@ class _Resp:
 
 
 class _Requests:
-    def __init__(self, post):
+    def __init__(self, post=None, get=None):
         self.post = post
+        self.get = get
 
 
 def _patch_post(fn):
@@ -33,6 +34,41 @@ def test_normalize_chat_completions_url_accepts_v1_base():
 def test_models_url_from_chat_url():
     assert codex.models_url_from_chat_url("http://x/v1") == "http://x/v1/models"
     assert codex.models_url_from_chat_url("http://x/v1/chat/completions") == "http://x/v1/models"
+
+
+def test_model_catalog_selection_prefers_name_based_lightweight_ids():
+    candidates = codex.select_chat_model_candidates([
+        "gpt-5.5",
+        "gpt-5.4-mini",
+        "gpt-image-1",
+        "gpt-5.3-codex-spark",
+        "text-embedding-3-small",
+    ])
+    assert candidates == [
+        "gpt-5.4-mini",
+        "gpt-5.3-codex-spark",
+        "gpt-5.5",
+    ]
+
+
+def test_list_codex_models_reads_live_catalog_shape():
+    seen = {}
+
+    def _get(url, headers=None, timeout=None):
+        seen["url"] = url
+        seen["auth"] = headers.get("Authorization")
+        return _Resp({"data": [{"id": "gpt-5.5"}, {"id": "gpt-5.4-mini"}]})
+
+    saved = codex._requests_module
+    codex._requests_module = lambda: _Requests(get=_get)
+    try:
+        assert codex.list_codex_models("http://x/v1/chat/completions", "t") == [
+            "gpt-5.5",
+            "gpt-5.4-mini",
+        ]
+        assert seen == {"url": "http://x/v1/models", "auth": "Bearer t"}
+    finally:
+        codex._requests_module = saved
 
 
 def test_call_codex_parses_content_and_normalizes_url():
@@ -81,6 +117,29 @@ def test_call_codex_raises_provider_unavailable_when_requested():
             assert e.code == "internal_server_error"
             assert e.error_type == "provider_unavailable"
             assert e.retryable is True
+        else:
+            assert False, "CodexCallError not raised"
+    finally:
+        codex._requests_module = saved
+
+
+def test_call_codex_classifies_unknown_model_for_fallback():
+    saved = _patch_post(lambda *a, **k: _Resp(
+        {"error": {
+            "message": "unknown provider for model gpt-5.4-mini",
+            "code": "internal_server_error",
+        }},
+        status_code=502,
+    ))
+    try:
+        try:
+            codex.call_codex(
+                "s", "u", url="http://x/v1", model="gpt-5.4-mini",
+                token="t", raise_on_error=True,
+            )
+        except codex.CodexCallError as exc:
+            assert exc.error_type == "model_unavailable"
+            assert exc.retryable is True
         else:
             assert False, "CodexCallError not raised"
     finally:
