@@ -331,6 +331,17 @@ def test_run_observation_job_resumes_remaining_codes():
             job_path=jobs,
             current_job_path=current_job,
         )
+        stale = json.loads(current_job.read_text(encoding="utf-8"))
+        stale["status"] = "partial_failed"
+        stale["failures"] = [{"code": "002371", "reason": "old failure"}]
+        stale["error"] = {
+            "type": "http_error",
+            "status_code": 400,
+            "failed_code": "002371",
+        }
+        current_job.write_text(
+            json.dumps(stale, ensure_ascii=False), encoding="utf-8"
+        )
         stats = fp.run_observation_job(
             planner_func=lambda evidence: _plan(),
             current_job_path=current_job,
@@ -346,6 +357,8 @@ def test_run_observation_job_resumes_remaining_codes():
         assert cur["status"] == "done"
         assert cur["done_codes"] == ["002475", "002371"]
         assert cur["remaining_codes"] == []
+        assert "failures" not in cur
+        assert "error" not in cur
         current = json.loads(current_tasks.read_text(encoding="utf-8"))
         assert sorted(t["code"] for t in current["tasks"]) == ["002371", "002475"]
     finally:

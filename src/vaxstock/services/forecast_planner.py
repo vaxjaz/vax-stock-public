@@ -1226,6 +1226,12 @@ def _job_snapshot(job: Dict[str, Any], *, status: str, baseline: str, target: st
     })
     if status in {"done", "partial_done", "partial_failed", "missing_payload"}:
         out["finished_at"] = _now_iso()
+    if status == "done":
+        # A resumable job may carry the previous partial_failed diagnostics.
+        # Once every requested code is durably materialized, those fields are
+        # stale and must not contradict the terminal success status.
+        out.pop("failures", None)
+        out.pop("error", None)
     if failures:
         out["failures"] = failures
     if error:
