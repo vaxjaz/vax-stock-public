@@ -612,10 +612,11 @@ def _call_codex_for_plan(
         logger.warning("D线观察计划: Codex 配置缺失,跳过 LLM 任务生成")
         return None
     from vaxstock.sources.codex import call_codex
+    prompt_evidence = _compact_evidence_for_llm(evidence)
     user_msg = (
         "请基于以下 A/B/C 证据生成单只股票的 D线次日盘中观察任务 JSON。\n"
         "JSON 必须符合 system prompt 的 schema,不得输出 markdown。\n\n"
-        f"{json.dumps(evidence, ensure_ascii=False, default=str)}"
+        f"{json.dumps(prompt_evidence, ensure_ascii=False, default=str)}"
     )
     return call_codex(
         _load_prompt(),
@@ -638,7 +639,9 @@ def _call_codex_with_model_fallback(
         return _call_codex_for_plan(evidence, runtime=runtime)
 
     last_error: Optional[CodexCallError] = None
+    attempted: List[str] = []
     for index, model in enumerate(candidates):
+        attempted.append(model)
         attempt = dict(runtime)
         attempt["model"] = model
         try:
@@ -651,13 +654,16 @@ def _call_codex_with_model_fallback(
             return result
         except CodexCallError as exc:
             last_error = exc
+            setattr(exc, "model", model)
+            setattr(exc, "attempted_models", list(attempted))
             has_next = index + 1 < len(candidates)
-            if exc.error_type == "model_unavailable" and has_next:
+            if exc.error_type in {"model_unavailable", "request_rejected"} and has_next:
                 logger.warning(
-                    "D-line model unavailable; retry with next candidate: "
-                    "model=%s next=%s status=%s message=%s",
+                    "D-line model rejected request; retry with next candidate: "
+                    "model=%s next=%s error_type=%s status=%s message=%s",
                     model,
                     candidates[index + 1],
+                    exc.error_type,
                     exc.status_code,
                     str(exc)[:160],
                 )
@@ -666,6 +672,86 @@ def _call_codex_with_model_fallback(
     if last_error:
         raise last_error
     return None
+
+
+def _date_list_brief(values: Any) -> Dict[str, Any]:
+    dates = sorted({str(value) for value in values or [] if value})
+    return {
+        "count": len(dates),
+        "first": dates[0] if dates else None,
+        "latest": dates[-1] if dates else None,
+    }
+
+
+def _compact_history_summary_for_llm(summary: Any) -> Any:
+    """Keep decision-relevant history while bounding the LLM request size.
+
+    The full no-ceiling history remains in the frozen task evidence. Only the
+    transport projection drops repetitive per-date arrays and intermediate
+    horizons; key horizons plus T+now remain explicit.
+    """
+    if not isinstance(summary, dict) or not summary.get("available"):
+        return summary
+    out = {
+        key: value for key, value in summary.items()
+        if key not in {
+            "horizons", "sample_baseline_dates",
+            "absolute_action_sample_dates",
+        }
+    }
+    out["sample_baseline_dates_brief"] = _date_list_brief(
+        summary.get("sample_baseline_dates")
+    )
+    out["absolute_action_sample_dates_brief"] = _date_list_brief(
+        summary.get("absolute_action_sample_dates")
+    )
+    selected = {
+        str(value) for value in (summary.get("key_horizons") or [])
+        if str(value).isdigit()
+    }
+    latest = str(summary.get("latest_horizon") or "")
+    if latest.isdigit():
+        selected.add(latest)
+    horizons = summary.get("horizons") or {}
+    compact_horizons: Dict[str, Any] = {}
+    for horizon in sorted(selected, key=int):
+        cell = horizons.get(horizon)
+        if not isinstance(cell, dict):
+            continue
+        compact = {
+            key: value for key, value in cell.items()
+            if key not in {
+                "sample_baseline_dates",
+                "absolute_action_sample_dates",
+            }
+        }
+        compact["sample_baseline_dates_brief"] = _date_list_brief(
+            cell.get("sample_baseline_dates")
+        )
+        compact["absolute_action_sample_dates_brief"] = _date_list_brief(
+            cell.get("absolute_action_sample_dates")
+        )
+        compact_horizons[horizon] = compact
+    out["horizons"] = compact_horizons
+    out["transport_projection"] = "key_horizons_plus_latest_no_date_arrays"
+    return out
+
+
+def _compact_evidence_for_llm(evidence: Dict[str, Any]) -> Dict[str, Any]:
+    """Build a bounded prompt projection without mutating frozen evidence."""
+    out = dict(evidence or {})
+    out["B_prediction_history_summary"] = _compact_history_summary_for_llm(
+        out.get("B_prediction_history_summary")
+    )
+    prediction = out.get("C_prediction")
+    if isinstance(prediction, dict) and prediction.get("context_ref") is not None:
+        compact_prediction = dict(prediction)
+        compact_prediction["context_ref"] = {
+            "omitted_from_prompt": True,
+            "reason": "duplicated_as_E_context",
+        }
+        out["C_prediction"] = compact_prediction
+    return out
 
 
 def generate_observation_tasks(payload: Dict[str, Any], target_trade_date: str, *,
@@ -1301,6 +1387,8 @@ def run_observation_job(job: Optional[Dict[str, Any]] = None, *,
             "status_code": getattr(e, "status_code", None),
             "code": getattr(e, "code", None),
             "retryable": getattr(e, "retryable", False),
+            "model": getattr(e, "model", None),
+            "attempted_models": getattr(e, "attempted_models", []),
             "failed_code": getattr(e, "stock_code", None),
             "message": str(e)[:300],
         }
