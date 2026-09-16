@@ -1,20 +1,20 @@
 {
   "schema_version": 1,
   "policy_version": "evidence_convergence_v1",
-  "as_of_trade_date": "20260915",
+  "as_of_trade_date": "20260916",
   "status": "ready",
   "market_context": {
     "source_status": "aligned",
-    "trade_date": "20260915",
+    "trade_date": "20260916",
     "market_regime": "momentum",
-    "up_count": 1120,
-    "down_count": 4376,
-    "total": 5548,
-    "limit_down_count": 37,
-    "down_ratio": 0.7887527036770007,
-    "macro_regime": "🟢 强看多",
-    "above_ma60_pct": 39.482266612311456,
-    "margin_data_date": "20260914",
+    "up_count": 4170,
+    "down_count": 1189,
+    "total": 5550,
+    "limit_down_count": 5,
+    "down_ratio": 0.21423423423423424,
+    "macro_regime": "🟢 看多",
+    "above_ma60_pct": 45.699143905421934,
+    "margin_data_date": "20260915",
     "margin_stale": true,
     "ai_track": {
       "track_name": "AI算力",
@@ -22,24 +22,24 @@
       "vetoes": [
         [
           "海外闸门",
-          "SOX 跌破MA50(11917),近1月动量转负(-10.4%) → AI上限砍半"
+          "SOX 跌破MA50(11883),近1月动量转负(-11.5%) → AI上限砍半"
         ]
       ],
       "pending": []
     }
   },
   "facts": {
-    "live_evidence_objects": 2061,
+    "live_evidence_objects": 2102,
     "current_target_evidence_objects": 41,
-    "new_matured_c_results": 2061,
-    "dline_selected_stocks": 0,
-    "dline_triggered_stocks": 0,
-    "dline_trigger_records": 0,
-    "dline_complete_evolution_paths": 0,
+    "new_matured_c_results": 2102,
+    "dline_selected_stocks": 5,
+    "dline_triggered_stocks": 4,
+    "dline_trigger_records": 4,
+    "dline_complete_evolution_paths": 4,
     "dline_late_limited_evolution_paths": 0,
     "dline_missing_evolution_paths": 0,
-    "horizon_reversal_total": 671,
-    "horizon_reversal_new": 13
+    "horizon_reversal_total": 681,
+    "horizon_reversal_new": 10
   },
   "convergence": {
     "thresholds": {
@@ -58,9 +58,9 @@
         "action": "avoid",
         "direction": "neutral",
         "decision_market_regime": "momentum",
-        "observations": 572,
-        "independent_sessions": 22,
-        "session_weighted_hit_rate": 0.5743348808059777,
+        "observations": 599,
+        "independent_sessions": 23,
+        "session_weighted_hit_rate": 0.5590256347805971,
         "verdict": "mixed"
       },
       {
@@ -80,9 +80,9 @@
         "action": "candidate_buy",
         "direction": "up",
         "decision_market_regime": "momentum",
-        "observations": 16,
-        "independent_sessions": 13,
-        "session_weighted_hit_rate": 0.5,
+        "observations": 17,
+        "independent_sessions": 14,
+        "session_weighted_hit_rate": 0.5357142857142857,
         "verdict": "mixed"
       },
       {
@@ -113,9 +113,9 @@
         "action": "watch",
         "direction": "up",
         "decision_market_regime": "momentum",
-        "observations": 305,
-        "independent_sessions": 22,
-        "session_weighted_hit_rate": 0.43845058684630883,
+        "observations": 318,
+        "independent_sessions": 23,
+        "session_weighted_hit_rate": 0.45617681551185385,
         "verdict": "mixed"
       },
       {
@@ -132,21 +132,24 @@
     ],
     "changes": [
       {
-        "type": "no_material_change",
-        "summary": "新增结果尚未使任何策略分组跨越证据门槛；当前7个策略分组中，7个已跨越积累阶段。"
+        "type": "new_special_finding",
+        "code": "same_day_correlated_trigger_event",
+        "summary": "4只股票在同一交易日触发D线，属于1个相关市场事件；保留逐股结果，但收敛判断不按4个独立市场样本计数。"
       }
     ]
   },
   "special_findings": [
     {
-      "code": "decision_outcome_environment_shift",
+      "code": "same_day_correlated_trigger_event",
       "severity": "attention",
-      "summary": "决策时市场状态为value，结果日实际状态为momentum；本日结果需按环境切换样本解释，不能直接归因于个股规则。"
+      "summary": "4只股票在同一交易日触发D线，属于1个相关市场事件；保留逐股结果，但收敛判断不按4个独立市场样本计数。",
+      "triggered_stock_count": 4,
+      "effective_environment_event_count": 1
     },
     {
       "code": "t1_t5_sign_reversal",
       "severity": "attention",
-      "summary": "新增13条T+1与T+5收益方向反转证据（东山精密、立讯精密、中际旭创等）；短期结论不能外推到持有5天。"
+      "summary": "新增10条T+1与T+5收益方向反转证据（北方华创、鼎龙股份、润泽科技等）；短期结论不能外推到持有5天。"
     }
   ],
   "strategy_effect": {
@@ -160,5 +163,5 @@
     "user_execution_used": false,
     "llm_interpretation_used": false
   },
-  "facts_digest": "96ce88b97472c452d28ce3df11371fcd647b5a4073d35be7f3804638cbf744a5"
+  "facts_digest": "c4f1b825974a97a91ebe6af94467787ed3bb2324eb7df48d244d597226162f35"
 }
