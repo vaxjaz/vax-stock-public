@@ -5,9 +5,10 @@ import vaxstock.sources.codex as codex
 
 
 class _Resp:
-    def __init__(self, payload, status_code=200):
+    def __init__(self, payload, status_code=200, text=""):
         self._p = payload
         self.status_code = status_code
+        self.text = text
 
     def json(self):
         return self._p
@@ -144,6 +145,55 @@ def test_call_codex_classifies_unknown_model_for_fallback():
             assert False, "CodexCallError not raised"
     finally:
         codex._requests_module = saved
+
+
+def test_call_codex_classifies_nonstandard_400_for_candidate_fallback():
+    saved = _patch_post(lambda *a, **k: _Resp(
+        {"message": "request rejected by selected model"},
+        status_code=400,
+    ))
+    try:
+        try:
+            codex.call_codex(
+                "s", "u", url="http://x/v1", model="catalog-first",
+                token="t", raise_on_error=True,
+            )
+        except codex.CodexCallError as exc:
+            assert exc.status_code == 400
+            assert exc.error_type == "request_rejected"
+            assert exc.retryable is True
+            assert "selected model" in str(exc)
+        else:
+            assert False, "CodexCallError not raised"
+    finally:
+        codex._requests_module = saved
+
+
+def test_call_codex_preserves_non_json_400_body():
+    class _NonJsonResp(_Resp):
+        def json(self):
+            raise ValueError("not json")
+
+    saved = _patch_post(lambda *a, **k: _NonJsonResp(
+        None,
+        status_code=400,
+        text="model input exceeds context window",
+    ))
+    try:
+        try:
+            codex.call_codex(
+                "s", "u", url="http://x/v1", model="m",
+                token="t", raise_on_error=True,
+            )
+        except codex.CodexCallError as exc:
+            assert exc.error_type == "request_rejected"
+            assert str(exc) == "model input exceeds context window"
+        else:
+            assert False, "CodexCallError not raised"
+    finally:
+        codex._requests_module = saved
+
+
 def test_call_codex_returns_none_on_exception():
     def _boom(*a, **k):
         raise TimeoutError("timeout")

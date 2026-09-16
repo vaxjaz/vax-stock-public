@@ -423,6 +423,77 @@ def test_codex_model_unavailable_retries_next_candidate():
         fp._call_codex_for_plan = saved
 
 
+def test_codex_generic_400_retries_next_catalog_candidate():
+    calls = []
+    saved = fp._call_codex_for_plan
+
+    def _call(evidence, *, runtime=None):
+        calls.append(runtime["model"])
+        if runtime["model"] == "catalog-first":
+            raise CodexCallError(
+                "codex HTTP error: status=400",
+                status_code=400,
+                error_type="request_rejected",
+                retryable=True,
+            )
+        return '{"ok":true}'
+
+    runtime = {
+        "model": "catalog-first",
+        "model_candidates": ["catalog-first", "configured-fallback"],
+    }
+    try:
+        fp._call_codex_for_plan = _call
+        assert fp._call_codex_with_model_fallback({}, runtime) == '{"ok":true}'
+        assert calls == ["catalog-first", "configured-fallback"]
+        assert runtime["model"] == "configured-fallback"
+    finally:
+        fp._call_codex_for_plan = saved
+
+
+def test_llm_transport_compacts_unbounded_history_without_mutating_evidence():
+    dates = [f"2026{i:04d}" for i in range(1, 81)]
+    horizons = {
+        str(index): {
+            "horizon": str(index),
+            "evaluated": 20,
+            "avg_ret": 0.01,
+            "sample_baseline_dates": dates,
+            "absolute_action_sample_dates": dates,
+        }
+        for index in range(1, 61)
+    }
+    evidence = {
+        "B_prediction_history_summary": {
+            "available": True,
+            "key_horizons": ["1", "5", "10", "30"],
+            "latest_horizon": "60",
+            "horizons": horizons,
+            "sample_baseline_dates": dates,
+            "absolute_action_sample_dates": dates,
+        },
+        "C_prediction": {
+            "prediction_id": "p1",
+            "context_ref": {"large": "x" * 20000},
+        },
+        "E_context": {"large": "kept-once"},
+    }
+
+    compact = fp._compact_evidence_for_llm(evidence)
+
+    assert sorted(compact["B_prediction_history_summary"]["horizons"], key=int) == [
+        "1", "5", "10", "30", "60",
+    ]
+    assert compact["B_prediction_history_summary"]["sample_baseline_dates_brief"] == {
+        "count": 80,
+        "first": dates[0],
+        "latest": dates[-1],
+    }
+    assert compact["C_prediction"]["context_ref"]["omitted_from_prompt"] is True
+    assert evidence["C_prediction"]["context_ref"]["large"] == "x" * 20000
+    assert len(json.dumps(compact)) < len(json.dumps(evidence)) / 4
+
+
 def test_factor_history_merges_append_only_horizons_by_trade_date():
     rows = [
         {"trade_date": "20260701", "code": "002475", "ret": {"1": 0.01}, "mkt_ret": {"1": 0.001}, "excess": {"1": 0.009}, "complete": False},

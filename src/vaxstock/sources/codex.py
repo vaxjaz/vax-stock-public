@@ -55,6 +55,33 @@ def _model_unavailable(message: str, code) -> bool:
     return any(m in msg or m in err_code for m in markers)
 
 
+def _response_message(payload: Any) -> tuple[str, Any]:
+    """Extract a provider error without assuming the OpenAI error envelope."""
+    if not isinstance(payload, dict):
+        return "", None
+    error = payload.get("error")
+    if isinstance(error, dict):
+        return str(error.get("message") or error.get("detail") or ""), error.get("code")
+    if isinstance(error, str):
+        return error, payload.get("code")
+    return str(payload.get("message") or payload.get("detail") or ""), payload.get("code")
+
+
+def _http_error_type(status_code, message: str, code) -> tuple[str, bool]:
+    if _model_unavailable(message, code):
+        return "model_unavailable", True
+    if _provider_unavailable(status_code, message, code):
+        return "provider_unavailable", True
+    if status_code in {400, 404, 413, 422}:
+        # Some OpenAI-compatible gateways return an empty/non-standard 4xx
+        # body for a model-specific rejection. The caller may safely try the
+        # next finite catalog candidate, but must still preserve the failure.
+        return "request_rejected", True
+    if status_code in {401, 403}:
+        return "auth_failed", False
+    return "http_error", False
+
+
 def _requests_module():
     import requests
     return requests
@@ -267,51 +294,48 @@ def call_codex(system_prompt: str, user_msg: str, *,
         try:
             data = resp.json()
         except Exception as e:
-            logger.warning("codex non-json response: status=%s model=%s err=%s", status_code, model, str(e)[:120])
+            response_text = str(getattr(resp, "text", "") or "").strip()
+            logger.warning(
+                "codex non-json response: status=%s model=%s body=%s err=%s",
+                status_code,
+                model,
+                response_text[:160],
+                str(e)[:120],
+            )
             if raise_on_error:
-                unavailable = _provider_unavailable(status_code, str(e), None)
+                message = response_text or str(e)
+                error_type, retryable = _http_error_type(
+                    status_code, message, None
+                )
                 raise CodexCallError(
-                    str(e),
+                    message,
                     status_code=status_code,
-                    error_type="provider_unavailable" if unavailable else "bad_response",
-                    retryable=unavailable,
+                    error_type=error_type if status_code >= 400 else "bad_response",
+                    retryable=retryable if status_code >= 400 else False,
                 )
             return None
-        if isinstance(data, dict) and data.get("error"):
-            err = data.get("error") or {}
-            msg = str(err.get("message") or "")
-            code = err.get("code")
-            model_unavailable = _model_unavailable(msg, code)
-            unavailable = _provider_unavailable(status_code, msg, code)
+        msg, code = _response_message(data)
+        has_error_envelope = isinstance(data, dict) and bool(data.get("error"))
+        if has_error_envelope or (
+            isinstance(status_code, int) and status_code >= 400
+        ):
+            error_type, retryable = _http_error_type(status_code, msg, code)
+            if has_error_envelope and error_type == "http_error":
+                error_type = "server_error"
             logger.warning(
                 "codex returned error: status=%s model=%s message=%s code=%s",
                 status_code,
                 model,
-                msg[:160],
+                (msg or str(data))[:160],
                 code,
             )
             if raise_on_error:
                 raise CodexCallError(
-                    msg or "codex returned error",
+                    msg or f"codex HTTP error: status={status_code}",
                     status_code=status_code,
                     code=code,
-                    error_type=(
-                        "model_unavailable" if model_unavailable
-                        else "provider_unavailable" if unavailable
-                        else "server_error"
-                    ),
-                    retryable=model_unavailable or unavailable,
-                )
-            return None
-        if isinstance(status_code, int) and status_code >= 400:
-            logger.warning("codex HTTP error: status=%s model=%s url=%s", status_code, model, normalized_url)
-            if raise_on_error:
-                unavailable = _provider_unavailable(status_code, "", None)
-                raise CodexCallError(
-                    f"codex HTTP error: status={status_code}",
-                    status_code=status_code,
-                    error_type="provider_unavailable" if unavailable else "http_error",
-                    retryable=unavailable,
+                    error_type=error_type,
+                    retryable=retryable,
                 )
             return None
         return data["choices"][0]["message"]["content"].strip()

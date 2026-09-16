@@ -19,9 +19,12 @@ Set `CODEX_DLINE_MODEL=auto` in `/etc/vaxstock/vaxstock.env`. Each D-line job
 reads the live `/v1/models` catalog and orders eligible chat models by explicit
 name markers: `nano`, `mini`, `spark`, then ordinary GPT/Codex ids. This is a
 deterministic lightweight-name policy, not a claim about price or parameter
-count. If a listed model is rejected as unavailable when called, the same stock
-is retried with the next candidate. If catalog discovery itself fails, the
-worker falls back to explicit `CODEX_DLINE_MODEL` and then `CODEX_MODEL`.
+count. If a listed model is unavailable, or the gateway returns a generic
+model/request 4xx, the same stock is retried with the next candidate. Frozen
+D-line evidence remains complete, while the HTTP prompt projects history to
+T+1/5/10/30 plus T+now and date ranges so accumulated history cannot grow the
+request without bound. If catalog discovery itself fails, the worker falls
+back to explicit `CODEX_DLINE_MODEL` and then `CODEX_MODEL`.
 
 ---
 
