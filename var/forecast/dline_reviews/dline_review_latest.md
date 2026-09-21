@@ -1,4 +1,4 @@
-# D线规则效果复核 20260918
+# D线规则效果复核 20260921
 
 - 长期结果: 已触发与合格未触发按同一收益口径对照。
 - 盘中演变: 仅使用触发后已验证 quote 计算 15/30 分钟与收盘前路径。
@@ -6,8 +6,8 @@
 
 | 规则版本 | 触发类型 | 周期 | 触发/未触发 | 长期命中 | 增量分离 | 30分钟命中 | 收盘命中 | 时机诊断 | 规则结论 |
 |---|---|---:|---:|---:|---:|---:|---:|---|---|
-| d_observe_llm_v2 | breakdown_confirm | T+1 | 68/137 | 51% | +0.63% | 52% (N=46) | 57% (N=51) | mixed_intraday_path | mixed |
-| d_observe_llm_v2 | breakdown_confirm | T+10 | 65/130 | 45% | +3.69% | 53% (N=43) | 58% (N=48) | mixed_intraday_path | mixed |
+| d_observe_llm_v2 | breakdown_confirm | T+1 | 68/138 | 51% | +0.64% | 52% (N=46) | 57% (N=51) | mixed_intraday_path | mixed |
+| d_observe_llm_v2 | breakdown_confirm | T+10 | 68/132 | 45% | +3.49% | 52% (N=46) | 57% (N=51) | mixed_intraday_path | mixed |
 | d_observe_llm_v2 | breakdown_confirm | T+30 | 56/67 | 40% | -4.22% | 49% (N=37) | 59% (N=39) | mixed_intraday_path | stable_conflict |
 | d_observe_llm_v2 | breakdown_confirm | T+5 | 68/132 | 44% | +2.43% | 52% (N=46) | 57% (N=51) | mixed_intraday_path | mixed |
 | d_observe_llm_v2 | breakout_confirm | T+1 | 8/21 | 34% | -3.40% | 50% (N=4) | 50% (N=4) | insufficient_intraday_path | preliminary_conflict |
@@ -26,8 +26,8 @@
 | d_observe_llm_v2 | panic_rebound_probe | T+10 | 22/14 | 33% | -6.91% | 55% (N=11) | 64% (N=11) | mixed_intraday_path | preliminary_conflict |
 | d_observe_llm_v2 | panic_rebound_probe | T+30 | 22/14 | 28% | -7.74% | 55% (N=11) | 64% (N=11) | mixed_intraday_path | preliminary_conflict |
 | d_observe_llm_v2 | panic_rebound_probe | T+5 | 22/14 | 39% | -1.64% | 55% (N=11) | 64% (N=11) | mixed_intraday_path | preliminary_conflict |
-| d_observe_llm_v2 | reclaim_confirm | T+1 | 37/152 | 51% | -1.59% | 42% (N=24) | 56% (N=25) | mixed_intraday_path | mixed |
-| d_observe_llm_v2 | reclaim_confirm | T+10 | 36/143 | 61% | -2.95% | 39% (N=23) | 54% (N=24) | mixed_intraday_path | mixed |
+| d_observe_llm_v2 | reclaim_confirm | T+1 | 37/153 | 51% | -1.60% | 42% (N=24) | 56% (N=25) | mixed_intraday_path | mixed |
+| d_observe_llm_v2 | reclaim_confirm | T+10 | 37/147 | 62% | -2.95% | 42% (N=24) | 56% (N=25) | mixed_intraday_path | mixed |
 | d_observe_llm_v2 | reclaim_confirm | T+30 | 24/85 | 45% | -7.59% | 50% (N=12) | 75% (N=12) | mixed_intraday_path | mixed |
 | d_observe_llm_v2 | reclaim_confirm | T+5 | 37/147 | 57% | -2.59% | 42% (N=24) | 56% (N=25) | mixed_intraday_path | mixed |
 | d_observe_llm_v2 | risk_off_confirm | T+1 | 10/13 | 39% | -1.29% | 40% (N=5) | 50% (N=6) | mixed_intraday_path | preliminary_conflict |

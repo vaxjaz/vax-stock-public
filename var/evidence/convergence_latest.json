@@ -1,45 +1,40 @@
 {
   "schema_version": 1,
   "policy_version": "evidence_convergence_v1",
-  "as_of_trade_date": "20260918",
+  "as_of_trade_date": "20260921",
   "status": "ready",
   "market_context": {
     "source_status": "aligned",
-    "trade_date": "20260918",
+    "trade_date": "20260921",
     "market_regime": "momentum",
-    "up_count": 4234,
-    "down_count": 1152,
+    "up_count": 4536,
+    "down_count": 936,
     "total": 5553,
-    "limit_down_count": 1,
-    "down_ratio": 0.20745542949756887,
+    "limit_down_count": 4,
+    "down_ratio": 0.1685575364667747,
     "macro_regime": "🟡 中性",
-    "above_ma60_pct": 51.751527494908345,
-    "margin_data_date": "20260917",
+    "above_ma60_pct": 62.016293279022406,
+    "margin_data_date": "20260918",
     "margin_stale": true,
     "ai_track": {
       "track_name": "AI算力",
-      "position_ceiling": "减档 (单否决, 不加且高位减)",
-      "vetoes": [
-        [
-          "海外闸门",
-          "SOX 跌破MA50(11842),近1月动量转负(-1.2%) → AI上限砍半"
-        ]
-      ],
+      "position_ceiling": "中性档 (景气走弱但无否决, 持有不加)",
+      "vetoes": [],
       "pending": []
     }
   },
   "facts": {
-    "live_evidence_objects": 2184,
+    "live_evidence_objects": 2225,
     "current_target_evidence_objects": 41,
-    "new_matured_c_results": 2184,
-    "dline_selected_stocks": 1,
+    "new_matured_c_results": 2225,
+    "dline_selected_stocks": 0,
     "dline_triggered_stocks": 0,
     "dline_trigger_records": 0,
     "dline_complete_evolution_paths": 0,
     "dline_late_limited_evolution_paths": 0,
     "dline_missing_evolution_paths": 0,
-    "horizon_reversal_total": 722,
-    "horizon_reversal_new": 18
+    "horizon_reversal_total": 745,
+    "horizon_reversal_new": 23
   },
   "convergence": {
     "thresholds": {
@@ -58,9 +53,9 @@
         "action": "avoid",
         "direction": "neutral",
         "decision_market_regime": "momentum",
-        "observations": 651,
-        "independent_sessions": 25,
-        "session_weighted_hit_rate": 0.5343035839981493,
+        "observations": 675,
+        "independent_sessions": 26,
+        "session_weighted_hit_rate": 0.5281765230751435,
         "verdict": "mixed"
       },
       {
@@ -113,9 +108,9 @@
         "action": "watch",
         "direction": "up",
         "decision_market_regime": "momentum",
-        "observations": 347,
-        "independent_sessions": 25,
-        "session_weighted_hit_rate": 0.47149219408042936,
+        "observations": 364,
+        "independent_sessions": 26,
+        "session_weighted_hit_rate": 0.4759823133126301,
         "verdict": "mixed"
       },
       {
@@ -141,7 +136,7 @@
     {
       "code": "t1_t5_sign_reversal",
       "severity": "attention",
-      "summary": "新增18条T+1与T+5收益方向反转证据（三花智控、中恒电气、北方华创等）；短期结论不能外推到持有5天。"
+      "summary": "新增23条T+1与T+5收益方向反转证据（三花智控、东山精密、立讯精密等）；短期结论不能外推到持有5天。"
     }
   ],
   "strategy_effect": {
@@ -155,5 +150,5 @@
     "user_execution_used": false,
     "llm_interpretation_used": false
   },
-  "facts_digest": "3c97ae44ccf803d454f44d126c7e6d69024874ac248de041c735c2577e0b9ff5"
+  "facts_digest": "32c55ef25a00669a77e63b9a1f0409d3a4e4a7b0ee031d762b72f55bf9c7d263"
 }
