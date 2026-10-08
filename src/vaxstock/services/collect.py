@@ -33,7 +33,9 @@ from vaxstock.indicators.regime import detect_market_regime, explain_market_regi
 from vaxstock.sources.market import get_index_quotes, get_market_overview
 from vaxstock.sources.us_market import fetch_us_market_data
 from vaxstock.tracks.ai import AITrack
-from vaxstock.tracks.contract import TrackResult
+from vaxstock.tracks.contract import TrackResult, pending_result
+from vaxstock.services.capex_refresh import refresh_capex
+from vaxstock.report.capex import render_capex_lines
 from vaxstock.util import to_float
 
 logger = logging.getLogger(__name__)
@@ -220,6 +222,20 @@ def collect_payload(source) -> Tuple[Dict[str, Any], List[TrackResult]]:
         track_results.append(ai_result)
     except Exception as e:
         logger.warning(f"  ⚠️ AI 赛道评估失败: {str(e)[:120]}")
+
+    # 独立环境事实，借 summary_lines 输出，不参与 AI 打分/否决/仓位规则。
+    try:
+        capex = refresh_capex()
+    except Exception as exc:
+        logger.warning("CAPEX snapshot failed: %s", type(exc).__name__)
+        capex = {"companies": [{"name": name, "available": False,
+                               "reason": "最新快照写入/读取失败"}
+                              for name in ("Microsoft", "Alphabet", "Amazon", "Meta")]}
+    payload["ai_capex"] = capex
+    if not track_results:
+        data_date = str(payload.get("market_overview", {}).get("trade_date") or "")
+        track_results.append(pending_result("AI", data_date, "AI 赛道评估失败"))
+    track_results[0]["summary_lines"] = list(track_results[0].get("summary_lines") or []) + render_capex_lines(capex)
 
     # TrackResult 是 TypedDict(纯 dict), 直接 dict(tr) 序列化即可——不用 dataclasses.asdict(对 dict 会报错)
     payload["tracks"] = [dict(tr) for tr in track_results]

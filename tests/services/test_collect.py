@@ -96,6 +96,7 @@ def _run_collect_with_stubs():
         "load_holdings": config.load_holdings,
         "fetch_us": collect_mod.fetch_us_market_data,
         "AITrack": collect_mod.AITrack,
+        "capex": collect_mod.refresh_capex,
         "sleep": collect_mod.time.sleep,
         "regime_state": config.REGIME_STATE_FILE,
     }
@@ -104,6 +105,7 @@ def _run_collect_with_stubs():
         config.load_holdings = lambda: {}
         collect_mod.fetch_us_market_data = lambda: {"sentiment": "stub", "indices": []}
         collect_mod.AITrack = _StubAITrack
+        collect_mod.refresh_capex = lambda: {"companies": []}
         collect_mod.time.sleep = lambda *_a, **_k: None
         config.REGIME_STATE_FILE = pathlib.Path(d) / "regime_history.json"
         return collect_payload(_StubSource())
@@ -112,6 +114,7 @@ def _run_collect_with_stubs():
         config.load_holdings = saved["load_holdings"]
         collect_mod.fetch_us_market_data = saved["fetch_us"]
         collect_mod.AITrack = saved["AITrack"]
+        collect_mod.refresh_capex = saved["capex"]
         collect_mod.time.sleep = saved["sleep"]
         config.REGIME_STATE_FILE = saved["regime_state"]
         shutil.rmtree(d, ignore_errors=True)
