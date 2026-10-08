@@ -246,3 +246,18 @@ def test_stale_quote_is_rejected_before_any_signal():
     assert result["quality"]["stale_quote_codes"] == [
         "600001", "600002", "600003", "600004",
     ]
+
+
+def test_current_only_health_notifies_without_archiving(tmp_path):
+    state = tmp_path / 'current_health.json'
+    events = tmp_path / 'history.jsonl'
+    kw = dict(quotes=_quotes({'600001': -4.0, '600002': -3.5,
+                             '600003': -3.2, '600004': 0.0}),
+              holdings=_holdings(ai=False), observed_at='2026-07-14T10:00:00',
+              force=True, state_path=state, events_path=events,
+              current_only=True)
+    first = run_market_health_check(**kw)
+    assert first['notifications']
+    assert state.exists()
+    assert not events.exists()
+    assert run_market_health_check(**kw)['notifications'] == []

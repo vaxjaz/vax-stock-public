@@ -189,7 +189,7 @@ def test_notify_json_verdict_render_and_freeze():
         assert inputs_ref["lite_snapshot"]["code"] == "002475"
         assert inputs_ref["regime"] == "momentum"
         assert structured["verdict"] == "确认" and falsify == "跌破MA20"
-        assert fc.get("autocommit") is True
+        assert not fc.get("autocommit")
     finally:
         _restore_notify(saved)
 
@@ -572,7 +572,8 @@ def test_notify_dline_freezes_forecast_and_pushes():
         assert args[1] == "20260706"
         assert args[3]["dline_task_id"] == task["task_id"]
         assert args[4]["source"] == "dline_task_blueprint"
-        assert out.get("autocommit") is True
+        assert not out.get("autocommit")
+        assert not out.get("evolution")
     finally:
         (intra.record_forecast, intra.start_trigger_evolution, intra.push_wechat,
          intra.push_email, intra._maybe_autocommit_intraday_forecast) = saved
@@ -588,8 +589,8 @@ def test_run_consumes_dline_current_tasks():
     health_calls = []
     health_notifications = []
     try:
-        intra.load_rules = lambda: []
-        intra.load_dline_tasks = lambda: [_sample_dline_task()]
+        intra.load_rules = lambda *a, **kw: []
+        intra.load_dline_tasks = lambda *a, **kw: [_sample_dline_task()]
         intra.record_task_observation = lambda task, quote, **kwargs: (
             coverage_calls.append((task["code"], quote["trade_date"])) or {"status": "written"}
         )
@@ -609,7 +610,8 @@ def test_run_consumes_dline_current_tasks():
         intra.request = types.SimpleNamespace(urlopen=lambda *a, **k: _FakeResp({"regime": "x"}))
         intra.run(once=True, force=True)
         assert calls == [("002475", "breakdown_confirm", 1)]
-        assert coverage_calls == [("002475", "20260706")]
+        assert coverage_calls == []
+        assert health_calls[0]["current_only"] is True
         assert len(health_calls) == 1
         assert health_calls[0]["force"] is True
         assert health_calls[0]["quotes"]["002475"]["price"] == 96.0
@@ -628,11 +630,11 @@ def test_run_fire_count_increments_per_code():
     calls = []
     coverage_calls = []
     try:
-        intra.load_rules = lambda: [
+        intra.load_rules = lambda *a, **kw: [
             {"code": "002475", "name": "立讯", "type": "price_above", "level": 69.0, "note": "a"},
             {"code": "002475", "name": "立讯", "type": "pct_above", "level": 1.0, "note": "b"},
         ]
-        intra.load_dline_tasks = lambda: []
+        intra.load_dline_tasks = lambda *a, **kw: []
         intra.record_task_observation = lambda *args, **kwargs: {"status": "written"}
         intra.record_evolution_observation = lambda *args, **kwargs: {"status": "no_active", "written": 0}
         intra.restore_active_evolutions = lambda *args, **kwargs: {"written": 0, "duplicates": 0, "skipped": 0}
@@ -664,7 +666,7 @@ def test_run_fire_count_resets_on_new_day():
     rule_b = {"code": "002475", "name": "立讯", "type": "pct_above", "level": 1.0, "note": "b"}
     ls = {"n": 0}
 
-    def _load():  # call1(loop前)=A; call2(iter1热重载)=A; call3(iter2热重载)=A+B
+    def _load(*a, **kw):  # call1(loop前)=A; call2(iter1热重载)=A; call3(iter2热重载)=A+B
         ls["n"] += 1
         return [dict(rule_a)] if ls["n"] <= 2 else [dict(rule_a), dict(rule_b)]
 
@@ -685,7 +687,7 @@ def test_run_fire_count_resets_on_new_day():
 
     try:
         intra.load_rules = _load
-        intra.load_dline_tasks = lambda: []
+        intra.load_dline_tasks = lambda *a, **kw: []
         intra.record_task_observation = lambda *args, **kwargs: {"status": "written"}
         intra.record_evolution_observation = lambda *args, **kwargs: {"status": "no_active", "written": 0}
         intra.restore_active_evolutions = lambda *args, **kwargs: {"written": 0, "duplicates": 0, "skipped": 0}
@@ -739,31 +741,10 @@ def test_close_review_target_requires_one_consistent_task_date():
     assert intra._close_review_target([]) is None
 
 
-def test_run_close_review_delegates_to_idempotent_service():
-    from vaxstock.services import daily_action
-    saved = (daily_action.refresh_and_send_close_review, intra.finalize_evolutions,
-             intra.finalize_observation_coverage)
-    calls = []
-    try:
-        intra.finalize_evolutions = lambda *args, **kwargs: {"status": "finalized", "written": 1}
-        intra.finalize_observation_coverage = lambda *args, **kwargs: {"status": "finalized", "written": 1}
-        daily_action.refresh_and_send_close_review = lambda **kwargs: (
-            calls.append(kwargs) or {
-                "action": {"status": "written"},
-                "mail": {"status": "sent"},
-            }
-        )
-        result = intra._run_close_review([
-            {"target_trade_date": "20260713"},
-            {"target_trade_date": "20260713"},
-        ])
-        assert result["mail"]["status"] == "sent"
-        assert len(calls) == 1
-        assert calls[0]["target_trade_date"] == "20260713"
-        assert callable(calls[0]["reference_quote_loader"])
-    finally:
-        (daily_action.refresh_and_send_close_review, intra.finalize_evolutions,
-         intra.finalize_observation_coverage) = saved
+def test_close_review_is_retired():
+    result = intra._run_close_review([{"target_trade_date": "20260713"}])
+    assert result == {"status": "skipped", "reason": "daily_review_disabled"}
+
 
 def test_matching_dline_triggers_returns_every_matching_type():
     task = {
@@ -813,8 +794,8 @@ def test_run_restores_fired_keys_when_tasks_appear_after_startup():
     loads = [[], [task]]
     notifications = []
     try:
-        intra.load_rules = lambda: []
-        intra.load_dline_tasks = lambda: loads.pop(0) if loads else [task]
+        intra.load_rules = lambda *a, **kw: []
+        intra.load_dline_tasks = lambda *a, **kw: loads.pop(0) if loads else [task]
         intra.record_evolution_observation = lambda *args, **kwargs: {"status": "no_active", "written": 0}
         intra.restore_active_evolutions = lambda *args, **kwargs: {"written": 0, "duplicates": 0, "skipped": 0}
         intra.run_market_health_check = lambda **kwargs: {"status": "no_change", "notifications": []}

@@ -177,3 +177,26 @@ PYTHONPATH=src /opt/stock-reportv2/venv/bin/python -m vaxstock.services.evidence
 ```
 
 The command does not call an LLM and does not change strategy rules. Optional reviews live in a separate append-only file and require a reviewed forward-only `rule_version` before any production behavior changes.
+
+
+## 2026-10-08：每日运行精简
+
+EOD 保持凌晨 05:00 调度，只发送宏观环境正文，无附件。停止每日研究、
+累计评估、预测核验、证据账本与按日报告。D-line worker 继续生成当前盘中任务，
+不再生成操作邮件。盘中触发与盘面体检通知保留，收盘复盘邮件停止。
+
+运行文件只覆盖更新：`var/eod/current_payload.json`、`current_baseline.json`、
+`macro_mail_state.json`，以及 `var/forecast/current_job.json`、
+`current_tasks.json`、`current_triggers.json` 和盘面体检当前状态。实际根路径以
+`config.STATE_DIR` 为准；宏观行情缓存和 regime 计算状态继续使用。旧历史不删除。
+
+升级后需停止旧 preopen Research v2 timer，防止其继续累计研究文件：
+
+```bash
+sudo systemctl disable --now vaxstock-preopen.timer
+sudo systemctl stop vaxstock-preopen.service
+sudo systemctl daemon-reload
+sudo systemctl restart intraday-watch.service
+```
+
+EOD 与 D-line unit 无需改变调度时点。升级只修改仓库；本次不自动部署 VPS。
