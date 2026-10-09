@@ -742,3 +742,54 @@ def test_compact_market_freezes_macro_and_ai_evidence():
     assert market["ai_track"]["summary_lines"] == ["NVDA已证实", "SOX开放"]
     assert market["ai_track"]["vetoes"] == []
     assert "signals" not in market["ai_track"]
+
+
+def test_current_only_job_is_resumable_and_replaces_old_targets(tmp_path, monkeypatch):
+    payload = tmp_path / 'current_payload.json'
+    current = tmp_path / 'current_job.json'
+    tasks = tmp_path / 'current_tasks.json'
+    history = tmp_path / 'history.jsonl'
+    payload.write_text(json.dumps(_payload()))
+    def forbidden(*a, **kw):
+        raise AssertionError('Retired historical evaluation must not be loaded')
+    monkeypatch.setattr(fp, '_load_factor_results', forbidden)
+    monkeypatch.setattr(fp, 'load_live_history', forbidden)
+    calls = []
+    def plan(evidence):
+        calls.append(evidence)
+        return _plan()
+    def enqueue(target, baseline):
+        return fp.enqueue_observation_job(payload, target, baseline_trade_date=baseline,
+                                          current_job_path=current, job_path=history,
+                                          current_only=True)
+    def run():
+        return fp.run_observation_job(current_job_path=current,
+                                     current_tasks_path=tasks, history_path=history,
+                                     planner_func=plan)
+    assert enqueue('20260706', '20260703')['queued'] == 1
+    assert run()['status'] == 'done'
+    assert len(json.loads(tasks.read_text())['tasks']) == 1
+    assert calls[0]['B_factor_history'] == []
+    assert enqueue('20260706', '20260703')['skipped'] == 1
+    assert json.loads(current.read_text())['status'] == 'done'
+    assert run()['generated'] == 0
+    assert len(calls) == 1
+    p = _payload()
+    p['market_overview']['trade_date'] = '20260706'
+    payload.write_text(json.dumps(p))
+    assert enqueue('20260707', '20260706')['queued'] == 1
+    assert run()['generated'] == 1
+    snapshot = json.loads(tasks.read_text())
+    assert len(snapshot['tasks']) == 1
+    assert snapshot['target_trade_dates'] == ['20260707']
+    assert sorted(p.name for p in tmp_path.iterdir()) == ['current_job.json', 'current_payload.json', 'current_tasks.json']
+
+
+def test_current_only_job_refuses_replaced_payload(tmp_path):
+    payload = tmp_path / 'payload.json'
+    payload.write_text(json.dumps(_payload()))
+    result = fp.run_observation_job(
+        {'current_only': True, 'payload_path': str(payload), 'baseline_trade_date': '20260701'},
+        current_tasks_path=tmp_path / 'tasks.json')
+    assert result['status'] == 'payload_mismatch'
+    assert not (tmp_path / 'tasks.json').exists()

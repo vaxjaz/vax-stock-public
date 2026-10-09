@@ -1,5 +1,5 @@
 [Unit]
-Description=vaxstock v2 EOD (盘后/次日凌晨全流程)
+Description=vaxstock v2 EOD (宏观环境邮件 + 当前盘中任务输入)
 After=network-online.target
 Wants=network-online.target
 

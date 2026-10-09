@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 
 FORECAST_DIR = config.STATE_DIR / "forecast"
 FORECASTS_FILE = FORECAST_DIR / "forecasts.jsonl"
+CURRENT_TRIGGERS_FILE = FORECAST_DIR / "current_triggers.json"
 DLINE_PLAN_VERSION = "d_observe_llm_v2"
 SCHEMA_VERSION = 1
 
@@ -148,7 +149,14 @@ def _latest_dline_trade_date(rows: List[Dict[str, Any]]) -> Optional[str]:
 
 def load_dline_trigger_facts(trade_date: str, *, forecasts_path=None) -> Dict[str, List[Dict[str, Any]]]:
     """Load earliest immutable D-line trigger per task/type, grouped by stock."""
-    rows = _dline_rows(_read_jsonl(forecasts_path or FORECASTS_FILE), trade_date=trade_date)
+    if forecasts_path is None:
+        try:
+            rows = json.loads(Path(CURRENT_TRIGGERS_FILE).read_text(encoding="utf-8")).get("rows") or []
+        except (OSError, ValueError):
+            rows = []
+    else:
+        rows = _read_jsonl(forecasts_path)
+    rows = _dline_rows(rows, trade_date=trade_date)
     selected: Dict[tuple, Dict[str, Any]] = {}
     occurrences: Dict[tuple, int] = {}
     for row in rows:
@@ -284,7 +292,7 @@ def refresh_trigger_markdown(trade_date: Optional[str] = None, *, forecasts_path
     }
 
 def record_forecast(code, trade_date, trigger_note, inputs_ref, structured,
-                    reasoning, falsify_if) -> bool:
+                    reasoning, falsify_if, *, current_only=False) -> bool:
     """冻结写入一条盘中触发预测(append-only)。返回是否写入。
 
     inputs_ref: {baseline_date, t1_baseline, lite_snapshot, regime} —— 冻结当时输入(回测归因命门)。
@@ -305,8 +313,22 @@ def record_forecast(code, trade_date, trigger_note, inputs_ref, structured,
         "reasoning": reasoning,
         "falsify_if": falsify_if,
     }
-    _append_jsonl(FORECASTS_FILE, row)
-    if _is_dline_v2_row(row):
+    if current_only:
+        path = Path(CURRENT_TRIGGERS_FILE)
+        try:
+            existing = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            existing = {}
+        rows = (existing.get("rows") or []) if existing.get("trade_date") == str(trade_date) else []
+        rows.append(row)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        temporary = path.with_suffix(".tmp")
+        temporary.write_text(json.dumps({"trade_date": str(trade_date), "rows": rows},
+                                        ensure_ascii=False, default=str), encoding="utf-8")
+        temporary.replace(path)
+    else:
+        _append_jsonl(FORECASTS_FILE, row)
+    if not current_only and _is_dline_v2_row(row):
         try:
             refresh_trigger_markdown(trade_date)
         except Exception as exc:

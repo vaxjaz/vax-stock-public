@@ -185,3 +185,22 @@ if __name__ == "__main__":
             failed += 1; print(f"  [ERROR] {name}: {type(e).__name__}: {e}")
     print(f"\n{len(fns)-failed}/{len(fns)} passed")
     sys.exit(1 if failed else 0)
+
+
+def test_current_trigger_facts_survive_restart_without_history(tmp_path, monkeypatch):
+    current = tmp_path / 'current_triggers.json'
+    history = tmp_path / 'forecasts.jsonl'
+    monkeypatch.setattr(fr, 'CURRENT_TRIGGERS_FILE', current)
+    monkeypatch.setattr(fr, 'FORECASTS_FILE', history)
+    args = dict(code='002475', trigger_note='breakdown',
+                inputs_ref={'dline_task_id': 'task-1', 'dline_plan_version': fr.DLINE_PLAN_VERSION,
+                            'quote_snapshot': {'trade_time': '10:00:00'}},
+                structured={'task_id': 'task-1', 'trigger_type': 'breakdown_confirm',
+                            'source': 'dline_task_blueprint', 'fire_count': 1},
+                reasoning='observed', falsify_if='', current_only=True)
+    assert fr.record_forecast(trade_date='20260706', **args)
+    assert '002475' in fr.load_dline_trigger_facts('20260706')
+    assert not history.exists()
+    assert fr.record_forecast(trade_date='20260707', **args)
+    assert fr.load_dline_trigger_facts('20260706') == {}
+    assert len(json.loads(current.read_text())['rows']) == 1

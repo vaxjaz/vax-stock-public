@@ -120,7 +120,9 @@ def _append_jsonl(path, row) -> None:
 def _write_json(path, obj) -> None:
     p = Path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps(obj, ensure_ascii=False, indent=2, default=str) + "\n", encoding="utf-8")
+    temporary = p.with_suffix(p.suffix + ".tmp")
+    temporary.write_text(json.dumps(obj, ensure_ascii=False, indent=2, default=str) + "\n", encoding="utf-8")
+    temporary.replace(p)
 
 
 def _to_float(value) -> Optional[float]:
@@ -874,7 +876,8 @@ def enqueue_observation_job(payload_path, target_trade_date: str, *,
                             task_codes: Optional[Iterable[str]] = None,
                             plan_version: str = DEFAULT_PLAN_VERSION,
                             job_path=None,
-                            current_job_path=None) -> Dict[str, Any]:
+                            current_job_path=None,
+                            current_only: bool = False) -> Dict[str, Any]:
     """Queue D-line observation planning without calling Codex synchronously."""
     baseline = str(baseline_trade_date or "").strip()
     target = str(target_trade_date or "").strip()
@@ -896,6 +899,14 @@ def enqueue_observation_job(payload_path, target_trade_date: str, *,
         job["task_codes"] = sorted({
             str(code).strip() for code in task_codes if str(code).strip()
         })
+    if current_only:
+        job["current_only"] = True
+        current = Path(current_job_path or CURRENT_OBSERVATION_JOB_FILE)
+        previous = _read_json(current) or {}
+        if previous.get("job_id") == job["job_id"] and previous.get("current_only"):
+            return {"queued": 0, "skipped": 1, "job_id": job["job_id"], "current": str(current)}
+        _write_json(current, job)
+        return {"queued": 1, "skipped": 0, "job_id": job["job_id"], "current": str(current)}
     hist = Path(job_path or OBSERVATION_JOBS_FILE)
     current = Path(current_job_path or CURRENT_OBSERVATION_JOB_FILE)
     existing = {r.get("job_id") for r in _read_jsonl(hist)}
@@ -910,6 +921,22 @@ def enqueue_observation_job(payload_path, target_trade_date: str, *,
     return {"queued": queued, "skipped": skipped, "job_id": job["job_id"], "current": str(current)}
 
 
+def _read_task_rows(path) -> List[dict]:
+    """Read an active JSON snapshot or an explicitly requested legacy archive."""
+    if Path(path).suffix == ".json":
+        return (_read_json(path) or {}).get("tasks") or []
+    return _read_jsonl(path)
+
+
+def _persist_task(path, task) -> None:
+    if Path(path).suffix == ".json":
+        rows = [row for row in _read_task_rows(path)
+                if row.get("target_trade_date") == task.get("target_trade_date")]
+        _write_json(path, {"tasks": rows + [task]})
+    else:
+        _append_jsonl(path, task)
+
+
 def _task_job_key(row: Dict[str, Any]) -> Tuple[str, str, str]:
     return (
         str((row or {}).get("baseline_trade_date") or "").strip(),
@@ -922,7 +949,7 @@ def _existing_task_codes(history_path, baseline_trade_date: str, target_trade_da
                          plan_version: str = DEFAULT_PLAN_VERSION) -> set:
     key = (str(baseline_trade_date or "").strip(), str(target_trade_date or "").strip(), str(plan_version or DEFAULT_PLAN_VERSION).strip())
     codes = set()
-    for row in _read_jsonl(history_path):
+    for row in _read_task_rows(history_path):
         if not isinstance(row, dict) or _task_job_key(row) != key:
             continue
         code = str(row.get("code") or "").strip()
@@ -938,7 +965,7 @@ def _tasks_for_targets(history_path, target_dates: Optional[Iterable[str]] = Non
         str(code).strip() for code in allowed_codes if str(code).strip()
     }
     rows_by_key: Dict[Tuple[str, str], Dict[str, Any]] = {}
-    for row in _read_jsonl(history_path):
+    for row in _read_task_rows(history_path):
         if not isinstance(row, dict):
             continue
         target = str(row.get("target_trade_date") or "").strip()
@@ -1204,7 +1231,8 @@ def _materialize_current_tasks(history_path, current_path, target_dates: Optiona
         "tasks": tasks,
     }
     _write_json(current, snapshot)
-    _current_tasks_markdown_path(current).write_text(render_current_tasks_markdown(snapshot), encoding="utf-8")
+    if Path(history_path) != current:
+        _current_tasks_markdown_path(current).write_text(render_current_tasks_markdown(snapshot), encoding="utf-8")
     return len(tasks)
 
 
@@ -1259,6 +1287,8 @@ def run_observation_job(job: Optional[Dict[str, Any]] = None, *,
     if not job:
         logger.info("D线观察任务: 无待处理 job")
         return {"status": "no_job", "generated": 0, "written": 0, "skipped": 0}
+    if job.get("current_only"):
+        hist = current_tasks
     payload_path = job.get("payload_path")
     payload = _read_json(payload_path) if payload_path else None
     if not payload:
@@ -1285,6 +1315,8 @@ def run_observation_job(job: Optional[Dict[str, Any]] = None, *,
         }
 
     baseline = str(job.get("baseline_trade_date") or ((payload.get("market_overview") or {}).get("trade_date")) or "").strip()
+    if job.get("current_only") and baseline != str((payload.get("market_overview") or {}).get("trade_date") or ""):
+        return {"status": "payload_mismatch", "generated": 0, "written": 0}
     target = str(job.get("target_trade_date") or "").strip()
     plan_version = str(job.get("plan_version") or DEFAULT_PLAN_VERSION).strip()
     task_codes = select_observation_task_codes(payload)
@@ -1367,6 +1399,8 @@ def run_observation_job(job: Optional[Dict[str, Any]] = None, *,
             payload,
             target,
             c_predictions=job.get("c_predictions") or [],
+            factor_results=[] if job.get("current_only") else None,
+            prediction_history={} if job.get("current_only") else None,
             task_codes=pending_codes,
             planner_func=planner_func,
             plan_version=plan_version,
@@ -1474,14 +1508,14 @@ def record_observation_tasks(tasks: Iterable[Dict[str, Any]], *,
     hist = Path(history_path or OBSERVATION_TASKS_FILE)
     current = Path(current_path or CURRENT_TASKS_FILE)
     rows = [t for t in tasks if isinstance(t, dict)]
-    existing = {r.get("task_id") for r in _read_jsonl(hist)}
+    existing = {r.get("task_id") for r in _read_task_rows(hist)}
     written = skipped = 0
     for task in rows:
         tid = task.get("task_id")
         if not tid or tid in existing:
             skipped += 1
             continue
-        _append_jsonl(hist, task)
+        _persist_task(hist, task)
         existing.add(tid)
         written += 1
     target_dates = sorted({str(t.get("target_trade_date") or "") for t in rows if t.get("target_trade_date")})

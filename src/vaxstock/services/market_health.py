@@ -436,7 +436,7 @@ def run_market_health_check(*, quotes: Mapping[str, Mapping[str, Any]],
                             tasks: Iterable[Mapping[str, Any]] = (),
                             market_ctx_loader: Optional[Callable[[], Mapping[str, Any]]] = None,
                             observed_at=None, force: bool = False,
-                            state_path=None, events_path=None) -> Dict[str, Any]:
+                            state_path=None, events_path=None, current_only=False) -> Dict[str, Any]:
     """Evaluate, persist state transitions, and return newly written high-risk events."""
     try:
         stamp = _observed_at(observed_at)
@@ -582,7 +582,7 @@ def run_market_health_check(*, quotes: Mapping[str, Mapping[str, Any]],
             next_signals[key] = dict(old)
 
     try:
-        written = _append_events(events, pending_events)
+        written = pending_events if current_only else _append_events(events, pending_events)
     except (OSError, UnicodeError, ValueError) as exc:
         return {
             "status": "invalid_events", "written": 0,
